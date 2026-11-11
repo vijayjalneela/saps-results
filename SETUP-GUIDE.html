@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Setup guide – SAPS Results Website</title>
+<style>
+body{font-family:system-ui,Segoe UI,Roboto,sans-serif;max-width:820px;margin:0 auto;padding:24px 18px 60px;color:#1f1d3a;line-height:1.55;background:#fbf8ff}
+h1{font-size:30px;margin:0 0 4px}h2{margin:34px 0 8px;font-size:22px;display:flex;gap:10px;align-items:center}
+.n{background:linear-gradient(120deg,#7b5cff,#ff4f8b);color:#fff;border-radius:10px;min-width:34px;height:34px;display:inline-grid;place-items:center;font-size:17px}
+.lead{color:#6b6890;font-size:17px}.box{background:#fff;border:1px solid #e7e4f6;border-radius:14px;padding:14px 18px;margin:12px 0}
+.tip{background:#fff6ea;border-color:#ffd8a6}.warn{background:#fff0f5;border-color:#ffc6d8}
+code,kbd{background:#f2effc;border-radius:6px;padding:1px 6px;font-size:14px}
+pre{background:#1f1d3a;color:#fff;border-radius:12px;padding:14px;overflow:auto;font-size:13px}
+li{margin:5px 0}a{color:#7b5cff;font-weight:600}
+</style></head><body>
+<h1>🎓 Putting the Results Portal online</h1>
+<p class="lead">About 30 minutes, once. Everything here is free. You'll need a Google account (for Firebase) and a laptop or desktop.</p>
+
+<div class="box"><b>What's in this folder</b>
+<ul>
+<li><b>site/</b>: the website. This is the folder you upload in step 6.</li>
+<li><b>firestore-rules.txt</b>: the security rules, which decide who may change results (step 4).</li>
+<li><b>Class-I-A-Term-I-results.json</b>: the 22 Class I-A Term I results to import (step 8). <i>Keep this file private. Never put it inside the site folder.</i></li>
+</ul></div>
+
+<h2><span class="n">1</span>Create a Firebase project</h2>
+<ol>
+<li>Go to <a href="https://console.firebase.google.com">console.firebase.google.com</a> and sign in with Google.</li>
+<li>Click <b>Create a project</b> (or <b>Add project</b>). Name it, for example <code>saps-results</code>.</li>
+<li>Turn <b>Google Analytics off</b> (not needed), then click <b>Create project</b>.</li>
+</ol>
+
+<h2><span class="n">2</span>Register the website and copy its settings</h2>
+<ol>
+<li>On the project home page, click the <b>&lt;/&gt;</b> (Web) icon.</li>
+<li>Nickname: <code>Results Portal</code>. Leave “Firebase Hosting” <b>unticked</b>. Click <b>Register app</b>.</li>
+<li>Firebase shows a code block containing <code>const firebaseConfig = { apiKey: ..., ... }</code>. Keep this page open; you'll copy from it next.</li>
+</ol>
+
+<h2><span class="n">3</span>Paste the settings into config.js</h2>
+<ol>
+<li>Open <b>site/config.js</b> with Notepad (right-click → Open with → Notepad).</li>
+<li>Replace each <code>PASTE…</code> value with the matching value from Firebase. It should end up looking like this, with your own values:</li>
+</ol>
+<pre>window.FIREBASE_CONFIG = {
+  apiKey: "AIzaSy...",
+  authDomain: "saps-results.firebaseapp.com",
+  projectId: "saps-results",
+  storageBucket: "saps-results.appspot.com",
+  messagingSenderId: "1234567890",
+  appId: "1:1234567890:web:abc123"
+};</pre>
+<p>Save the file. (These values are not secret. Every website that uses Firebase includes them.)</p>
+
+<h2><span class="n">4</span>Create the database and its rules</h2>
+<ol>
+<li>In Firebase's left menu: <b>Build → Firestore Database → Create database</b>.</li>
+<li>Location: choose <b>asia-south1 (Mumbai)</b>. Start in <b>production mode</b>. Click <b>Create</b>.</li>
+<li>Open the <b>Rules</b> tab. Delete everything there and paste the whole of <b>firestore-rules.txt</b>.</li>
+<li>In the pasted text, replace <code>your.email@gmail.com</code> and <code>teacher2@example.com</code> with the real emails of the teachers who will enter results, in small letters, in quotes, separated by commas.</li>
+<li>Click <b>Publish</b>.</li>
+</ol>
+<div class="box tip">💡 Only emails in this list can add, edit or delete results. Parents can open one report card at a time, and only by typing the exact class, roll number and name. Nobody outside the staff list can browse all the results.</div>
+
+<h2><span class="n">5</span>Create the teachers' logins</h2>
+<ol>
+<li>Left menu: <b>Build → Authentication → Get started</b>.</li>
+<li>Under <b>Sign-in method</b>, click <b>Email/Password</b>, switch it on, and click <b>Save</b>.</li>
+<li>Open the <b>Users</b> tab → <b>Add user</b>. Enter a teacher's email and a password. Repeat for each teacher in your rules list.</li>
+</ol>
+<div class="box warn">⚠️ Create an account for <b>every</b> email in the rules list right away. An email in the list without an account could be claimed by someone else.</div>
+
+<h2><span class="n">6</span>Put the website online (Netlify, free)</h2>
+<ol>
+<li>Go to <a href="https://app.netlify.com/signup">app.netlify.com/signup</a> and sign up (“Sign up with Google” is easiest).</li>
+<li>Click <b>Add new site → Deploy manually</b>.</li>
+<li>Drag the <b>site</b> folder onto the page. In a few seconds you get a link like <code>random-name-123.netlify.app</code>.</li>
+<li>To get a nicer name: <b>Site configuration → Change site name</b>, for example <code>saps-results</code>. Your link becomes <b>saps-results.netlify.app</b>.</li>
+</ol>
+
+<h2><span class="n">7</span>Allow teachers to sign in on that link</h2>
+<ol>
+<li>Back in Firebase: <b>Authentication → Settings → Authorized domains → Add domain</b>.</li>
+<li>Type your Netlify address without https, for example <code>saps-results.netlify.app</code>, and click <b>Add</b>.</li>
+</ol>
+
+<h2><span class="n">8</span>First sign-in and import the Class I-A results</h2>
+<ol>
+<li>Open your website → <b>Teacher entry</b> → sign in with your email and password.</li>
+<li>Click <b>⬆ Import</b> and choose <b>Class-I-A-Term-I-results.json</b>. You should see “Imported 22 results ✓”.</li>
+<li>On <b>Home</b>, use <b>📷 Change photo</b> to add the school photo, and <b>✏️ Edit</b> on the principal's card to add her passport photo and approved message.</li>
+<li>Test as a parent: <b>Check result</b> → Term I, Std I, Section A, Roll 1, name <code>Riya Sharma</code>.</li>
+</ol>
+
+<h2><span class="n">9</span>Share with parents</h2>
+<p>Send the link (for example on the class WhatsApp group) with this note:</p>
+<div class="box">“Open <b>saps-results.netlify.app</b> → Check result → choose the exam, class and section, then type your child's roll number and full name as on the report card.”</div>
+
+<h2>Later on</h2>
+<ul>
+<li><b>New teacher:</b> add their email in the Firestore rules (step 4) and create their login (step 5).</li>
+<li><b>Forgotten password:</b> on the sign-in screen, type the email and tap <b>Forgot password?</b>. A reset link arrives by email.</li>
+<li><b>Backup:</b> after each exam, click <b>⬇ Backup</b> on the teacher page and keep the file safe.</li>
+<li><b>Updating the website:</b> in Netlify open your site → <b>Deploys</b> → drag the new <b>site</b> folder in. Results are stored in Firebase, so they're not affected.</li>
+<li><b>Cost:</b> Firebase's free Spark plan and Netlify's free plan are plenty for a school's results. No card is needed.</li>
+</ul>
+</body></html>

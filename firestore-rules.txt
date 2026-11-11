@@ -1,0 +1,77 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- Who is signing in ----
+    function signedIn() { return request.auth != null && request.auth.token.email_verified == true; }
+    function myEmail()  { return request.auth.token.email.lower(); }
+    // The admin manages staff, the home page and data.
+    function isAdmin()  { return signedIn() && myEmail() == 'vijayjalneela@gmail.com'; }
+    function staffPath() { return /databases/$(database)/documents/staff/$(myEmail()); }
+    function isStaffMember() { return signedIn() && exists(staffPath()); }
+    function me()       { return get(staffPath()).data; }
+    function isPrincipal() { return isAdmin() || (isStaffMember() && me().role == 'principal'); }
+    function isTeacher()   { return isStaffMember() && me().role == 'teacher'; }
+    function anyStaff()    { return isAdmin() || isStaffMember(); }
+
+    // ---- Helpers for one report card ----
+    function cls(d) { return d.std + '-' + d.div; }
+    function isClassTeacherOf(d) { return isTeacher() && cls(d) in me().get('classTeacher', []); }
+    function marksChanged() {
+      return request.resource.data.get('marks', {}).diff(resource.data.get('marks', {})).affectedKeys();
+    }
+    // A teacher may only change marks of her own subjects, in classes she teaches.
+    function onlyOwnSubjects() {
+      return marksChanged().size() == 0
+        || (cls(resource.data) in me().get('classes', [])
+            && marksChanged().hasOnly(me().get('subjects', [])));
+    }
+    function onlyMarks() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['marks', 'updatedAt', 'updatedBy']);
+    }
+
+    // Basic shape checks on every saved card (photo size, class field consistent).
+    function okCard(d) {
+      return d.std is string && d.div is string && d.year is string && d.term is string
+        && (!('photo' in d) || d.photo == null || (d.photo is string && d.photo.size() < 150000))
+        && (!('cls' in d) || d.cls == cls(d));
+    }
+    function teachesCard(d) { return isTeacher() && (cls(d) in me().get('classes', []) || isClassTeacherOf(d)); }
+
+    // ---- Report cards (full records): STAFF ONLY ----
+    match /results/{id} {
+      allow get, list: if anyStaff();
+      allow create: if (isPrincipal() || isClassTeacherOf(request.resource.data)) && okCard(request.resource.data);
+      allow delete: if isPrincipal() || isClassTeacherOf(resource.data);
+      allow update: if okCard(request.resource.data) && (isPrincipal()
+        || (isTeacher() && onlyOwnSubjects()
+            && (onlyMarks()
+                || (isClassTeacherOf(resource.data) && cls(request.resource.data) == cls(resource.data)))));
+    }
+
+    // ---- Parent copies ----
+    // The document name is a SHA-256 hash of year, exam, class, roll, name AND date of birth,
+    // so a parent must know all of them. Nobody can list or browse this collection.
+    match /reports/{key} {
+      allow get: if true;
+      allow list: if false;
+      allow create, update: if (isPrincipal() || teachesCard(request.resource.data)) && okCard(request.resource.data);
+      allow delete: if isPrincipal() || teachesCard(resource.data);
+    }
+
+    // ---- Staff list (roles, subjects, classes): only the admin can change it ----
+    match /staff/{em} {
+      // Anyone signed in (even before verifying) may check only their OWN entry,
+      // so the site can confirm an email is on the list before sending a link.
+      allow get: if (request.auth != null && em == request.auth.token.email.lower()) || anyStaff();
+      allow list: if anyStaff();
+      allow write: if isAdmin() && (!('photo' in request.resource.data) || request.resource.data.photo == null || request.resource.data.photo.size() < 150000);
+    }
+
+    // ---- Home page: school photo and principal's message (admin only) ----
+    match /config/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}
