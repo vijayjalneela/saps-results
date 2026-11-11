@@ -736,7 +736,7 @@ details.mstat summary{cursor:pointer;font-weight:800;font-size:16px;margin:6px 0
     </div>
     <div class="card">
       <div class="sec-h"><div class="dot" style="background:var(--pink)">🗂</div><div><h3>Data</h3><p id="dataInfo"></p><p id="bkInfo" style="margin:4px 0 0"></p></div></div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn sec" id="importBtn">⬆ Import results file</button><input type="file" id="importIn" accept=".json,application/json" hidden><button class="btn sec" id="exportBtn">⬇ Download backup</button><button class="btn warn" id="delSample">🧹 Delete sample (dummy) data</button></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn sec" id="importBtn">⬆ Import results file</button><input type="file" id="importIn" accept=".json,application/json" hidden><button class="btn sec" id="exportBtn">⬇ Download backup</button><button class="btn warn" id="delSample">🧹 Delete sample (dummy) data</button><button class="btn warn" id="delOld">🧽 Remove data from older versions</button></div>
     </div>
   </div>
 </section>
@@ -851,7 +851,7 @@ if(configured){
   try{ const app=initializeApp(CFG); db=getFirestore(app); auth=initializeAuth(app,{persistence:inMemoryPersistence}); /* sign-in lasts only while this page is open */ }
   catch(e){ console.error(e); }
 }
-function errMsg(err){ const c=(err&&err.code)||String(err); if(c.includes("permission-denied")) return "⛔ Unauthorised: you don't have permission to make this change."; if(c.includes("unavailable")) return "No internet connection. Please try again."; return c; }
+function errMsg(err){ const c=(err&&err.code)||String(err); if(c.includes("permission-denied")) return "⛔ Unauthorised: you don't have permission to make this change."; if(c.includes("unavailable")) return "No internet connection. Please try again."; if(c.includes("resource-exhausted")) return "Today's free database limit is used up. Please try again after 1:30 PM (India time) tomorrow; nothing is lost."; return c; }
 /* Parents read a copy of each report card from "reports/{key}". The key is a SHA-256 hash of
    year, exam, class, roll, name AND date of birth, so a card can't be opened without the DOB.
    The full "results" collection is readable by staff only. */
@@ -1560,6 +1560,12 @@ $("#delSample").onclick=()=>{ const ids=Object.keys(RECORDS).filter(id=>RECORDS[
     for(let i=0;i<ops.length;i+=100){ const b=writeBatch(db); ops.slice(i,i+100).forEach(([c,id])=>b.delete(doc(db,c,id))); await b.commit(); }
     toast(`Deleted ${ids.length} sample results and ${sids.length} sample teachers`); }catch(err){ toast("Couldn't delete: "+errMsg(err)); } }); };
 
+$("#delOld").onclick=()=>{ const ids=Object.keys(RECORDS).filter(id=>!(RECORDS[id]._raw||{}).cls);
+  if(!ids.length) return toast("Nothing to remove: all results are in the current format ✓");
+  confirmBox("Remove older data?",`${ids.length} results were saved by an older version of the site (before the security update), including any non-sample ones. They will be deleted. Download a backup first if you need them.`,"Delete",async()=>{ try{
+    for(let i=0;i<ids.length;i+=200){ const b=writeBatch(db); ids.slice(i,i+200).forEach(id=>b.delete(doc(db,"results",id))); await b.commit(); toast(`Removing… ${Math.min(i+200,ids.length)} of ${ids.length}`); }
+    toast(`Removed ${ids.length} older results ✓`); }catch(err){ toast("Couldn't delete: "+errMsg(err)); } }); };
+
 /* ---------- Progress across exams ---------- */
 const EXAMS=["UT-1","Term I","UT-2","Term II"];
 const EXLABEL={"UT-1":"UT-I","Term I":"Term I","UT-2":"UT-II","Term II":"Term II (Final)"}; const lab=t=>EXLABEL[t]||t;
@@ -1919,10 +1925,10 @@ $("#importIn").onchange=async e=>{const f=e.target.files[0]; e.target.value=""; 
   staff=staff.filter(x=>x&&x.email&&x.role); 
   if(!list.length&&!staff.length) return toast("No results found in that file");
   if(staff.length){ try{ for(let i=0;i<staff.length;i+=100){ const b=writeBatch(db); staff.slice(i,i+100).forEach(x=>{ const em=String(x.email).toLowerCase(); b.set(doc(db,"staff",em),{...x,email:em}); }); await b.commit(); } }catch(err){ return toast("Import of staff failed: "+errMsg(err)); } }
-  toast(`Importing ${list.length} results… please wait`);
+  toast(`Importing ${list.length} results… please wait`); let skipped=0;
   const norm=r=>{ const {_raw,subjects:subs,...rest}=r; const o=rest.marks?{...rest}:{...rest,subjectList:(subs||[]).map(x=>x.name),marks:Object.fromEntries((subs||[]).map(x=>[x.name,{...markOf(x),by:null}]))}; o.cls=o.std+"-"+o.div; o.id=idFor(o); return o; };
-  try{ for(let i=0;i<list.length;i+=100){ const b=writeBatch(db); for(const r of list.slice(i,i+100)){ const rec=norm(r); const {id:_i,...body}=rec; b.set(doc(db,"results",rec.id),body); const k=await reportKey(body); if(k) b.set(doc(db,"reports",k),publicCopy(body)); } await b.commit(); toast(`Importing… ${Math.min(i+100,list.length)} of ${list.length}`); }
-    toast(`Imported ${list.length} results`+(staff.length?` and ${staff.length} staff`:"")+" ✓"); }catch(err){ toast("Import failed: "+errMsg(err)); }};
+  try{ for(let i=0;i<list.length;i+=100){ const b=writeBatch(db); for(const r of list.slice(i,i+100)){ const rec=norm(r); const {id:_i,...body}=rec; const ex=RECORDS[rec.id]&&RECORDS[rec.id]._raw; if(ex&&ex.cls&&ex.updatedAt===body.updatedAt&&JSON.stringify(ex.marks)===JSON.stringify(body.marks)){ skipped++; continue; } b.set(doc(db,"results",rec.id),body); const k=await reportKey(body); if(k) b.set(doc(db,"reports",k),publicCopy(body)); } await b.commit(); toast(`Importing… ${Math.min(i+100,list.length)} of ${list.length}`); }
+    toast(`Imported ${list.length-skipped} results`+(skipped?` (${skipped} were already saved)`:"")+(staff.length?` and ${staff.length} staff`:"")+" ✓"); }catch(err){ toast("Import failed: "+errMsg(err)); }};
 renderHome();
 
 $("#fName").addEventListener("blur",()=>{$("#fName").value=$("#fName").value.trim().replace(/\s+/g," ").toLowerCase().replace(/(^|[\s.\-])([a-z])/g,(m,a,b)=>a+b.toUpperCase());});
