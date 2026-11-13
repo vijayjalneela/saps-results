@@ -91,6 +91,12 @@ service cloud.firestore {
       allow delete: if isPrincipal() || (isStaffMember() && resource.data.email == myEmail() && resource.data.status == 'Requested');
     }
 
+    // ---- School calendar (holidays, vacations, exam dates): everyone can see it ----
+    match /calendar/{year} {
+      allow read: if true;
+      allow write: if isPrincipal();
+    }
+
     // ---- Substitute plans (one document per date): published by the principal, seen by staff ----
     match /subs/{date} {
       allow read: if anyStaff();

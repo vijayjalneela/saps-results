@@ -2,7 +2,9 @@
    Pure functions (no database, no page), so they can be tested on their own. */
 
 export const DEFAULT_TT = {
-  days: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+  v: 2,
+  days: ["Mon", "Tue", "Wed", "Thu", "Fri"],
+  stds: ["I", "II", "III", "IV", "V"],
   // 8 teaching periods: 3, break, 3, break, 2
   periods: [
     { n: 1, from: "08:00", to: "08:40" }, { n: 2, from: "08:40", to: "09:20" }, { n: 3, from: "09:20", to: "10:00" },
@@ -12,7 +14,7 @@ export const DEFAULT_TT = {
     { n: 7, from: "12:50", to: "13:30" }, { n: 8, from: "13:30", to: "14:10" }
   ],
   perWeek: {
-    prim: { English: 5, Hindi: 5, Mathematics: 5, EVS: 4 },
+    prim: { English: 4, Hindi: 4, Mathematics: 4, EVS: 4 },
     mid: { English: 5, Hindi: 3, Mathematics: 5, Science: 5, "Social Science": 3 }
   }
 };
@@ -147,4 +149,55 @@ export function substitutePlan({ grid, dayIdx, absent, staff, ctOf, maxPerTeache
 function whyText(t, s, c) {
   const r = []; if ((t.subjects || []).includes(s)) r.push("teaches " + s); if ((t.classes || []).includes(c)) r.push("teaches this class");
   return r.length ? r.join(", ") : "free in this period";
+}
+
+/* ---------- School calendar ---------- */
+// Suggested 2026-27 holidays (India / Maharashtra). Festival dates that depend on the moon can move by a day.
+// The school should check these against its own official calendar.
+export const SUGGESTED_HOLIDAYS = [
+  { from: "2026-05-01", to: "2026-06-14", name: "Summer vacation", kind: "Vacation" },
+  { from: "2026-08-15", to: "2026-08-15", name: "Independence Day", kind: "Holiday" },
+  { from: "2026-09-04", to: "2026-09-04", name: "Janmashtami", kind: "Holiday" },
+  { from: "2026-09-14", to: "2026-09-14", name: "Ganesh Chaturthi", kind: "Holiday" },
+  { from: "2026-10-02", to: "2026-10-02", name: "Gandhi Jayanti", kind: "Holiday" },
+  { from: "2026-10-20", to: "2026-10-20", name: "Dussehra", kind: "Holiday" },
+  { from: "2026-11-05", to: "2026-11-15", name: "Diwali vacation", kind: "Vacation" },
+  { from: "2026-11-24", to: "2026-11-24", name: "Guru Nanak Jayanti", kind: "Holiday" },
+  { from: "2026-12-24", to: "2027-01-01", name: "Winter break (incl. Christmas)", kind: "Vacation" },
+  { from: "2027-01-26", to: "2027-01-26", name: "Republic Day", kind: "Holiday" },
+  { from: "2027-02-19", to: "2027-02-19", name: "Chhatrapati Shivaji Maharaj Jayanti", kind: "Holiday" },
+  { from: "2027-03-10", to: "2027-03-10", name: "Eid-ul-Fitr (tentative)", kind: "Holiday" },
+  { from: "2027-03-22", to: "2027-03-22", name: "Holi", kind: "Holiday" },
+  { from: "2027-03-26", to: "2027-03-26", name: "Good Friday", kind: "Holiday" }
+];
+const iso = d => { const x = new Date(d); x.setMinutes(x.getMinutes() - x.getTimezoneOffset()); return x.toISOString().slice(0, 10); };
+const DN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+export function holidayOn(date, holidays) { return (holidays || []).find(h => h.kind !== "School event" && h.from <= date && date <= (h.to || h.from)) || null; }
+export function workingDays(start, end, days, holidays) {
+  const out = []; const d = new Date(start + "T00:00:00"), e = new Date(end + "T00:00:00");
+  while (d <= e) { const s = iso(d); if (days.includes(DN[d.getDay()]) && !holidayOn(s, holidays)) out.push(s); d.setDate(d.getDate() + 1); }
+  return out;
+}
+/* Space the four exams across the teaching days of the year, avoiding weekends and holidays.
+   subjects: { groupLabel: [subjects in paper order] }; gap: leave a study day between papers in term exams */
+export function planExams({ start, end, days, holidays, subjects, gap = true }) {
+  const W = workingDays(start, end, days, holidays), N = W.length;
+  const nSub = Math.max(1, ...Object.values(subjects).map(a => a.length));
+  const spec = [
+    { key: "UT-1", label: "Unit Test I", at: 0.22, perDay: 2, gap: false },
+    { key: "Term I", label: "Term I exam", at: 0.47, perDay: 1, gap },
+    { key: "UT-2", label: "Unit Test II", at: 0.72, perDay: 2, gap: false },
+    { key: "Term II", label: "Term II (final) exam", at: 0.93, perDay: 1, gap }
+  ];
+  return spec.map(x => {
+    const papers = Math.ceil(nSub / x.perDay), span = x.gap ? papers * 2 - 1 : papers;
+    let i0 = Math.round(x.at * N) - Math.floor(span / 2); i0 = Math.max(0, Math.min(N - span, i0));
+    // never split an exam across a vacation: look for the nearest window without a long break inside
+    const calDays = i => (new Date(W[i + span - 1] + "T00:00:00") - new Date(W[i] + "T00:00:00")) / 864e5;
+    const ok = i => i >= 3 && i + span - 1 < N && calDays(i) <= span * 1.5 + 3 && (new Date(W[i] + "T00:00:00") - new Date(W[i - 3] + "T00:00:00")) / 864e5 <= 7; // and not straight after a vacation
+    if (!ok(i0)) for (let k = 1; k < 40; k++) { if (ok(i0 + k)) { i0 += k; break; } if (ok(i0 - k)) { i0 -= k; break; } }
+    const dates = []; for (let j = 0; j < papers; j++) dates.push(W[i0 + (x.gap ? 2 * j : j)]);
+    const sheet = dates.map((date, j) => { const row = { date }; for (const [g, list] of Object.entries(subjects)) row[g] = list.slice(j * x.perDay, j * x.perDay + x.perDay).join(" + "); return row; });
+    return { key: x.key, label: x.label, from: dates[0], to: dates[dates.length - 1], sheet };
+  });
 }
