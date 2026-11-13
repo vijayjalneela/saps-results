@@ -223,7 +223,7 @@ table.rct td:first-child,table.rct th:first-child{text-align:left;font-weight:80
 .school-photo .ph-empty svg{width:62%;max-width:300px}
 .school-photo .cap{position:absolute;left:12px;bottom:12px;background:rgba(31,29,58,.72);color:#fff;font-weight:800;font-size:13px;padding:6px 12px;border-radius:999px}
 .edit-only{display:none!important}
-body.admin .edit-only{display:inline-flex!important}
+body.principal .edit-only{display:inline-flex!important}
 .school-photo .edit-only{position:absolute;right:12px;top:12px}
 .parade{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:22px 0 4px}
 @media(max-width:700px){.parade{grid-template-columns:repeat(2,1fr)}}
@@ -428,6 +428,18 @@ details.mstat summary{cursor:pointer;font-weight:800;font-size:16px;margin:6px 0
 .bulk-steps .st{background:#f8f6ff;border-radius:14px;padding:12px 14px}
 .bulk-steps .st b{display:block;margin-bottom:6px}
 .bulk-res{font-size:14px;max-height:220px;overflow:auto;background:#fff7ee;border-radius:12px;padding:10px 12px;margin-top:10px}
+.dir-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-top:10px}
+.dcard{display:flex;gap:10px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:16px;background:#fff;cursor:pointer;text-align:left;font:inherit;transition:transform .12s,box-shadow .12s}
+.dcard:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(31,29,58,.08)}
+.dcard b{display:block;font-size:14px;line-height:1.2}.dcard small{color:var(--muted);font-size:12px}
+.ctag{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:800;margin-top:3px}
+.ctag.perm{background:#e3f9f2;color:#0b7a64}.ctag.temp{background:#fff3e2;color:#a55a00}.ctag.none{background:#f2effc;color:#6b6890}
+.rem{display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:14px;margin:6px 0;background:#fff7ee;border-left:5px solid #ff8a1f;cursor:pointer}
+.rem.over{background:#ffecef;border-left-color:#e0245e}.rem.soon{background:#fff7ee}
+.rem .when{margin-left:auto;font-weight:800;white-space:nowrap}
+.tp-head{display:flex;gap:16px;align-items:center;margin-bottom:12px}
+.tp-grid{display:grid;grid-template-columns:150px 1fr;gap:6px 12px;font-size:14px;margin:6px 0 14px}.tp-grid span{color:var(--muted);font-weight:700}
+@media(max-width:560px){.tp-grid{grid-template-columns:1fr}.tp-grid span{margin-top:6px}}
 </style>
 </head>
 <body>
@@ -801,6 +813,11 @@ details.mstat summary{cursor:pointer;font-weight:800;font-size:16px;margin:6px 0
   </div>
   <div id="bkOut"></div>
   <div class="row"><button class="btn sec" id="bkClose">Close</button></div>
+</div></div>
+<div class="modal" id="tpModal"><div class="box" style="max-width:640px;max-height:90vh;overflow:auto">
+  <div id="tpBody"></div>
+  <div id="tpHR"></div>
+  <div class="row"><button class="btn sec" id="tpClose">Close</button><button class="btn pri" id="tpSave">💾 Save contract details</button></div>
 </div></div>
 <div id="printArea"></div>
 <script src="config.js"></script>
@@ -1491,8 +1508,11 @@ if(auth){
         $("#vEmail").textContent=u.email; showGate("gVerify"); if(!window._vsent){ window._vsent=true; sendVerify(u).catch(()=>{}); } }); return; }
     loadMe(u); });
 }
-function startStaffData(){ if(unsubStaff) return; unsubStaff=onSnapshot(collection(db,"staff"),snap=>{ const n={}; snap.forEach(d=>n[d.id]=d.data()); STAFF=n; renderStaff(); },()=>{}); }
-function stopStaffData(){ if(unsubStaff){unsubStaff();unsubStaff=null;} STAFF={}; }
+/* Contract / HR details live in "staffHR", readable only by the principal and admin. */
+let HR={}, unsubHR=null;
+function startStaffData(){ if(unsubStaff) return; unsubStaff=onSnapshot(collection(db,"staff"),snap=>{ const n={}; snap.forEach(d=>n[d.id]=d.data()); STAFF=n; renderStaff(); if(location.hash==="#dashboard") renderDash(); },()=>{});
+  if(isFull()&&!unsubHR) unsubHR=onSnapshot(collection(db,"staffHR"),snap=>{ const n={}; snap.forEach(d=>n[d.id]=d.data()); HR=n; if(location.hash==="#dashboard") renderDash(); },()=>{}); }
+function stopStaffData(){ if(unsubStaff){unsubStaff();unsubStaff=null;} if(unsubHR){unsubHR();unsubHR=null;} STAFF={}; HR={}; }
 
 /* ---------- Admin page ---------- */
 const ALL_SUBJECTS=[...new Set(STDS.flatMap(x=>SUBJECTS_BY(x).all))];
@@ -1556,7 +1576,7 @@ $("#stList").addEventListener("click",e=>{
 $("#delSample").onclick=()=>{ const ids=Object.keys(RECORDS).filter(id=>RECORDS[id].sample), sids=Object.keys(STAFF).filter(id=>STAFF[id].sample); if(!ids.length&&!sids.length) return toast("There is no sample data");
   confirmBox("Delete sample data?",`This deletes ${ids.length} dummy results and ${sids.length} dummy teachers. Real results and real staff are not touched.`,"Delete",async()=>{ try{
     const rk=(await Promise.all(ids.map(id=>reportKey(RECORDS[id]._raw||RECORDS[id])))).filter(Boolean);
-    const ops=[...ids.map(id=>["results",id]),...rk.map(k=>["reports",k]),...sids.map(id=>["staff",id])];
+    const ops=[...ids.map(id=>["results",id]),...rk.map(k=>["reports",k]),...sids.map(id=>["staff",id]),...sids.map(id=>["staffHR",id])];
     for(let i=0;i<ops.length;i+=100){ const b=writeBatch(db); ops.slice(i,i+100).forEach(([c,id])=>b.delete(doc(db,c,id))); await b.commit(); }
     toast(`Deleted ${ids.length} sample results and ${sids.length} sample teachers`); }catch(err){ toast("Couldn't delete: "+errMsg(err)); } }); };
 
@@ -1721,10 +1741,49 @@ function hBars(items){ return items.map(it=>`<div class="hb"><span>${esc(it.l)}<
 function tCard(x,kind,i,pe){ const st=STAFF[x.em]||{name:x.name}; const exp=st.experience!=null&&st.experience!==""?` · ${esc(st.experience)} yrs`:"";
   const vs=x.vsA; const pill=vs==null?"":vs>=0?`${vs}% above school average`:`${Math.abs(vs)}% below school average`;
   const tr=x.chgA==null?"":x.chgA>0?`▲ ${x.chgA}% since ${esc(lab(pe))}`:x.chgA<0?`▼ ${Math.abs(x.chgA)}% since ${esc(lab(pe))}`:`no change since ${esc(lab(pe))}`;
-  return `<div class="tcard ${kind}" data-goana="teachers" style="animation-delay:${i*.12}s"><span class="rk">${kind==="top"?["🥇","🥈","🥉"][i]||"🌟":"🤝"}</span>${tAvatar(st,74)}
+  return `<div class="tcard ${kind}" data-prof="${esc(x.em)}" style="animation-delay:${i*.12}s"><span class="rk">${kind==="top"?["🥇","🥈","🥉"][i]||"🌟":"🤝"}</span>${tAvatar(st,74)}
     <div><div class="nm">${esc(x.name)}</div><div class="sub">${esc([...x.subs].join(", "))} · ${x.cls.size} class${x.cls.size>1?"es":""}${exp}</div>${pill?`<span class="pill">${pill}</span>`:""}${tr?`<div class="sub" style="margin:6px 0 0">${tr}</div>`:""}</div>
     <div class="avg" style="color:${barCol(x.avg)}">${x.avg}%<small>class average</small></div></div>`; }
 function ctOf(c){ const st=Object.values(STAFF).find(x=>(x.classTeacher||[]).includes(c)); const n=st?st.name:(Object.values(RECORDS).find(r=>r.std+"-"+r.div===c&&r.teacher)||{}).teacher; return ` (class teacher: ${n?esc(n):"not assigned yet"})`; }
+/* ---------- Staff directory, profiles and contract reminders ---------- */
+const CONTRACTS=["Permanent","Temporary","Contract","Probation"];
+const fmtD=d=>{ if(!d) return "–"; const x=new Date(d+"T00:00:00"); return isNaN(x)?esc(d):x.toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"}); };
+const daysTo=d=>{ if(!d) return null; const x=new Date(d+"T00:00:00"), t=new Date(); t.setHours(0,0,0,0); return Math.round((x-t)/864e5); };
+function staffReminders(within){ const out=[];
+  Object.entries(HR).forEach(([em,h])=>{ const st=STAFF[em]; if(!st) return;
+    [["Contract renewal / re-tender due",h.contractEnd],["Termination date",h.termination]].forEach(([what,d])=>{ const n=daysTo(d); if(n!=null&&n<=within) out.push({em,name:st.name,what,d,n,contract:h.contract}); }); });
+  return out.sort((a,b)=>a.n-b.n); }
+function remWhen(n){ return n<0?`${-n} day${n===-1?"":"s"} overdue`:n===0?"today":`in ${n} day${n===1?"":"s"}`; }
+function contractTag(em){ const h=HR[em]; if(!h||!h.contract) return '<span class="ctag none">contract not set</span>'; return `<span class="ctag ${h.contract==="Permanent"?"perm":"temp"}">${esc(h.contract)}</span>`; }
+function dirHTML(){ const q=(DASH.q||"").toLowerCase().trim();
+  const list=Object.values(STAFF).filter(x=>x.role!=="admin").sort((a,b)=>String(a.name).localeCompare(String(b.name)))
+    .filter(x=>!q||[x.name,x.email,...(x.subjects||[]),...(x.classes||[]),...(x.classTeacher||[]),(HR[x.email]||{}).contract].join(" ").toLowerCase().includes(q));
+  return list.map(x=>`<button class="dcard" data-prof="${esc(x.email)}">${tAvatar(x,48)}<span><b>${esc(x.name)}</b><small>${esc(x.role==="principal"?"Principal":(x.subjects||[]).join(", ")||"Teacher")}${(x.classTeacher||[]).length?` · CT ${esc(x.classTeacher.join(", "))}`:""}</small><br>${contractTag(x.email)}</span></button>`).join("")||'<div class="empty">No teacher matches that search.</div>'; }
+function openProfile(em){ const x=STAFF[em]; if(!x) return; const h=HR[em]||{}; const T=(DASH.TD&&DASH.TD.teachers||[]).find(t=>t.em===em); const yh=x.joined?yearsSince(x.joined):null;
+  $("#tpBody").innerHTML=`<div class="tp-head">${tAvatar(x,96)}<div><h3 style="margin:0">${esc(x.name)}</h3><div class="hint">${esc(x.role==="principal"?"Principal":"Teacher")} · ${esc(x.email)}</div><div style="margin-top:6px">${contractTag(em)}</div></div></div>
+   <div class="tp-grid"><span>Qualification</span><div>${esc(x.qualification||"–")}</div>
+   <span>Total experience</span><div>${x.experience!=null&&x.experience!==""?esc(x.experience)+" years":"–"}</div>
+   <span>Date of joining</span><div>${fmtD(x.joined)}${yh!=null?` (${yh} yr${yh===1?"":"s"} at this school)`:""}</div>
+   <span>Subjects</span><div>${esc((x.subjects||[]).join(", ")||"–")}</div>
+   <span>Classes</span><div>${esc((x.classes||[]).join(", ")||"–")}</div>
+   <span>Class teacher of</span><div>${esc((x.classTeacher||[]).join(", ")||"–")}</div>
+   ${T?`<span>Results · ${esc(lab(DASH.exam))}</span><div><b>${T.avg}%</b> class average ${cmpTxt(T.vsA,true)} ${T.chgA!=null?cmpTxt(T.chgA):""}</div>`:""}</div>`;
+  $("#tpHR").innerHTML=`<h4 style="margin:6px 0 8px">📄 Contract</h4><div class="grid g3">
+   <label class="f">Contract type<select class="in" id="hrType"><option value="">Not set</option>${CONTRACTS.map(c=>`<option ${h.contract===c?"selected":""}>${c}</option>`).join("")}</select></label>
+   <label class="f">Contract start<input class="in" type="date" id="hrStart" value="${esc(h.contractStart||"")}"></label>
+   <label class="f">Renewal / re-tender due<input class="in" type="date" id="hrEnd" value="${esc(h.contractEnd||"")}"></label>
+   <label class="f">Termination date<input class="in" type="date" id="hrTerm" value="${esc(h.termination||"")}"></label>
+   <label class="f" style="grid-column:span 2">Notes<input class="in" id="hrNotes" maxlength="300" value="${esc(h.notes||"")}" placeholder="e.g. Re-tender approved by management"></label></div>
+   <p class="hint" style="margin:6px 0 0">Only the principal and admin can see this section. Reminders show on the dashboard 60 days before each date.</p>`;
+  $("#tpSave").dataset.em=em; $("#tpModal").classList.add("on"); }
+document.addEventListener("click",e=>{ const b=e.target.closest("[data-prof]"); if(b&&isFull()){ e.preventDefault(); e.stopPropagation(); openProfile(b.dataset.prof); } },true);
+$("#tpClose").onclick=()=>$("#tpModal").classList.remove("on");
+$("#tpSave").onclick=async()=>{ const em=$("#tpSave").dataset.em; if(!isFull()) return toast("⛔ Only the principal or admin can change this");
+  const d={contract:$("#hrType").value,contractStart:$("#hrStart").value,contractEnd:$("#hrEnd").value,termination:$("#hrTerm").value,notes:$("#hrNotes").value.trim().slice(0,300),updatedAt:new Date().toISOString(),updatedBy:ME.email,sample:!!(STAFF[em]&&STAFF[em].sample)};
+  if(d.contractStart&&d.contractEnd&&d.contractEnd<d.contractStart) return toast("Renewal date can't be before the contract start");
+  try{ await setDoc(doc(db,"staffHR",em),d); toast("Saved ✓"); $("#tpModal").classList.remove("on"); }catch(err){ toast("Couldn't save: "+errMsg(err)); } };
+document.addEventListener("input",e=>{ if(e.target.id==="dirQ"){ DASH.q=e.target.value; $("#dirGrid").innerHTML=dirHTML(); } });
+
 /* ---------- Principal dashboard ---------- */
 let DASH={exam:null,picked:false};
 function renderDash(){
@@ -1766,6 +1825,7 @@ function renderDash(){
   if(pendN) att.push(`<b>${pendN} subject marks</b> are still not entered for ${esc(lab(t))}. See Marks entry status below.`);
   const hi=[];
   if(top[0]) hi.push(`School topper: <b>${esc(top[0].r.name)}</b> (${esc(top[0].r.std)}-${esc(top[0].r.div)}) with ${top[0].v}%. Top 5: ${top.map(x=>`${esc(x.r.name)} (${esc(x.r.std)}-${esc(x.r.div)}) ${x.v}%`).join(", ")}.`);
+  staffReminders(30).forEach(r=>att.push(`⏰ <b>${esc(r.name)}</b>: ${esc(r.what.toLowerCase())} ${remWhen(r.n)} (${fmtD(r.d)}).`));
   if(bestCls) hi.push(`Best class: <b>${esc(bestCls.c)}</b>${ctOf(bestCls.c)} with ${bestCls.avg}% average.`);
   if(impCls&&impCls.chg>0) hi.push(`Most improved class: <b>${esc(impCls.c)}</b>${ctOf(impCls.c)} (up ${impCls.chg}% since ${esc(lab(pe))}).`);
   if(subjAll.length) hi.push(`Strongest subject in the school: <b>${esc(subjAll[subjAll.length-1].sb)}</b> (${subjAll[subjAll.length-1].a}% average).`);
@@ -1787,7 +1847,11 @@ function renderDash(){
     <div class="ccard"><h4>🏫 Average by class</h4>${colChart(stdAvg)}</div>
     <div class="ccard"><h4>📚 Subjects</h4>${hBars([...subjAll].reverse().map(x=>({l:x.sb,v:x.a})))}</div>
     <div class="ccard"><h4>📈 School average, exam by exam</h4>${colChart(exAvg)}</div></div>`;
-  $("#dashBody").innerHTML=head+kpis+spot+charts+`<div class="two"><div><h4 style="margin:0 0 8px">⚠️ Needs your attention</h4><ul class="alist att">${att.map(x=>`<li>${x}</li>`).join("")||`<li style="background:#f0fbf7;border-left-color:#14c3a2">Nothing urgent. 👍</li>`}</ul></div>
+  DASH.TD=TD;
+  const rems=staffReminders(60);
+  const remBox=`<h3 style="margin:22px 0 8px">⏰ Contract reminders <span class="hint" style="font-weight:700">· next 60 days</span></h3>${rems.length?rems.map(r=>`<div class="rem ${r.n<0?"over":"soon"}" data-prof="${esc(r.em)}">${tAvatar(STAFF[r.em],36)}<div><b>${esc(r.name)}</b> <span class="hint">${esc(r.contract||"")}</span><br><span style="font-size:14px">${esc(r.what)}: ${fmtD(r.d)}</span></div><span class="when">${remWhen(r.n)}</span></div>`).join(""):'<div class="empty" style="background:#f0fbf7">No contract renewals or terminations in the next 60 days. 👍</div>'}`;
+  const dirBox=`<h3 style="margin:22px 0 4px">🔎 Find a teacher</h3><input class="in" id="dirQ" placeholder="Search by name, subject, class or contract type…" value="${esc(DASH.q||"")}" style="max-width:420px"><div class="dir-grid" id="dirGrid">${dirHTML()}</div>`;
+  $("#dashBody").innerHTML=head+kpis+remBox+spot+charts+dirBox+`<div class="two"><div><h4 style="margin:0 0 8px">⚠️ Needs your attention</h4><ul class="alist att">${att.map(x=>`<li>${x}</li>`).join("")||`<li style="background:#f0fbf7;border-left-color:#14c3a2">Nothing urgent. 👍</li>`}</ul></div>
     <div><h4 style="margin:0 0 8px">🌟 Highlights</h4><ul class="alist hi">${hi.map(x=>`<li>${x}</li>`).join("")}</ul></div></div>
     <details class="mstat" ${pendN?"open":""} style="margin-top:18px"><summary>📋 Classes and marks entry status · ${esc(lab(t))} ${pendN?`<span class="pend">${pendN} pending</span>`:`<span class="done">✓ all entered</span>`}</summary>${status}<p class="hint" style="margin:6px 0 0">Click a class to open its full analysis.</p></details>
     <div class="qlinks" style="margin-top:14px"><a class="btn sec" href="#analysis" data-goana="teachers">👩‍🏫 Teacher comparison</a><a class="btn sec" href="#analysis" data-goana="school">🏆 School toppers and support list</a><a class="btn sec" href="#analysis" data-goana="overview">📊 Class analysis</a><a class="btn sec" data-gohome="1" href="#home">🏫 School summary</a></div>`;
@@ -1921,10 +1985,12 @@ $("#setupBanner").classList.toggle("on",!configured);
 $("#exportBtn").onclick=()=>{const data=Object.values(RECORDS).map(r=>({...(r._raw||r),id:r.id})); const blob=new Blob([JSON.stringify({results:data,staff:Object.values(STAFF)})],{type:"application/json"}); writeConfig("backup",{at:new Date().toISOString(),count:data.length}).then(()=>{BACKUP={at:new Date().toISOString()};renderStaff();}).catch(()=>{}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="saps-results-backup-"+new Date().toISOString().slice(0,10)+".json"; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); toast(`Backup of ${data.length} results downloaded`);};
 $("#importBtn").onclick=()=>$("#importIn").click();
 $("#importIn").onchange=async e=>{const f=e.target.files[0]; e.target.value=""; if(!f) return;
-  let list, staff=[]; try{ const j=JSON.parse(await f.text()); if(Array.isArray(j)) list=j; else if(j&&Array.isArray(j.results)){ list=j.results; staff=Array.isArray(j.staff)?j.staff:[]; } else throw 0; }catch(_){ return toast("That file isn't a results file"); }
+  let list, staff=[], hr=[]; try{ const j=JSON.parse(await f.text()); if(Array.isArray(j)) list=j; else if(j&&Array.isArray(j.results)){ list=j.results; staff=Array.isArray(j.staff)?j.staff:[]; hr=Array.isArray(j.hr)?j.hr:[]; } else throw 0; }catch(_){ return toast("That file isn't a results file"); }
   list=list.filter(r=>r&&r.name&&r.roll&&r.std&&r.div&&r.term&&r.year);
   staff=staff.filter(x=>x&&x.email&&x.role); 
-  if(!list.length&&!staff.length) return toast("No results found in that file");
+  hr=hr.filter(x=>x&&x.email);
+  if(!list.length&&!staff.length&&!hr.length) return toast("No results found in that file");
+  if(hr.length){ try{ const b=writeBatch(db); hr.slice(0,400).forEach(x=>{ const {email,...h}=x; b.set(doc(db,"staffHR",String(email).toLowerCase()),h); }); await b.commit(); if(!list.length&&!staff.length) return toast(`Imported contract details for ${hr.length} staff ✓`); }catch(err){ return toast("Import of contract details failed: "+errMsg(err)); } }
   if(staff.length){ try{ for(let i=0;i<staff.length;i+=100){ const b=writeBatch(db); staff.slice(i,i+100).forEach(x=>{ const em=String(x.email).toLowerCase(); b.set(doc(db,"staff",em),{...x,email:em}); }); await b.commit(); } }catch(err){ return toast("Import of staff failed: "+errMsg(err)); } }
   toast(`Importing ${list.length} results… please wait`); let skipped=0;
   const norm=r=>{ const {_raw,subjects:subs,...rest}=r; const o=rest.marks?{...rest}:{...rest,subjectList:(subs||[]).map(x=>x.name),marks:Object.fromEntries((subs||[]).map(x=>[x.name,{...markOf(x),by:null}]))}; o.cls=o.std+"-"+o.div; o.id=idFor(o); return o; };

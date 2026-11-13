@@ -69,10 +69,16 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // ---- Home page: school photo and principal's message (admin only) ----
+    // ---- Contract details (type, renewal / re-tender and termination dates) ----
+    // Private: only the principal and the admin can read or change them. Teachers cannot.
+    match /staffHR/{em} {
+      allow read, write: if isPrincipal();
+    }
+
+    // ---- Home page: school photo and principal's message (principal or admin) ----
     match /config/{id} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if isPrincipal();
     }
   }
 }
