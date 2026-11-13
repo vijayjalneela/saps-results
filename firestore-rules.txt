@@ -21,9 +21,13 @@ service cloud.firestore {
       return request.resource.data.get('marks', {}).diff(resource.data.get('marks', {})).affectedKeys();
     }
     // A teacher may only change marks of her own subjects, in classes she teaches.
+    // If the admin set "which subjects in each class" (teaches), that list decides; otherwise
+    // all her subjects in all her classes.
+    function hasMap() { return ('teaches' in me()) && me().teaches.size() > 0; }
     function onlyOwnSubjects() {
       return marksChanged().size() == 0
-        || (cls(resource.data) in me().get('classes', [])
+        || (hasMap() && marksChanged().hasOnly(me().teaches.get(cls(resource.data), [])))
+        || (!hasMap() && cls(resource.data) in me().get('classes', [])
             && marksChanged().hasOnly(me().get('subjects', [])));
     }
     function onlyMarks() {
