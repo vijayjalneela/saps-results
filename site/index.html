@@ -1619,7 +1619,7 @@ $("#delOld").onclick=()=>{ const ids=Object.keys(RECORDS).filter(id=>!(RECORDS[i
 /* ================= Timetable, leave planning and substitutes ================= */
 const TT_YEAR=()=>YEARS[0];
 let TT=null, unsubTT=null, LEAVES={}, unsubLV=null, SUBDOC=null, SUBPLAN=null, CAL=null, unsubCAL=null, calDraft=null;
-const ttS={tab:"class",cls:"I-A",teacher:"",date:"",swap:null,draft:null,setup:null};
+const ttS={tab:"",cls:"I-A",teacher:"",date:"",swap:null,draft:null,setup:null};
 const DAYNAMES=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const todayISO=()=>{ const d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); };
 const ttSet=()=>JSON.parse(JSON.stringify((TT&&TT.settings&&TT.settings.v===3)?TT.settings:DEFAULT_TT));
@@ -1640,7 +1640,7 @@ function startTT(){ if(!db||!ME) return;
   if(!unsubCAL) unsubCAL=onSnapshot(doc(db,"calendar",TT_YEAR()),d=>{ CAL=d.exists()?d.data():null; if(location.hash==="#timetable"&&!calDraft) renderTT(); },()=>{});
   if(!unsubLV){ const q=isFull()?collection(db,"leaves"):query(collection(db,"leaves"),where("email","==",ME.email));
     unsubLV=onSnapshot(q,snap=>{ const n={}; snap.forEach(d=>n[d.id]={...d.data(),id:d.id}); LEAVES=n; if(location.hash==="#timetable") renderTT(); },()=>{}); } }
-function stopTT(){ if(unsubCAL){unsubCAL();unsubCAL=null;} calDraft=null; if(unsubTT){unsubTT();unsubTT=null;} if(unsubLV){unsubLV();unsubLV=null;} TT=null; LEAVES={}; SUBDOC=null; SUBPLAN=null; }
+function stopTT(){ ttS.tab=""; ttS.teacher=""; ttS.cls="I-A"; ttS.setup=null; if(unsubCAL){unsubCAL();unsubCAL=null;} calDraft=null; if(unsubTT){unsubTT();unsubTT=null;} if(unsubLV){unsubLV();unsubLV=null;} TT=null; LEAVES={}; SUBDOC=null; SUBPLAN=null; }
 
 function ttTable(set,cell){ // cell(dayIdx,periodIdx) -> html
   const cols=set.periods;
@@ -1650,14 +1650,15 @@ const SUBCOL={English:"#e9e3ff",Hindi:"#ffe6ee",Mathematics:"#e1f5ff",EVS:"#e3f9
 
 function renderTT(){
   const box=$("#ttBody"); if(!box) return; if(!ME){ box.innerHTML=""; return; }
-  const full=isFull(), tabs=[["class","📅 Class timetable"],["teacher","👩‍🏫 Teacher timetable"],["cal","📆 School calendar"],["free","🙋 Free teachers"],["leave","🏖 Leave"],["subs","🔁 Substitutes"]].concat(full?[["setup","⚙️ Auto-schedule"]]:[]);
+  const full=isFull(), tabs=full?[["today","📍 Today"],["class","📅 Classes"],["teacher","👩‍🏫 Teachers"],["leave","🏖 Leave"],["cal","📆 Calendar"],["setup","✨ Set up"]]:[["mine","🙋 My week"],["class","📅 Classes"],["leave","🏖 My leave"],["cal","📆 Calendar"]];
+  if(!ttS.tab||!tabs.some(t=>t[0]===ttS.tab)) ttS.tab=full?((!TT||!(CAL&&(CAL.holidays||[]).length))?"setup":"today"):"mine";
   if(!ttS.teacher) ttS.teacher=ME.role==="teacher"?ME.email:((teachersList()[0]||{}).email||"");
   if(!ttS.date) ttS.date=todayISO();
   if(ME.role==="teacher"&&ttS.cls==="I-A"){ const c0=(ME.classTeacher||[])[0]||(ME.classes||[])[0]; if(c0) ttS.cls=c0; }
   const head=`<div class="apick" id="ttTabs">${tabs.map(([k,l])=>`<button class="chip ${ttS.tab===k?"on":""}" data-tt="${k}">${l}</button>`).join("")}</div>`;
   const set=ttSet(), grid=TT&&TT.grid, S=set.days.length*PPD;
   let body="";
-  const noTT=`<div class="empty">No timetable yet.${full?" Open <b>⚙️ Auto-schedule</b> to create one.":" The principal will publish it soon."}</div>`;
+  const noTT=`<div class="empty">No timetable yet.${full?" Open <b>✨ Set up</b> and press one button.":" The principal will publish it soon."}</div>`;
   if(ttS.tab==="class"){
     body=`<div class="grid g3" style="max-width:520px"><label class="f">Class<select class="in" id="ttCls">${allClasses(set).map(c=>`<option ${c===ttS.cls?"selected":""}>${c}</option>`).join("")}</select></label></div>`;
     if(grid&&!(TT.settings&&TT.settings.v===3)) body+=`<div class="bulk-res" style="margin:0 0 10px">⚠️ This timetable was made with older settings. ${full?"Open <b>⚙️ Auto-schedule</b> and make it again (2 periods · short break · 2 periods · long break · 4 periods, Mass PT and CCA).":"The principal will update it."}</div>`;
@@ -1668,16 +1669,24 @@ function renderTT(){
       (ttS.draft?`<div class="row" style="justify-content:flex-start"><button class="btn pri" id="ttSaveSwap">💾 Save changes</button><button class="btn sec" id="ttUndo">Undo changes</button></div>`:"")+
       `<div class="row" style="justify-content:flex-start"><button class="btn sec sm" id="ttPrint">🖨 Print / Save PDF</button></div>`; }
   }
-  else if(ttS.tab==="teacher"){
-    const tl=teachersList();
-    body=`<div class="grid g3" style="max-width:520px"><label class="f">Teacher<select class="in" id="ttTeacher">${tl.map(t=>`<option value="${esc(t.email)}" ${t.email===ttS.teacher?"selected":""}>${esc(t.name)}</option>`).join("")}</select></label></div>`;
+  else if(ttS.tab==="teacher"||ttS.tab==="mine"){
+    const tl=teachersList(); if(ttS.tab==="mine") ttS.teacher=ME.email;
+    body=ttS.tab==="mine"?`${dateBar()}<div id="subOut"></div><h4 style="margin:16px 0 6px">My timetable</h4>`:`<div class="grid g3" style="max-width:520px"><label class="f">Teacher<select class="in" id="ttTeacher">${tl.map(t=>`<option value="${esc(t.email)}" ${t.email===ttS.teacher?"selected":""}>${esc(t.name)}</option>`).join("")}</select></label></div>`;
+    if(ttS.tab==="mine") setTimeout(renderSubs,0);
     if(!grid) body+=noTT; else { const busy=teacherSlots(grid)[ttS.teacher]||{}; const n=Object.keys(busy).length;
       body+=`<p class="hint" style="margin:4px 0 10px"><b>${n}</b> periods a week out of ${S} · free periods: <b>${S-n}</b>${(STAFF[ttS.teacher]&&(STAFF[ttS.teacher].classTeacher||[]).length)?` · class teacher of <b>${esc(STAFF[ttS.teacher].classTeacher.join(", "))}</b>`:""}</p>`+
       ttTable(set,(d,p)=>{ const k=d*PPD+p, x=busy[k], f=fixedSlots(set)[k], me=STAFF[ttS.teacher]||{}; if(!x&&f) return `<td class="ttc fixedp"><b>${esc(f.label)}</b><small>${(me.subjects||[]).includes(f.who)?"you lead this":"whole school"}</small></td>`; return `<td class="ttc" style="background:${x?(SUBCOL[x.s]||"#f6f3ff"):"#f4fbf8"}">${x?`<b>${esc(x.c)}</b><small>${esc(x.s)}</small>`:`<small class="hint">free</small>`}</td>`; })+
       `<div class="row" style="justify-content:flex-start"><button class="btn sec sm" id="ttPrint">🖨 Print / Save PDF</button></div>`; }
   }
-  else if(ttS.tab==="free"){
-    body=`<div class="grid g3" style="max-width:640px"><label class="f">Date<input class="in" type="date" id="ttDate" value="${esc(ttS.date)}"></label><label class="f">Period<select class="in" id="ttPer">${[1,2,3,4,5,6,7,8].map(p=>`<option value="${p}" ${+ttS.per===p?"selected":""}>Period ${p}</option>`).join("")}</select></label></div>`;
+  else if(ttS.tab==="today"){
+    body=`${dateBar()}<div id="subOut"><div class="empty">Loading…</div></div>`; setTimeout(renderSubs,0);
+    if(grid){ const di=dayIdxOf(ttS.date,set); if(di>=0){ const busy=teacherSlots(grid), off=new Set(leavesOn(ttS.date).map(l=>l.email)), tl=teachersList();
+      const freeAt=p=>tl.filter(t=>!(busy[t.email]||{})[di*PPD+p-1]&&!off.has(t.email)&&!fixedSlots(set)[di*PPD+p-1]);
+      const P=+ttS.per||0;
+      body+=`<h4 style="margin:18px 0 6px">🙋 Who is free?</h4><div class="apick">${[1,2,3,4,5,6,7,8].map(p=>`<button class="chip ${P===p?"on":""}" data-per="${p}">P${p} · ${fixedSlots(set)[di*PPD+p-1]?esc(fixedSlots(set)[di*PPD+p-1].label):freeAt(p).length+" free"}</button>`).join("")}</div>
+      ${P?`<div class="dir-grid">${freeAt(P).map(t=>`<div class="dcard" style="cursor:default">${tAvatar(t,40)}<span><b>${esc(t.name)}</b><small>${t.coordinator?"Coordinator":esc((t.subjects||[]).join(", "))}</small></span></div>`).join("")||'<div class="empty">Nobody is free in this period.</div>'}</div>`:'<p class="hint">Tap a period to see the names.</p>'}`; } }
+  }
+  else if(false){
     if(!grid) body+=noTT; else { const di=dayIdxOf(ttS.date,set); if(di<0) body+=`<div class="empty">${notWorkingMsg(ttS.date,set)}</div>`; else {
       const k=di*PPD+((+ttS.per||1)-1), busy=teacherSlots(grid), off=new Set(leavesOn(ttS.date).map(l=>l.email));
       const rows=teachersList().map(t=>({t,b:(busy[t.email]||{})[k],off:off.has(t.email),n:Object.keys(busy[t.email]||{}).filter(x=>Math.floor(x/PPD)===di).length}));
@@ -1698,23 +1707,54 @@ function renderTT(){
       ${L.length?`<div class="tbl-wrap"><table class="pt"><thead><tr>${full?"<th style='text-align:left'>Teacher</th>":""}<th>From</th><th>To</th><th>School days</th><th>Type</th><th>Status</th><th></th></tr></thead><tbody>${L.map(l=>`<tr>${full?`<td style="text-align:left"><b>${esc(tName(l.email))}</b>${l.reason?`<br><span class="hint">${esc(l.reason)}</span>`:""}</td>`:""}<td>${fmtD(l.from)}</td><td>${fmtD(l.to||l.from)}</td><td>${leaveDays(l.from,l.to)}</td><td>${esc(l.type||"")}</td><td>${st(l.status)}</td>
         <td style="white-space:nowrap">${full&&l.status==="Requested"?`<button class="btn sec sm" data-lv="ok" data-id="${esc(l.id)}">Approve</button> <button class="btn sec sm" data-lv="no" data-id="${esc(l.id)}">Reject</button>`:""}${full||l.status==="Requested"?` <button class="btn sec sm" data-lv="del" data-id="${esc(l.id)}">🗑</button>`:""}</td></tr>`).join("")}</tbody></table></div>`:'<div class="empty">No leave recorded.</div>'}`;
   }
-  else if(ttS.tab==="subs"){
-    body=`<div class="grid g3" style="max-width:520px"><label class="f">Date<input class="in" type="date" id="ttDate" value="${esc(ttS.date)}"></label></div><div id="subOut"><div class="empty">Loading…</div></div>`;
-    setTimeout(renderSubs,0);
-  }
-  else if(ttS.tab==="setup"&&full){ body=setupHTML(); }
+  else if(ttS.tab==="setup"&&full){ body=wizardHTML()+`<details style="margin-top:14px"${ttS.adv?" open":""}><summary style="cursor:pointer;font-weight:800;font-size:16px" data-adv="1">⚙️ Change the rules (periods a week, timings, days, fixed periods)</summary><div style="margin-top:10px">${setupHTML()}</div></details>`; }
   else if(ttS.tab==="cal"){ body=calHTML(full); }
-  box.innerHTML=`<div class="title-row"><h2>🗓 Timetable</h2><span class="hint">${esc(TT_YEAR())}${TT&&TT.generatedAt?` · made ${esc(fmtD(TT.generatedAt.slice(0,10)))}`:""}</span></div>${head}${body}`;
+  box.innerHTML=`<div class="title-row"><h2>🗓 Timetable & calendar</h2><span class="hint">${esc(TT_YEAR())}</span></div>${head}${body}`;
 }
+
+function dateBar(){ const t=todayISO(); return `<div class="apick" style="align-items:center"><button class="chip" data-dnav="-1">◀</button><input class="in" type="date" id="ttDate" value="${esc(ttS.date)}" style="max-width:180px"><button class="chip" data-dnav="1">▶</button>${ttS.date!==t?`<button class="chip" data-dnav="0">Today</button>`:""}<b style="margin-left:6px">${esc(new Date(ttS.date+"T00:00:00").toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long"}))}</b></div>`; }
+function stepDate(n){ if(!n){ ttS.date=todayISO(); return; } const set=ttSet(); let d=new Date(ttS.date+"T00:00:00");
+  for(let i=0;i<30;i++){ d.setDate(d.getDate()+n); const x=new Date(d); x.setMinutes(x.getMinutes()-x.getTimezoneOffset()); const iso=x.toISOString().slice(0,10); if(dayIdxOf(iso,set)>=0){ ttS.date=iso; return; } } }
+function wizardHTML(){ const C=CAL||{}, set=ttSet(), H=(C.holidays||[]), closed=H.filter(h=>CLOSED_KINDS.includes(h.kind||"Holiday")).length, cca=H.filter(h=>h.kind==="CCA").length;
+  const days=C.start?workingDays(C.start,C.end,set.days,H).length:0, ex=C.exams||[], tt=TT&&TT.grid&&TT.settings&&TT.settings.v===3;
+  const ok=b=>b?'<span style="font-size:22px">✅</span>':'<span style="font-size:22px">⬜</span>';
+  const all=closed&&ex.length&&tt;
+  return `<div class="card" style="background:linear-gradient(120deg,#f2edff,#e9fbf5);box-shadow:none;margin:0">
+   <h3 style="margin:0 0 6px">✨ Set up the school year</h3>
+   <p style="margin:0 0 12px">One button does it all: loads the school's calendar (holidays, breaks, CCA Fridays), spreads out the four exams, and makes a clash-free timetable for every class with Mass PT and CCA in place.</p>
+   <div style="display:grid;gap:8px;margin-bottom:14px">
+     <div style="display:flex;gap:10px;align-items:center">${ok(closed)}<span><b>School calendar</b> · ${closed?`${closed} holidays and breaks, ${cca} CCA Fridays, ${days} teaching days`:"not loaded yet"}</span></div>
+     <div style="display:flex;gap:10px;align-items:center">${ok(ex.length)}<span><b>Exam dates</b> · ${ex.length?ex.map(e=>`${esc(e.key.replace("UT-1","UT-I").replace("UT-2","UT-II"))} ${fmtD(e.from).replace(/ \d{4}$/,"")}`).join(" · "):"not planned yet"}</span></div>
+     <div style="display:flex;gap:10px;align-items:center">${ok(tt)}<span><b>Timetable</b> · ${tt?`${Object.keys(TT.grid).length} classes, ${set.days.length} days a week, made ${fmtD(TT.generatedAt.slice(0,10))}`:"not made yet"}</span></div>
+   </div>
+   <div class="row" style="justify-content:flex-start;margin:0"><button class="btn pri" id="wzAll" style="font-size:17px;padding:12px 22px">${all?"🔄 Do it all again":"⚡ Set up everything"}</button>${all?`<button class="btn sec" id="wzTT">Remake timetable only</button><button class="btn sec" id="wzEx">Re-space exams only</button>`:""}</div>
+   <div id="wzOut"></div></div>`; }
+function makeTT(set){ const S=set.days.length*PPD, classes=allClasses(set), fx=fixedSlots(set);
+  const P=planLessons({classes,subjectsOf:c=>Object.keys(set.perWeek[tGroup(c)]||{}),group:tGroup,staff:teachersList(),perWeek:set.perWeek,slots:S-Object.keys(fx).length});
+  let best=null; for(const seed of [7,11,23]){ const r=schedule({lessons:P.lessons,classes,days:set.days.length,ctOf:ctOfCls,seed,fixed:fx}); if(!best||r.unplaced.length<best.unplaced.length||(r.unplaced.length===best.unplaced.length&&r.sameDayCount<best.sameDayCount)) best=r; }
+  return {best,P}; }
+function examSubjects(st){ const g={}; if((st.stds||[]).some(x=>STDS.indexOf(x)<=4)) g["I–V"]=["English","Mathematics","Hindi","EVS"].filter(x=>x in st.perWeek.prim).concat(Object.keys(st.perWeek.prim).filter(x=>!["English","Mathematics","Hindi","EVS","PT","Art"].includes(x))); return g; }
+async function setupAll(what){ const out=$("#wzOut"); if(out) out.innerHTML='<div class="bulk-res">Working it out…</div>'; await new Promise(r=>setTimeout(r,30));
+  const set=ttSet(), msg=[];
+  try{
+    if(what!=="tt"){ const c=JSON.parse(JSON.stringify(calData())); if(!(c.holidays||[]).length){ c.holidays=SUGGESTED_HOLIDAYS.filter(h=>h.from>=c.start&&h.from<=c.end).map(h=>({...h})); msg.push(`loaded ${c.holidays.length} calendar entries`); }
+      c.exams=planExams({start:c.start,end:c.end,days:set.days,holidays:c.holidays,subjects:examSubjects(set),gap:true}); msg.push("spaced the 4 exams");
+      await setDoc(doc(db,"calendar",TT_YEAR()),{...c,updatedAt:new Date().toISOString(),updatedBy:ME.email}); calDraft=null; }
+    if(what!=="ex"){ if(!teachersList().length){ toast("Add teachers on the Admin page first"); } else { const {best,P}=makeTT(set);
+      await setDoc(doc(db,"timetable",TT_YEAR()),{settings:set,grid:best.grid,generatedAt:new Date().toISOString(),by:ME.email,sample:teachersList().some(t=>t.sample)});
+      msg.push(`made the timetable: ${P.lessons.length-best.unplaced.length} of ${P.lessons.length} periods placed, ${clashes(best.grid).length} clashes`);
+      if(P.over.length) msg.push("⚠️ "+P.over.map(o=>`${o.name} has more periods than a week holds`).join("; ")); } }
+    toast("Done ✓"); SUBPLAN=null; renderHomeCal(); renderTT(); const o2=$("#wzOut"); if(o2) o2.innerHTML=`<div class="bulk-res" style="background:#eafaf4">✓ ${msg.map(esc).join(" · ")}.</div>`;
+  }catch(err){ toast("Couldn't finish: "+errMsg(err)); if($("#wzOut")) $("#wzOut").innerHTML=""; } }
 
 /* ----- substitutes ----- */
 async function renderSubs(){
-  const out=$("#subOut"); if(!out) return; const set=ttSet(), grid=TT&&TT.grid, full=isFull();
-  if(!grid){ out.innerHTML=`<div class="empty">No timetable yet, so substitutes can't be planned.</div>`; return; }
+  const out=$("#subOut"); if(!out) return; const set=ttSet(), grid=TT&&TT.grid, full=isFull()&&ttS.tab!=="mine";
+  if(!grid){ out.innerHTML=full?`<div class="empty">No timetable yet. Open <b>✨ Set up</b> and press one button.</div>`:""; return; }
   const di=dayIdxOf(ttS.date,set); if(di<0){ out.innerHTML=`<div class="empty">${notWorkingMsg(ttS.date,set)}</div>`; return; } const exd=examOn(ttS.date);
   try{ const d=await getDoc(doc(db,"subs",ttS.date)); SUBDOC=d.exists()?d.data():null; }catch(_){ SUBDOC=null; }
   if(!full){ const mine=(SUBDOC&&SUBDOC.plan||[]).filter(p=>p.sub===ME.email), act=(SUBDOC&&SUBDOC.acting||[]).filter(a=>a.sub===ME.email);
-    out.innerHTML=SUBDOC?`<h4 style="margin:8px 0">Your extra duties on ${fmtD(ttS.date)}</h4>${mine.length||act.length?`<ul class="alist hi">${mine.map(p=>`<li><b>Period ${p.p}</b> · ${esc(p.c)} · ${esc(p.s)} <span class="hint">(for ${esc(tName(p.absent))})</span></li>`).join("")}${act.map(a=>`<li><b>Acting class teacher</b> of ${esc(a.c)} today</li>`).join("")}</ul>`:'<div class="empty">No substitution duty for you that day. 👍</div>'}`:'<div class="empty">The substitute plan for that day hasn\'t been published yet.</div>'; return; }
+    out.innerHTML=SUBDOC?`<h4 style="margin:8px 0">Extra duties for you</h4>${mine.length||act.length?`<ul class="alist hi">${mine.map(p=>`<li><b>Period ${p.p}</b> · ${esc(p.c)} · ${esc(p.s)} <span class="hint">(for ${esc(tName(p.absent))})</span></li>`).join("")}${act.map(a=>`<li><b>Acting class teacher</b> of ${esc(a.c)} today</li>`).join("")}</ul>`:'<div class="empty">No extra duty for you that day. 👍</div>'}`:'<div class="empty">No extra duties published for that day.</div>'; return; }
   const absentL=leavesOn(ttS.date), absent=new Set(absentL.map(l=>l.email));
   if(!SUBPLAN||SUBPLAN.date!==ttS.date){ SUBPLAN=SUBDOC?{date:ttS.date,plan:SUBDOC.plan||[],acting:SUBDOC.acting||[],saved:true}:{date:ttS.date,...substitutePlan({grid,dayIdx:di,absent,staff:Object.values(STAFF),ctOf:ctOfCls}),saved:false}; }
   const busy=teacherSlots(grid), tl=teachersList().filter(t=>!absent.has(t.email));
@@ -1722,11 +1762,11 @@ async function renderSubs(){
     return `<option value="">— nobody —</option>`+free.sort((a,b)=>(sug.has(b.email)-sug.has(a.email))).map(t=>`<option value="${esc(t.email)}" ${t.email===p.sub?"selected":""}>${esc(t.name)}${(t.subjects||[]).includes(p.s)?" · "+esc(p.s):""}</option>`).join(""); };
   const load={}; SUBPLAN.plan.forEach(p=>{ if(p.sub) load[p.sub]=(load[p.sub]||0)+1; });
   const cca=(calData().holidays||[]).find(h=>h.kind==="CCA"&&h.from===ttS.date);
-  out.innerHTML=`${cca?`<div class="bulk-res" style="margin:6px 0;background:#fff1d6">🎨 CCA today (last two periods): <b>${esc(cca.name)}</b></div>`:""}${exd?`<div class="bulk-res" style="margin:6px 0">📝 Exam day: <b>${esc(exd.e.label)}</b> · ${esc(Object.entries(exd.r).filter(([k])=>k!=="date").map(([k,v])=>k+": "+v).join(" · "))}. Substitutes may be needed as invigilators.</div>`:""}<p class="hint" style="margin:6px 0 10px">${esc(set.days[di])} · On leave: ${absentL.length?absentL.map(l=>`<b>${esc(tName(l.email))}</b>`).join(", "):"nobody"} ${SUBPLAN.saved?'· <span class="done">✓ published</span>':'· <span class="pend">not published yet</span>'}</p>
-   ${SUBPLAN.plan.length?`<div class="tbl-wrap"><table class="pt"><thead><tr><th>Period</th><th>Class</th><th>Subject</th><th>Teacher on leave</th><th>Substitute</th><th style="text-align:left">Why</th></tr></thead><tbody>${SUBPLAN.plan.map((p,i)=>`<tr><td>P${p.p}</td><td><b>${esc(p.c)}</b></td><td>${esc(p.s)}</td><td>${esc(tName(p.absent))}</td><td><select class="in" data-subi="${i}" style="min-width:180px">${optFor(p)}</select></td><td style="text-align:left;font-size:13px">${esc(p.why||"")}</td></tr>`).join("")}</tbody></table></div>`:'<div class="empty">No periods need a substitute that day. 👍</div>'}
+  out.innerHTML=`${cca?`<div class="bulk-res" style="margin:6px 0;background:#fff1d6">🎨 CCA today (last two periods): <b>${esc(cca.name)}</b></div>`:""}${exd?`<div class="bulk-res" style="margin:6px 0">📝 Exam day: <b>${esc(exd.e.label)}</b> · ${esc(Object.entries(exd.r).filter(([k])=>k!=="date").map(([k,v])=>k+": "+v).join(" · "))}. Substitutes may be needed as invigilators.</div>`:""}<h4 style="margin:10px 0 6px">🏖 On leave: ${absentL.length?absentL.map(l=>esc(tName(l.email))).join(", "):"nobody 👍"}</h4>${SUBPLAN.plan.length||SUBPLAN.acting.length?`<p class="hint" style="margin:0 0 8px">${SUBPLAN.saved?'<span class="done">✓ Published to teachers</span>':'<span class="pend">Not published yet</span> · the site has picked substitutes; change any, then publish.'}</p>`:""}
+   ${SUBPLAN.plan.length?`<div class="tbl-wrap"><table class="pt"><thead><tr><th>Period</th><th>Class</th><th>Subject</th><th>Teacher on leave</th><th>Substitute</th><th style="text-align:left">Why</th></tr></thead><tbody>${SUBPLAN.plan.map((p,i)=>`<tr><td>P${p.p}</td><td><b>${esc(p.c)}</b></td><td>${esc(p.s)}</td><td>${esc(tName(p.absent))}</td><td><select class="in" data-subi="${i}" style="min-width:180px">${optFor(p)}</select></td><td style="text-align:left;font-size:13px">${esc(p.why||"")}</td></tr>`).join("")}</tbody></table></div>`:(absentL.length?'<div class="empty">No periods need a substitute. 👍</div>':"")}
    ${SUBPLAN.acting.length?`<h4 style="margin:14px 0 6px">🧑‍🏫 Acting class teachers (attendance, notes to parents)</h4><ul class="alist hi">${SUBPLAN.acting.map(a=>`<li><b>${esc(a.c)}</b>: ${esc(tName(a.sub)||"nobody free")} <span class="hint">instead of ${esc(tName(a.absent))}</span></li>`).join("")}</ul>`:""}
    ${Object.keys(load).length?`<p class="hint" style="margin:10px 0 0">Extra periods: ${Object.entries(load).sort((a,b)=>b[1]-a[1]).map(([e,n])=>`${esc(tName(e))} ${n}`).join(" · ")}</p>`:""}
-   <div class="row" style="justify-content:flex-start"><button class="btn pri" id="subPub">📢 Publish for teachers</button><button class="btn sec" id="subRe">🔄 Plan again automatically</button><button class="btn sec" id="subPrint">🖨 Print</button></div>`;
+   ${SUBPLAN.plan.length||SUBPLAN.acting.length?`<div class="row" style="justify-content:flex-start"><button class="btn pri" id="subPub">📢 Publish to teachers</button><button class="btn sec" id="subRe">🔄 Pick again</button><button class="btn sec" id="subPrint">🖨 Print</button></div>`:""}`;
 }
 
 /* ----- auto-schedule settings ----- */
@@ -1758,26 +1798,25 @@ function setupHTML(){
 /* ----- school calendar ----- */
 function calHTML(full){
   const C=calData(), set=ttSet(), today=todayISO(), ALLH=[...(C.holidays||[])].sort((a,b)=>a.from.localeCompare(b.from)), H=ALLH.filter(h=>CLOSED_KINDS.includes(h.kind||"Holiday")), CC=ALLH.filter(h=>h.kind==="CCA"), IMP=ALLH.filter(h=>h.kind==="Important day"||h.kind==="School event");
-  const W=workingDays(C.start,C.end,set.days,C.holidays||[]);
-  const up=[...H.map(h=>({d:h.from,to:h.to,t:(h.kind==="Vacation"?"🏖 ":"🎉 ")+h.name})),...CC.map(h=>({d:h.from,to:h.to,t:"🎨 CCA: "+h.name})),...(C.exams||[]).map(e=>({d:e.from,to:e.to,t:"📝 "+e.label}))].filter(x=>(x.to||x.d)>=today).sort((a,b)=>a.d.localeCompare(b.d)).slice(0,8);
-  const subjList=g=>Object.keys((set.perWeek||{})[g]||{});
+  const W=C.start?workingDays(C.start,C.end,set.days,C.holidays||[]):[];
+  const up=[...H.map(h=>({d:h.from,to:h.to,t:(h.kind==="Vacation"?"🏖 ":"🎉 ")+h.name})),...CC.map(h=>({d:h.from,to:h.to,t:"🎨 CCA: "+h.name})),...(C.exams||[]).map(e=>({d:e.from,to:e.to,t:"📝 "+e.label}))].filter(x=>(x.to||x.d)>=today).sort((a,b)=>a.d.localeCompare(b.d)).slice(0,6);
+  const del=h=>full?`<td><button class="btn sec sm" data-hdel="${esc(h.from+"|"+h.name)}">✕</button></td>`:"";
+  const list=(arr,two)=>arr.length?`<div class="tbl-wrap"><table class="pt"><tbody>${arr.map(h=>`<tr class="${(h.to||h.from)<today?"past":""}"><td style="white-space:nowrap">${fmtD(h.from)}${two&&h.to&&h.to!==h.from?" – "+fmtD(h.to):""}</td><td style="text-align:left"><b>${esc(h.name)}</b></td>${del(h)}</tr>`).join("")}</tbody></table></div>`:'<div class="empty">None yet.</div>';
+  if(!ALLH.length&&!(C.exams||[]).length&&!calDraft) return `<div class="empty">The calendar is empty.${full?" Open <b>✨ Set up</b> and press one button to load the school calendar.":""}</div>`;
   return `${calDraft?`<div class="bulk-res" style="margin:0 0 10px;background:#fff7ee">You have unsaved changes. <button class="btn pri sm" id="calSave">💾 Save calendar</button> <button class="btn sec sm" id="calUndo">Discard</button></div>`:""}
-  <div class="grid g3" style="max-width:640px"><label class="f">School year starts<input class="in" type="date" id="calStart" value="${esc(C.start)}" ${full?"":"disabled"}></label><label class="f">School year ends<input class="in" type="date" id="calEnd" value="${esc(C.end)}" ${full?"":"disabled"}></label><div class="f"><span>Teaching days</span><b style="font-size:22px">${W.length}</b><small class="hint">${esc(set.days.join(", "))}, minus holidays</small></div></div>
-  <h4 style="margin:14px 0 6px">⏭ Coming up</h4>${up.length?`<ul class="alist hi">${up.map(x=>`<li><b>${fmtD(x.d)}</b>${x.to&&x.to!==x.d?` – ${fmtD(x.to)}`:""} · ${esc(x.t)}</li>`).join("")}</ul>`:'<div class="empty">Nothing planned yet.</div>'}
-  <h4 style="margin:16px 0 6px">🎉 Holidays, breaks and non-instructional days (${H.length})</h4>
-  ${full?`<p class="hint" style="margin:0 0 8px">Festival dates that depend on the moon can move by a day. Check them against the school's official calendar.</p>`:""}
-  ${H.length?`<div class="tbl-wrap"><table class="pt"><thead><tr><th>From</th><th>To</th><th style="text-align:left">Holiday</th><th>Type</th><th>School days</th>${full?"<th></th>":""}</tr></thead><tbody>${H.map(h=>`<tr class="${(h.to||h.from)<today?"past":""}"><td>${fmtD(h.from)}</td><td>${h.to&&h.to!==h.from?fmtD(h.to):""}</td><td style="text-align:left"><b>${esc(h.name)}</b></td><td>${esc(h.kind||"Holiday")}</td><td>${workingDays(h.from,h.to||h.from,set.days,[]).length}</td>${full?`<td><button class="btn sec sm" data-hdel="${esc(h.from+"|"+h.name)}">✕</button></td>`:""}</tr>`).join("")}</tbody></table></div>`:'<div class="empty">No holidays entered yet.</div>'}
-  ${full?`<div class="grid g3" style="margin-top:10px"><label class="f">From<input class="in" type="date" id="hFrom"></label><label class="f">To (optional)<input class="in" type="date" id="hTo"></label><label class="f">Type<select class="in" id="hKind">${["Holiday","Holiday (R)","Vacation","Non-instructional day","CCA","Important day"].map(k=>`<option>${k}</option>`).join("")}</select></label><label class="f" style="grid-column:span 2">Name<input class="in" id="hName" maxlength="60" placeholder="e.g. Annual Day"></label></div>
-  <div class="row" style="justify-content:flex-start"><button class="btn sec" id="hAdd">➕ Add</button><button class="btn sec" id="hSuggest">📥 Load the school's 2026-27 calendar</button><button class="btn sec" id="hClear">🗑 Clear the list</button></div>`:""}
-  <h4 style="margin:18px 0 6px">🎨 CCA on Fridays, last two periods (${CC.length})</h4>
-  ${CC.length?`<div class="tbl-wrap"><table class="pt"><tbody>${CC.map(h=>`<tr class="${h.from<today?"past":""}"><td>${fmtD(h.from)}</td><td style="text-align:left"><b>${esc(h.name)}</b></td><td>I–V</td>${full?`<td><button class="btn sec sm" data-hdel="${esc(h.from+"|"+h.name)}">✕</button></td>`:""}</tr>`).join("")}</tbody></table></div>`:'<div class="empty">No CCA events yet.</div>'}
-  <details style="margin-top:12px"><summary style="cursor:pointer;font-weight:800">📌 Important days (${IMP.length}) · school stays open</summary>${IMP.length?`<div class="tbl-wrap"><table class="pt"><tbody>${IMP.map(h=>`<tr class="${h.from<today?"past":""}"><td>${fmtD(h.from)}</td><td style="text-align:left">${esc(h.name)}</td>${full?`<td><button class="btn sec sm" data-hdel="${esc(h.from+"|"+h.name)}">✕</button></td>`:""}</tr>`).join("")}</tbody></table></div>`:'<div class="empty">None yet.</div>'}</details>
-  <h4 style="margin:18px 0 6px">📝 Exams</h4>
-  ${(C.exams||[]).length?(C.exams||[]).map((x,ei)=>`<div class="card" style="box-shadow:none;background:#fbfaff;margin:8px 0;padding:12px 14px"><b>${esc(x.label)}</b> <span class="hint">${fmtD(x.from)} – ${fmtD(x.to)}</span>
-     <div class="tbl-wrap"><table class="pt"><thead><tr><th>Date</th>${Object.keys(x.sheet[0]||{}).filter(k=>k!=="date").map(k=>`<th>Classes ${esc(k)}</th>`).join("")}</tr></thead><tbody>${(x.sheet||[]).map((r,ri)=>`<tr><td>${full?`<input class="in" type="date" value="${esc(r.date)}" data-exd="${ei}|${ri}" style="max-width:170px">`:fmtD(r.date)}${holidayOn(r.date,C.holidays)?' <span class="pend">holiday!</span>':""}</td>${Object.entries(r).filter(([k])=>k!=="date").map(([,v])=>`<td>${esc(v||"–")}</td>`).join("")}</tr>`).join("")}</tbody></table></div></div>`).join(""):'<div class="empty">Exam dates not planned yet.</div>'}
-  ${full?`<div class="row" style="justify-content:flex-start;align-items:center"><button class="btn pri" id="exPlan">⚡ Space the exams automatically</button><label class="hint" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="exGap" checked> leave a study day between term-exam papers</label></div>
-  <p class="hint">UT-I, Term I, UT-II and Term II are spread across the year's teaching days. They avoid weekends and holidays, never run across a vacation, and don't start right after one. You can change any paper's date afterwards.</p>`:""}
-  ${full&&!calDraft?`<div class="row" style="justify-content:flex-start"><button class="btn sec sm" id="calPrint">🖨 Print calendar</button></div>`:""}`;
+  <p class="hint" style="margin:0 0 8px">${fmtD(C.start)} – ${fmtD(C.end)} · <b>${W.length}</b> teaching days (${esc(set.days.join(", "))})</p>
+  <h4 style="margin:6px 0">⏭ Coming up</h4>${up.length?`<ul class="alist hi">${up.map(x=>`<li><b>${fmtD(x.d)}</b>${x.to&&x.to!==x.d?` – ${fmtD(x.to)}`:""} · ${esc(x.t)}</li>`).join("")}</ul>`:'<div class="empty">Nothing coming up.</div>'}
+  <h4 style="margin:16px 0 6px">📝 Exams</h4>${(C.exams||[]).length?(C.exams||[]).map((x,ei)=>`<details class="card" style="box-shadow:none;background:#fbfaff;margin:6px 0;padding:10px 14px"><summary style="cursor:pointer"><b>${esc(x.label)}</b> · ${fmtD(x.from)} – ${fmtD(x.to)} <span class="hint">(tap for the date sheet)</span></summary>
+     <div class="tbl-wrap"><table class="pt"><thead><tr><th>Date</th>${Object.keys(x.sheet[0]||{}).filter(k=>k!=="date").map(k=>`<th>Classes ${esc(k)}</th>`).join("")}</tr></thead><tbody>${(x.sheet||[]).map((r,ri)=>`<tr><td>${full?`<input class="in" type="date" value="${esc(r.date)}" data-exd="${ei}|${ri}" style="max-width:170px">`:fmtD(r.date)}${holidayOn(r.date,C.holidays)?' <span class="pend">holiday!</span>':""}</td>${Object.entries(r).filter(([k])=>k!=="date").map(([,v])=>`<td>${esc(v||"–")}</td>`).join("")}</tr>`).join("")}</tbody></table></div></details>`).join(""):'<div class="empty">Not planned yet.</div>'}
+  <details style="margin-top:12px"><summary style="cursor:pointer;font-weight:800">🎉 Holidays and breaks (${H.length})</summary>${list(H,true)}</details>
+  <details style="margin-top:10px"><summary style="cursor:pointer;font-weight:800">🎨 CCA Fridays, last two periods (${CC.length})</summary>${list(CC)}</details>
+  <details style="margin-top:10px"><summary style="cursor:pointer;font-weight:800">📌 Important days (${IMP.length}) · school stays open</summary>${list(IMP)}</details>
+  ${full?`<details style="margin-top:10px"><summary style="cursor:pointer;font-weight:800">✏️ Add or change dates</summary>
+   <div class="grid g3" style="margin-top:10px"><label class="f">School year starts<input class="in" type="date" id="calStart" value="${esc(C.start)}"></label><label class="f">School year ends<input class="in" type="date" id="calEnd" value="${esc(C.end)}"></label></div>
+   <div class="grid g3" style="margin-top:10px"><label class="f">From<input class="in" type="date" id="hFrom"></label><label class="f">To (optional)<input class="in" type="date" id="hTo"></label><label class="f">Type<select class="in" id="hKind">${["Holiday","Holiday (R)","Vacation","Non-instructional day","CCA","Important day"].map(k=>`<option>${k}</option>`).join("")}</select></label><label class="f" style="grid-column:span 2">Name<input class="in" id="hName" maxlength="60" placeholder="e.g. Principal's holiday"></label></div>
+   <div class="row" style="justify-content:flex-start"><button class="btn sec" id="hAdd">➕ Add</button><button class="btn sec" id="exPlan">⚡ Re-space the exams</button><label class="hint" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="exGap" checked> study day between term papers</label></div>
+   <div class="row" style="justify-content:flex-start"><button class="btn sec sm" id="hSuggest">📥 Load the school's 2026-27 calendar</button><button class="btn sec sm" id="hClear">🗑 Clear the list</button></div></details>
+   ${!calDraft?`<div class="row" style="justify-content:flex-start"><button class="btn sec sm" id="calPrint">🖨 Print calendar</button></div>`:""}`:""}`;
 }
 function calTouch(){ if(!calDraft) calDraft=JSON.parse(JSON.stringify(calData())); return calDraft; }
 async function renderHomeCal(){ const box=$("#homeCal"); if(!box||!db) return; let C=CAL; if(!C){ try{ const d=await getDoc(doc(db,"calendar",YEARS[0])); C=d.exists()?d.data():null; }catch(_){ C=null; } }
@@ -1802,6 +1841,10 @@ function runGenerate(){ const set=ttS.setup, S=set.days.length*PPD, classes=allC
 document.addEventListener("click",async e=>{
   const v=$("#v-timetable"); if(!v||!v.contains(e.target)) return;
   const t=e.target.closest("[data-tt]"); if(t){ ttS.tab=t.dataset.tt; ttS.swap=null; renderTT(); return; }
+  const dn=e.target.closest("[data-dnav]"); if(dn){ stepDate(+dn.dataset.dnav); SUBPLAN=null; renderTT(); return; }
+  const pr=e.target.closest("[data-per]"); if(pr){ ttS.per=+pr.dataset.per===+ttS.per?0:+pr.dataset.per; renderTT(); return; }
+  if(e.target.closest("[data-adv]")){ ttS.adv=!ttS.adv; return; }
+  if(e.target.id==="wzAll"){ setupAll("all"); return; } if(e.target.id==="wzTT"){ setupAll("tt"); return; } if(e.target.id==="wzEx"){ setupAll("ex"); return; }
   const set=ttSet();
   // class grid swap
   const cell=e.target.closest(".ttc.canswap"); if(cell&&ttS.tab==="class"&&isFull()&&TT&&TT.grid){ const k=+cell.dataset.k;
