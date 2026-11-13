@@ -440,6 +440,14 @@ details.mstat summary{cursor:pointer;font-weight:800;font-size:16px;margin:6px 0
 .tp-head{display:flex;gap:16px;align-items:center;margin-bottom:12px}
 .tp-grid{display:grid;grid-template-columns:150px 1fr;gap:6px 12px;font-size:14px;margin:6px 0 14px}.tp-grid span{color:var(--muted);font-weight:700}
 @media(max-width:560px){.tp-grid{grid-template-columns:1fr}.tp-grid span{margin-top:6px}}
+table.tt{border-collapse:separate;border-spacing:4px;width:100%;min-width:760px;font-size:13px}
+table.tt th{font-size:12px;color:var(--muted);font-weight:800;padding:4px}table.tt th small{font-weight:700}
+table.tt th.brk,table.tt td.brk{background:repeating-linear-gradient(45deg,#f3f0fb,#f3f0fb 6px,#faf8ff 6px,#faf8ff 12px);width:26px;padding:0;border-radius:8px}
+table.tt th.brk{writing-mode:vertical-rl;transform:rotate(180deg);font-size:10px}
+td.ttc{border-radius:10px;padding:6px 6px;vertical-align:top;min-width:78px;line-height:1.25}
+td.ttc b{display:block;font-size:13px}td.ttc small{display:block;font-size:11px;color:#5c5a7a}
+td.ttc.canswap{cursor:pointer}td.ttc.sel{outline:3px solid #7b5cff;outline-offset:-2px}
+@media print{table.tt{min-width:0;font-size:10px}}
 </style>
 </head>
 <body>
@@ -453,6 +461,7 @@ details.mstat summary{cursor:pointer;font-weight:800;font-size:16px;margin:6px 0
       <a href="#teacher" data-v="teacher" class="staff-only" id="navEntry">Results entry</a>
       <a href="#dashboard" data-v="dashboard" class="pr-only">Dashboard</a>
       <a href="#analysis" data-v="analysis" class="staff-only">Analysis</a>
+      <a href="#timetable" data-v="timetable" class="staff-only">Timetable</a>
       <a href="#admin" data-v="admin" class="admin-only">Admin</a>
     </nav>
   </div>
@@ -688,6 +697,8 @@ details.mstat summary{cursor:pointer;font-weight:800;font-size:16px;margin:6px 0
   <div class="card" id="dashLock"><div class="unauth" style="margin:0"><b class="t">⛔ Unauthorised access</b>The dashboard is only for the principal. Please sign in with the Principal login.</div></div>
 </section>
 
+<section class="view" id="v-timetable"><div class="card" id="ttBody"></div></section>
+
 <!-- ================= ANALYSIS ================= -->
 <section class="view" id="v-analysis">
   <div class="page-title"><div><h2>📊 Analysis</h2><p>Compare students, subjects and exams. Unit tests and term exams are compared as percentages.</p></div></div>
@@ -823,7 +834,8 @@ details.mstat summary{cursor:pointer;font-weight:800;font-size:16px;margin:6px 0
 <script src="config.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, onSnapshot, writeBatch, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc, getDoc, getDocs, setDoc, deleteDoc, collection, onSnapshot, writeBatch, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { DEFAULT_TT, PPD, planLessons, schedule, clashes, teacherSlots, substitutePlan } from "./tt-core.js";
 import { initializeAuth, inMemoryPersistence, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, signOut, onAuthStateChanged, sendPasswordResetEmail, verifyPasswordResetCode, confirmPasswordReset, applyActionCode, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 /* ---------- Config ---------- */
 const LOGO = "data:image/png;base64,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";
@@ -939,7 +951,7 @@ if(db){
 function route(){
   if(window._actionMode){ document.querySelectorAll(".view").forEach(s=>s.classList.toggle("on",s.id==="v-action")); return; }
   const v=(location.hash||"#home").slice(1);
-  const name=["home","teacher","principal","adminlogin","results","admin","analysis","dashboard"].includes(v)?v:"home"; if(name==="dashboard") setTimeout(()=>renderDash(),0); if(name==="analysis") setTimeout(renderAnalysis,0);
+  const name=["home","teacher","principal","adminlogin","results","admin","analysis","dashboard","timetable"].includes(v)?v:"home"; if(name==="timetable"){ if(!ME){ location.hash="teacher"; return; } startTT(); setTimeout(renderTT,0); } if(name==="dashboard") setTimeout(()=>renderDash(),0); if(name==="analysis") setTimeout(renderAnalysis,0);
   if(name==="teacher"||name==="principal"||name==="adminlogin") setLoginMode(name==="adminlogin"?"admin":name);
   if(name==="adminlogin"&&ME&&ME.role==="admin"){ location.hash="admin"; return; }
   const view=(name==="principal"||name==="adminlogin")?"teacher":name;
@@ -1512,7 +1524,7 @@ if(auth){
 let HR={}, unsubHR=null;
 function startStaffData(){ if(unsubStaff) return; unsubStaff=onSnapshot(collection(db,"staff"),snap=>{ const n={}; snap.forEach(d=>n[d.id]=d.data()); STAFF=n; renderStaff(); if(location.hash==="#dashboard") renderDash(); },()=>{});
   if(isFull()&&!unsubHR) unsubHR=onSnapshot(collection(db,"staffHR"),snap=>{ const n={}; snap.forEach(d=>n[d.id]=d.data()); HR=n; if(location.hash==="#dashboard") renderDash(); },()=>{}); }
-function stopStaffData(){ if(unsubStaff){unsubStaff();unsubStaff=null;} if(unsubHR){unsubHR();unsubHR=null;} STAFF={}; HR={}; }
+function stopStaffData(){ stopTT(); if(unsubStaff){unsubStaff();unsubStaff=null;} if(unsubHR){unsubHR();unsubHR=null;} STAFF={}; HR={}; }
 
 /* ---------- Admin page ---------- */
 const ALL_SUBJECTS=[...new Set(STDS.flatMap(x=>SUBJECTS_BY(x).all))];
@@ -1576,7 +1588,9 @@ $("#stList").addEventListener("click",e=>{
 $("#delSample").onclick=()=>{ const ids=Object.keys(RECORDS).filter(id=>RECORDS[id].sample), sids=Object.keys(STAFF).filter(id=>STAFF[id].sample); if(!ids.length&&!sids.length) return toast("There is no sample data");
   confirmBox("Delete sample data?",`This deletes ${ids.length} dummy results and ${sids.length} dummy teachers. Real results and real staff are not touched.`,"Delete",async()=>{ try{
     const rk=(await Promise.all(ids.map(id=>reportKey(RECORDS[id]._raw||RECORDS[id])))).filter(Boolean);
-    const ops=[...ids.map(id=>["results",id]),...rk.map(k=>["reports",k]),...sids.map(id=>["staff",id]),...sids.map(id=>["staffHR",id])];
+    let extra=[]; try{ const [lv,sb,tt]=await Promise.all([getDocs(collection(db,"leaves")),getDocs(collection(db,"subs")),getDocs(collection(db,"timetable"))]);
+      lv.forEach(d=>{ if(d.data().sample) extra.push(["leaves",d.id]); }); sb.forEach(d=>{ if(d.data().sample) extra.push(["subs",d.id]); }); tt.forEach(d=>{ if(d.data().sample) extra.push(["timetable",d.id]); }); }catch(_){}
+    const ops=[...ids.map(id=>["results",id]),...rk.map(k=>["reports",k]),...sids.map(id=>["staff",id]),...sids.map(id=>["staffHR",id]),...extra];
     for(let i=0;i<ops.length;i+=100){ const b=writeBatch(db); ops.slice(i,i+100).forEach(([c,id])=>b.delete(doc(db,c,id))); await b.commit(); }
     toast(`Deleted ${ids.length} sample results and ${sids.length} sample teachers`); }catch(err){ toast("Couldn't delete: "+errMsg(err)); } }); };
 
@@ -1585,6 +1599,189 @@ $("#delOld").onclick=()=>{ const ids=Object.keys(RECORDS).filter(id=>!(RECORDS[i
   confirmBox("Remove older data?",`${ids.length} results were saved by an older version of the site (before the security update), including any non-sample ones. They will be deleted. Download a backup first if you need them.`,"Delete",async()=>{ try{
     for(let i=0;i<ids.length;i+=200){ const b=writeBatch(db); ids.slice(i,i+200).forEach(id=>b.delete(doc(db,"results",id))); await b.commit(); toast(`Removing… ${Math.min(i+200,ids.length)} of ${ids.length}`); }
     toast(`Removed ${ids.length} older results ✓`); }catch(err){ toast("Couldn't delete: "+errMsg(err)); } }); };
+
+/* ================= Timetable, leave planning and substitutes ================= */
+const TT_YEAR=()=>YEARS[0];
+let TT=null, unsubTT=null, LEAVES={}, unsubLV=null, SUBDOC=null, SUBPLAN=null;
+const ttS={tab:"class",cls:"I-A",teacher:"",date:"",swap:null,draft:null,setup:null};
+const DAYNAMES=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const todayISO=()=>{ const d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); };
+const ttSet=()=>JSON.parse(JSON.stringify((TT&&TT.settings)||DEFAULT_TT));
+const allClasses=()=>STDS.flatMap(s=>DIVS.map(d=>s+"-"+d));
+const tGroup=c=>STDS.indexOf(c.split("-")[0])<=4?"prim":"mid";
+const tName=em=>em?((STAFF[em]&&STAFF[em].name)||em):"";
+const ctOfCls=c=>{ const st=Object.values(STAFF).find(x=>(x.classTeacher||[]).includes(c)); return st?st.email:""; };
+const teachersList=()=>Object.values(STAFF).filter(x=>x.role==="teacher").sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+function dayIdxOf(date,set){ const d=new Date(date+"T00:00:00"); if(isNaN(d)) return -1; return set.days.indexOf(DAYNAMES[d.getDay()]); }
+function leavesOn(date){ return Object.values(LEAVES).filter(l=>l.status==="Approved"&&l.from<=date&&date<=(l.to||l.from)); }
+function startTT(){ if(!db||!ME) return;
+  if(!unsubTT) unsubTT=onSnapshot(doc(db,"timetable",TT_YEAR()),d=>{ TT=d.exists()?d.data():null; if(location.hash==="#timetable") renderTT(); },()=>{});
+  if(!unsubLV){ const q=isFull()?collection(db,"leaves"):query(collection(db,"leaves"),where("email","==",ME.email));
+    unsubLV=onSnapshot(q,snap=>{ const n={}; snap.forEach(d=>n[d.id]={...d.data(),id:d.id}); LEAVES=n; if(location.hash==="#timetable") renderTT(); },()=>{}); } }
+function stopTT(){ if(unsubTT){unsubTT();unsubTT=null;} if(unsubLV){unsubLV();unsubLV=null;} TT=null; LEAVES={}; SUBDOC=null; SUBPLAN=null; }
+
+function ttTable(set,cell){ // cell(dayIdx,periodIdx) -> html
+  const cols=set.periods;
+  return `<div class="tbl-wrap"><table class="tt"><thead><tr><th>Day</th>${cols.map(p=>p.brk?`<th class="brk">${esc(p.brk)}<br><small>${esc(p.from)}–${esc(p.to)}</small></th>`:`<th>P${p.n}<br><small>${esc(p.from)}–${esc(p.to)}</small></th>`).join("")}</tr></thead>
+  <tbody>${set.days.map((d,di)=>`<tr><th>${esc(d)}</th>${cols.map(p=>p.brk?`<td class="brk"></td>`:cell(di,p.n-1)).join("")}</tr>`).join("")}</tbody></table></div>`; }
+const SUBCOL={English:"#e9e3ff",Hindi:"#ffe6ee",Mathematics:"#e1f5ff",EVS:"#e3f9f2",Science:"#e3f9f2","Social Science":"#fff3e2"};
+
+function renderTT(){
+  const box=$("#ttBody"); if(!box) return; if(!ME){ box.innerHTML=""; return; }
+  const full=isFull(), tabs=[["class","📅 Class timetable"],["teacher","👩‍🏫 Teacher timetable"],["free","🙋 Free teachers"],["leave","🏖 Leave"],["subs","🔁 Substitutes"]].concat(full?[["setup","⚙️ Auto-schedule"]]:[]);
+  if(!ttS.teacher) ttS.teacher=ME.role==="teacher"?ME.email:((teachersList()[0]||{}).email||"");
+  if(!ttS.date) ttS.date=todayISO();
+  if(ME.role==="teacher"&&ttS.cls==="I-A"){ const c0=(ME.classTeacher||[])[0]||(ME.classes||[])[0]; if(c0) ttS.cls=c0; }
+  const head=`<div class="apick" id="ttTabs">${tabs.map(([k,l])=>`<button class="chip ${ttS.tab===k?"on":""}" data-tt="${k}">${l}</button>`).join("")}</div>`;
+  const set=ttSet(), grid=TT&&TT.grid, S=set.days.length*PPD;
+  let body="";
+  const noTT=`<div class="empty">No timetable yet.${full?" Open <b>⚙️ Auto-schedule</b> to create one.":" The principal will publish it soon."}</div>`;
+  if(ttS.tab==="class"){
+    body=`<div class="grid g3" style="max-width:520px"><label class="f">Class<select class="in" id="ttCls">${allClasses().map(c=>`<option ${c===ttS.cls?"selected":""}>${c}</option>`).join("")}</select></label></div>`;
+    if(!grid) body+=noTT; else { const row=(ttS.draft||grid)[ttS.cls]||[];
+      body+=`<p class="hint" style="margin:4px 0 10px">Class teacher: <b>${esc(tName(ctOfCls(ttS.cls))||"not assigned")}</b>${full?" · To move a period, tap it, then tap where it should go. The site checks the teacher is free first.":""}</p>`+
+      ttTable(set,(d,p)=>{ const k=d*PPD+p, x=row[k], sel=ttS.swap===k; return `<td class="ttc ${sel?"sel":""} ${full?"canswap":""}" data-k="${k}" style="background:${x?(SUBCOL[x.s]||"#f6f3ff"):"#fafafa"}">${x?`<b>${esc(x.s)}</b><small>${esc(tName(x.t)||"no teacher")}</small>`:`<small class="hint">Activity / Library</small>`}</td>`; })+
+      (ttS.draft?`<div class="row" style="justify-content:flex-start"><button class="btn pri" id="ttSaveSwap">💾 Save changes</button><button class="btn sec" id="ttUndo">Undo changes</button></div>`:"")+
+      `<div class="row" style="justify-content:flex-start"><button class="btn sec sm" id="ttPrint">🖨 Print / Save PDF</button></div>`; }
+  }
+  else if(ttS.tab==="teacher"){
+    const tl=teachersList();
+    body=`<div class="grid g3" style="max-width:520px"><label class="f">Teacher<select class="in" id="ttTeacher">${tl.map(t=>`<option value="${esc(t.email)}" ${t.email===ttS.teacher?"selected":""}>${esc(t.name)}</option>`).join("")}</select></label></div>`;
+    if(!grid) body+=noTT; else { const busy=teacherSlots(grid)[ttS.teacher]||{}; const n=Object.keys(busy).length;
+      body+=`<p class="hint" style="margin:4px 0 10px"><b>${n}</b> periods a week out of ${S} · free periods: <b>${S-n}</b>${(STAFF[ttS.teacher]&&(STAFF[ttS.teacher].classTeacher||[]).length)?` · class teacher of <b>${esc(STAFF[ttS.teacher].classTeacher.join(", "))}</b>`:""}</p>`+
+      ttTable(set,(d,p)=>{ const x=busy[d*PPD+p]; return `<td class="ttc" style="background:${x?(SUBCOL[x.s]||"#f6f3ff"):"#f4fbf8"}">${x?`<b>${esc(x.c)}</b><small>${esc(x.s)}</small>`:`<small class="hint">free</small>`}</td>`; })+
+      `<div class="row" style="justify-content:flex-start"><button class="btn sec sm" id="ttPrint">🖨 Print / Save PDF</button></div>`; }
+  }
+  else if(ttS.tab==="free"){
+    body=`<div class="grid g3" style="max-width:640px"><label class="f">Date<input class="in" type="date" id="ttDate" value="${esc(ttS.date)}"></label><label class="f">Period<select class="in" id="ttPer">${[1,2,3,4,5,6,7,8].map(p=>`<option value="${p}" ${+ttS.per===p?"selected":""}>Period ${p}</option>`).join("")}</select></label></div>`;
+    if(!grid) body+=noTT; else { const di=dayIdxOf(ttS.date,set); if(di<0) body+=`<div class="empty">That day is not a working day.</div>`; else {
+      const k=di*PPD+((+ttS.per||1)-1), busy=teacherSlots(grid), off=new Set(leavesOn(ttS.date).map(l=>l.email));
+      const rows=teachersList().map(t=>({t,b:(busy[t.email]||{})[k],off:off.has(t.email),n:Object.keys(busy[t.email]||{}).filter(x=>Math.floor(x/PPD)===di).length}));
+      const free=rows.filter(r=>!r.b&&!r.off).sort((a,b)=>a.n-b.n);
+      body+=`<h4 style="margin:10px 0 6px">✅ Free in Period ${+ttS.per||1} on ${esc(set.days[di])} (${free.length})</h4><div class="dir-grid">${free.map(r=>`<div class="dcard" style="cursor:default">${tAvatar(r.t,40)}<span><b>${esc(r.t.name)}</b><small>${esc((r.t.subjects||[]).join(", "))} · ${r.n} periods that day</small></span></div>`).join("")||'<div class="empty">Nobody is free.</div>'}</div>
+      <h4 style="margin:14px 0 6px">Busy or on leave</h4><p class="hint">${rows.filter(r=>r.b||r.off).map(r=>`${esc(r.t.name)} (${r.off?"on leave":esc(r.b.c+" "+r.b.s)})`).join(" · ")||"–"}</p>`; } }
+  }
+  else if(ttS.tab==="leave"){
+    const tl=teachersList(); const L=Object.values(LEAVES).sort((a,b)=>String(b.from).localeCompare(String(a.from)));
+    const st=x=>`<span class="ctag ${x==="Approved"?"perm":x==="Rejected"?"none":"temp"}">${esc(x)}</span>`;
+    body=`<div class="card" style="background:#f8f6ff;box-shadow:none;margin:0 0 14px"><h4 style="margin:0 0 8px">${full?"➕ Add or plan a leave":"🙋 Apply for leave"}</h4><div class="grid g3">
+      ${full?`<label class="f">Teacher<select class="in" id="lvWho">${tl.map(t=>`<option value="${esc(t.email)}">${esc(t.name)}</option>`).join("")}</select></label>`:""}
+      <label class="f">From<input class="in" type="date" id="lvFrom" value="${esc(todayISO())}"></label><label class="f">To<input class="in" type="date" id="lvTo" value="${esc(todayISO())}"></label>
+      <label class="f">Type<select class="in" id="lvType">${["Casual","Medical","Earned","Duty / training","Other"].map(x=>`<option>${x}</option>`).join("")}</select></label>
+      <label class="f" style="grid-column:span 2">Reason (optional)<input class="in" id="lvWhy" maxlength="200"></label></div>
+      <div class="row" style="justify-content:flex-start"><button class="btn pri" id="lvAdd">${full?"✓ Save as approved":"📨 Send request"}</button></div></div>
+      <h4 style="margin:0 0 8px">${full?"All leave":"My leave"}</h4>
+      ${L.length?`<div class="tbl-wrap"><table class="pt"><thead><tr>${full?"<th style='text-align:left'>Teacher</th>":""}<th>From</th><th>To</th><th>Type</th><th>Status</th><th></th></tr></thead><tbody>${L.map(l=>`<tr>${full?`<td style="text-align:left"><b>${esc(tName(l.email))}</b>${l.reason?`<br><span class="hint">${esc(l.reason)}</span>`:""}</td>`:""}<td>${fmtD(l.from)}</td><td>${fmtD(l.to||l.from)}</td><td>${esc(l.type||"")}</td><td>${st(l.status)}</td>
+        <td style="white-space:nowrap">${full&&l.status==="Requested"?`<button class="btn sec sm" data-lv="ok" data-id="${esc(l.id)}">Approve</button> <button class="btn sec sm" data-lv="no" data-id="${esc(l.id)}">Reject</button>`:""}${full||l.status==="Requested"?` <button class="btn sec sm" data-lv="del" data-id="${esc(l.id)}">🗑</button>`:""}</td></tr>`).join("")}</tbody></table></div>`:'<div class="empty">No leave recorded.</div>'}`;
+  }
+  else if(ttS.tab==="subs"){
+    body=`<div class="grid g3" style="max-width:520px"><label class="f">Date<input class="in" type="date" id="ttDate" value="${esc(ttS.date)}"></label></div><div id="subOut"><div class="empty">Loading…</div></div>`;
+    setTimeout(renderSubs,0);
+  }
+  else if(ttS.tab==="setup"&&full){ body=setupHTML(); }
+  box.innerHTML=`<div class="title-row"><h2>🗓 Timetable</h2><span class="hint">${esc(TT_YEAR())}${TT&&TT.generatedAt?` · made ${esc(fmtD(TT.generatedAt.slice(0,10)))}`:""}</span></div>${head}${body}`;
+}
+
+/* ----- substitutes ----- */
+async function renderSubs(){
+  const out=$("#subOut"); if(!out) return; const set=ttSet(), grid=TT&&TT.grid, full=isFull();
+  if(!grid){ out.innerHTML=`<div class="empty">No timetable yet, so substitutes can't be planned.</div>`; return; }
+  const di=dayIdxOf(ttS.date,set); if(di<0){ out.innerHTML=`<div class="empty">That day is not a working day.</div>`; return; }
+  try{ const d=await getDoc(doc(db,"subs",ttS.date)); SUBDOC=d.exists()?d.data():null; }catch(_){ SUBDOC=null; }
+  if(!full){ const mine=(SUBDOC&&SUBDOC.plan||[]).filter(p=>p.sub===ME.email), act=(SUBDOC&&SUBDOC.acting||[]).filter(a=>a.sub===ME.email);
+    out.innerHTML=SUBDOC?`<h4 style="margin:8px 0">Your extra duties on ${fmtD(ttS.date)}</h4>${mine.length||act.length?`<ul class="alist hi">${mine.map(p=>`<li><b>Period ${p.p}</b> · ${esc(p.c)} · ${esc(p.s)} <span class="hint">(for ${esc(tName(p.absent))})</span></li>`).join("")}${act.map(a=>`<li><b>Acting class teacher</b> of ${esc(a.c)} today</li>`).join("")}</ul>`:'<div class="empty">No substitution duty for you that day. 👍</div>'}`:'<div class="empty">The substitute plan for that day hasn\'t been published yet.</div>'; return; }
+  const absentL=leavesOn(ttS.date), absent=new Set(absentL.map(l=>l.email));
+  if(!SUBPLAN||SUBPLAN.date!==ttS.date){ SUBPLAN=SUBDOC?{date:ttS.date,plan:SUBDOC.plan||[],acting:SUBDOC.acting||[],saved:true}:{date:ttS.date,...substitutePlan({grid,dayIdx:di,absent,staff:Object.values(STAFF),ctOf:ctOfCls}),saved:false}; }
+  const busy=teacherSlots(grid), tl=teachersList().filter(t=>!absent.has(t.email));
+  const optFor=p=>{ const free=tl.filter(t=>!(busy[t.email]||{})[p.k]); const sug=new Set(p.options||[]);
+    return `<option value="">— nobody —</option>`+free.sort((a,b)=>(sug.has(b.email)-sug.has(a.email))).map(t=>`<option value="${esc(t.email)}" ${t.email===p.sub?"selected":""}>${esc(t.name)}${(t.subjects||[]).includes(p.s)?" · "+esc(p.s):""}</option>`).join(""); };
+  const load={}; SUBPLAN.plan.forEach(p=>{ if(p.sub) load[p.sub]=(load[p.sub]||0)+1; });
+  out.innerHTML=`<p class="hint" style="margin:6px 0 10px">${esc(set.days[di])} · On leave: ${absentL.length?absentL.map(l=>`<b>${esc(tName(l.email))}</b>`).join(", "):"nobody"} ${SUBPLAN.saved?'· <span class="done">✓ published</span>':'· <span class="pend">not published yet</span>'}</p>
+   ${SUBPLAN.plan.length?`<div class="tbl-wrap"><table class="pt"><thead><tr><th>Period</th><th>Class</th><th>Subject</th><th>Teacher on leave</th><th>Substitute</th><th style="text-align:left">Why</th></tr></thead><tbody>${SUBPLAN.plan.map((p,i)=>`<tr><td>P${p.p}</td><td><b>${esc(p.c)}</b></td><td>${esc(p.s)}</td><td>${esc(tName(p.absent))}</td><td><select class="in" data-subi="${i}" style="min-width:180px">${optFor(p)}</select></td><td style="text-align:left;font-size:13px">${esc(p.why||"")}</td></tr>`).join("")}</tbody></table></div>`:'<div class="empty">No periods need a substitute that day. 👍</div>'}
+   ${SUBPLAN.acting.length?`<h4 style="margin:14px 0 6px">🧑‍🏫 Acting class teachers (attendance, notes to parents)</h4><ul class="alist hi">${SUBPLAN.acting.map(a=>`<li><b>${esc(a.c)}</b>: ${esc(tName(a.sub)||"nobody free")} <span class="hint">instead of ${esc(tName(a.absent))}</span></li>`).join("")}</ul>`:""}
+   ${Object.keys(load).length?`<p class="hint" style="margin:10px 0 0">Extra periods: ${Object.entries(load).sort((a,b)=>b[1]-a[1]).map(([e,n])=>`${esc(tName(e))} ${n}`).join(" · ")}</p>`:""}
+   <div class="row" style="justify-content:flex-start"><button class="btn pri" id="subPub">📢 Publish for teachers</button><button class="btn sec" id="subRe">🔄 Plan again automatically</button><button class="btn sec" id="subPrint">🖨 Print</button></div>`;
+}
+
+/* ----- auto-schedule settings ----- */
+function setupHTML(){
+  if(!ttS.setup) ttS.setup=ttSet(); const set=ttS.setup, S=set.days.length*PPD;
+  const P=planLessons({classes:allClasses(),subjectsOf:c=>Object.keys(set.perWeek[tGroup(c)]||{}),group:tGroup,staff:teachersList(),perWeek:set.perWeek,slots:S});
+  const subjRows=g=>Object.entries(set.perWeek[g]||{}).map(([s,n])=>`<tr><td style="text-align:left"><b>${esc(s)}</b></td><td><input class="in" type="number" min="0" max="12" value="${n}" data-pw="${g}|${esc(s)}" style="width:80px"></td><td><button class="btn sec sm" data-pwdel="${g}|${esc(s)}">✕</button></td></tr>`).join("");
+  const addSel=g=>{ const all=SUBJECTS_BY(g==="prim"?"I":"VI").all.filter(s=>!(s in (set.perWeek[g]||{}))); return all.length?`<select class="in" data-pwadd="${g}" style="max-width:200px"><option value="">+ add subject</option>${all.map(s=>`<option>${esc(s)}</option>`).join("")}</select>`:""; };
+  const tot=g=>Object.values(set.perWeek[g]||{}).reduce((a,b)=>a+(+b||0),0);
+  const loadRows=teachersList().map(t=>{ const n=P.load[t.email]||0; return `<tr><td style="text-align:left">${esc(t.name)}</td><td>${n}</td><td>${S}</td><td>${n>S?`<span class="pend">over by ${n-S}</span>`:n>S-4?`<span class="pend">very tight</span>`:`<span class="done">ok</span>`}</td></tr>`; }).join("");
+  return `<div class="card" style="background:#f8f6ff;box-shadow:none;margin:0 0 14px"><h4 style="margin:0 0 8px">1. Working days</h4><div class="apick">${DAYNAMES.slice(1).concat("Sun").map(d=>`<button class="chip ${set.days.includes(d)?"on":""}" data-day="${d}">${d}</button>`).join("")}</div>
+    <h4 style="margin:6px 0 8px">2. Period times (3 periods · break · 3 periods · break · 2 periods)</h4>
+    <div class="tbl-wrap"><table class="pt"><tbody>${set.periods.map((p,i)=>`<tr><td style="text-align:left"><b>${p.brk?esc(p.brk):"Period "+p.n}</b></td><td><input class="in" type="time" value="${esc(p.from)}" data-pt="${i}|from"></td><td><input class="in" type="time" value="${esc(p.to)}" data-pt="${i}|to"></td></tr>`).join("")}</tbody></table></div>
+    <h4 style="margin:12px 0 8px">3. Periods a week for each subject</h4>
+    <div class="two"><div><b>Classes I–V</b> <span class="hint">(${tot("prim")} of ${S} periods)</span><table class="pt"><tbody>${subjRows("prim")}</tbody></table>${addSel("prim")}</div>
+    <div><b>Classes VI–VIII</b> <span class="hint">(${tot("mid")} of ${S} periods)</span><table class="pt"><tbody>${subjRows("mid")}</tbody></table>${addSel("mid")}</div></div>
+    <p class="hint">Periods left over in a week are shown as <b>Activity / Library</b> (games, art, computer and so on).</p></div>
+    <div class="card" style="background:#fff;box-shadow:none;margin:0 0 14px"><h4 style="margin:0 0 8px">4. Teacher load check</h4>
+    ${P.over.length?`<div class="bulk-res" style="margin:0 0 8px">⚠️ ${P.over.map(o=>`<b>${esc(o.name)}</b> needs ${o.need} periods but a week has only ${o.cap}`).join("; ")}. Reduce periods a week or give some classes to another teacher on the Admin page.</div>`:""}
+    ${P.missing.length?`<div class="bulk-res" style="margin:0 0 8px">ℹ️ No teacher set for: ${P.missing.slice(0,20).map(m=>`${esc(m.c)} ${esc(m.s)}`).join(", ")}${P.missing.length>20?" …":""}. These periods are still placed, marked "no teacher".</div>`:""}
+    ${P.doubles.length?`<div class="bulk-res" style="margin:0 0 8px">ℹ️ Two teachers have the same subject and class: ${P.doubles.slice(0,10).map(d=>`${esc(d.c)} ${esc(d.s)} (${d.teachers.map(esc).join(" & ")})`).join(", ")}. The first one is used.</div>`:""}
+    <details><summary class="hint" style="cursor:pointer;font-weight:800">Show every teacher's weekly periods</summary><div class="tbl-wrap"><table class="pt"><thead><tr><th style="text-align:left">Teacher</th><th>Periods needed</th><th>Periods in a week</th><th></th></tr></thead><tbody>${loadRows}</tbody></table></div></details></div>
+    <div class="row" style="justify-content:flex-start"><button class="btn pri" id="ttGen">⚡ Make the timetable</button><button class="btn sec" id="ttSaveSet">💾 Save settings only</button></div><div id="ttGenOut"></div>`;
+}
+let GEN=null;
+function runGenerate(){ const set=ttS.setup, S=set.days.length*PPD, classes=allClasses();
+  const P=planLessons({classes,subjectsOf:c=>Object.keys(set.perWeek[tGroup(c)]||{}),group:tGroup,staff:teachersList(),perWeek:set.perWeek,slots:S});
+  let best=null; for(const seed of [7,11,23]){ const r=schedule({lessons:P.lessons,classes,days:set.days.length,ctOf:ctOfCls,seed}); if(!best||r.unplaced.length<best.unplaced.length||(r.unplaced.length===best.unplaced.length&&r.sameDayCount<best.sameDayCount)) best=r; }
+  GEN=best; const cl=clashes(best.grid).length;
+  $("#ttGenOut").innerHTML=`<div class="bulk-res" style="background:#eafaf4"><b>✓ Timetable ready for ${classes.length} classes.</b><ul>
+    <li>${P.lessons.length-best.unplaced.length} of ${P.lessons.length} periods placed${best.unplaced.length?` · <b>${best.unplaced.length} could not fit</b> (${best.unplaced.slice(0,8).map(u=>esc(u.c+" "+u.s)).join(", ")}${best.unplaced.length>8?" …":""})`:""}</li>
+    <li>Teacher clashes: <b>${cl}</b></li><li>Same subject twice in a day: <b>${best.sameDayCount}</b> times across the school</li></ul>
+    ${TT&&TT.grid?`<p style="margin:6px 0 0">Saving replaces the current timetable, including any periods you moved by hand.</p>`:""}
+    <div class="row" style="justify-content:flex-start"><button class="btn pri" id="ttGenSave">💾 Save and publish timetable</button><button class="btn sec" id="ttGen">🔄 Try again</button></div></div>`; }
+
+/* ----- events ----- */
+document.addEventListener("click",async e=>{
+  const v=$("#v-timetable"); if(!v||!v.contains(e.target)) return;
+  const t=e.target.closest("[data-tt]"); if(t){ ttS.tab=t.dataset.tt; ttS.swap=null; renderTT(); return; }
+  const set=ttSet();
+  // class grid swap
+  const cell=e.target.closest(".ttc.canswap"); if(cell&&ttS.tab==="class"&&isFull()&&TT&&TT.grid){ const k=+cell.dataset.k;
+    if(ttS.swap==null){ ttS.swap=k; renderTT(); return; }
+    if(ttS.swap===k){ ttS.swap=null; renderTT(); return; }
+    const g=ttS.draft||JSON.parse(JSON.stringify(TT.grid)), row=g[ttS.cls], a=ttS.swap, b=k, A=row[a], B=row[b];
+    const busyElse=(em,slot)=>em&&Object.entries(g).find(([c,r])=>c!==ttS.cls&&r[slot]&&r[slot].t===em);
+    const c1=A&&busyElse(A.t,b), c2=B&&busyElse(B.t,a);
+    if(c1||c2){ const x=c1||c2, who=c1?A.t:B.t; toast(`⛔ ${tName(who)} is already teaching ${x[0]} at that time`); ttS.swap=null; renderTT(); return; }
+    row[a]=B; row[b]=A; ttS.draft=g; ttS.swap=null; renderTT(); return; }
+  if(e.target.id==="ttUndo"){ ttS.draft=null; renderTT(); return; }
+  if(e.target.id==="ttSaveSwap"){ try{ await setDoc(doc(db,"timetable",TT_YEAR()),{...TT,grid:ttS.draft,updatedAt:new Date().toISOString(),updatedBy:ME.email}); ttS.draft=null; toast("Timetable saved ✓"); }catch(err){ toast("Couldn't save: "+errMsg(err)); } return; }
+  if(e.target.id==="ttPrint"){ printCards(`<div class="rc" style="padding:12px"><h2 style="margin:0 0 8px">Shivneri Army Public School · Timetable ${esc(TT_YEAR())}</h2><h3 style="margin:0 0 10px">${ttS.tab==="class"?"Class "+esc(ttS.cls):esc(tName(ttS.teacher))}</h3>${$("#ttBody .tbl-wrap").outerHTML}</div>`); return; }
+  // leave
+  if(e.target.id==="lvAdd"){ const from=$("#lvFrom").value, to=$("#lvTo").value||from; if(!from) return toast("Choose the dates"); if(to<from) return toast("'To' can't be before 'From'");
+    const who=isFull()?$("#lvWho").value:ME.email; const d={email:who,from,to,type:$("#lvType").value,reason:$("#lvWhy").value.trim().slice(0,200),status:isFull()?"Approved":"Requested",createdBy:ME.email,createdAt:new Date().toISOString(),sample:!!(STAFF[who]&&STAFF[who].sample)};
+    try{ await setDoc(doc(collection(db,"leaves")),d); toast(isFull()?"Leave saved ✓":"Request sent to the principal ✓"); SUBPLAN=null; }catch(err){ toast("Couldn't save: "+errMsg(err)); } return; }
+  const lb=e.target.closest("[data-lv]"); if(lb){ const id=lb.dataset.id, l=LEAVES[id]; if(!l) return;
+    try{ if(lb.dataset.lv==="del") await deleteDoc(doc(db,"leaves",id)); else { const {id:_x,...rest}=l; await setDoc(doc(db,"leaves",id),{...rest,status:lb.dataset.lv==="ok"?"Approved":"Rejected",decidedBy:ME.email,decidedAt:new Date().toISOString()}); } SUBPLAN=null; toast("Done ✓"); }catch(err){ toast("Couldn't change: "+errMsg(err)); } return; }
+  // substitutes
+  if(e.target.id==="subRe"){ const di=dayIdxOf(ttS.date,set); const absent=new Set(leavesOn(ttS.date).map(l=>l.email)); SUBPLAN={date:ttS.date,...substitutePlan({grid:TT.grid,dayIdx:di,absent,staff:Object.values(STAFF),ctOf:ctOfCls}),saved:false}; renderSubs(); return; }
+  if(e.target.id==="subPub"){ try{ const smp=SUBPLAN.plan.some(p=>STAFF[p.absent]&&STAFF[p.absent].sample); await setDoc(doc(db,"subs",ttS.date),{date:ttS.date,plan:SUBPLAN.plan.map(({options,...p})=>p),acting:SUBPLAN.acting,publishedBy:ME.email,at:new Date().toISOString(),sample:smp}); SUBPLAN.saved=true; toast("Published ✓ Teachers see it in Timetable → Substitutes"); renderSubs(); }catch(err){ toast("Couldn't publish: "+errMsg(err)); } return; }
+  if(e.target.id==="subPrint"){ printCards(`<div class="rc" style="padding:12px"><h2 style="margin:0 0 8px">Substitute plan · ${esc(fmtD(ttS.date))}</h2>${$("#subOut").innerHTML.replace(/<select[\s\S]*?<\/select>/g,m=>{ const s=(m.match(/<option value="([^"]*)" selected>([^<]*)/)||[])[2]; return "<b>"+(s||"—")+"</b>"; }).replace(/<div class="row"[\s\S]*$/,"")}</div>`); return; }
+  // setup
+  const day=e.target.closest("[data-day]"); if(day){ const s=ttS.setup, d=day.dataset.day; s.days=s.days.includes(d)?s.days.filter(x=>x!==d):DAYNAMES.slice(1).concat("Sun").filter(x=>x===d||s.days.includes(x)); renderTT(); return; }
+  const pd=e.target.closest("[data-pwdel]"); if(pd){ const [g,s]=pd.dataset.pwdel.split("|"); delete ttS.setup.perWeek[g][s]; renderTT(); return; }
+  if(e.target.id==="ttGen"){ if(!ttS.setup.days.length) return toast("Choose at least one working day"); $("#ttGenOut").innerHTML='<div class="bulk-res">Working it out…</div>'; setTimeout(runGenerate,30); return; }
+  if(e.target.id==="ttSaveSet"){ try{ await setDoc(doc(db,"timetable",TT_YEAR()),{...(TT||{}),settings:ttS.setup,updatedAt:new Date().toISOString(),updatedBy:ME.email}); toast("Settings saved ✓"); }catch(err){ toast("Couldn't save: "+errMsg(err)); } return; }
+  if(e.target.id==="ttGenSave"&&GEN){ const smp=teachersList().some(t=>t.sample);
+    try{ await setDoc(doc(db,"timetable",TT_YEAR()),{settings:ttS.setup,grid:GEN.grid,generatedAt:new Date().toISOString(),by:ME.email,sample:smp}); GEN=null; ttS.tab="class"; toast("Timetable saved and published ✓"); renderTT(); }catch(err){ toast("Couldn't save: "+errMsg(err)); } return; }
+});
+document.addEventListener("change",e=>{
+  const v=$("#v-timetable"); if(!v||!v.contains(e.target)) return; const id=e.target.id;
+  if(id==="ttCls"){ ttS.cls=e.target.value; ttS.swap=null; ttS.draft=null; renderTT(); }
+  else if(id==="ttTeacher"){ ttS.teacher=e.target.value; renderTT(); }
+  else if(id==="ttDate"){ ttS.date=e.target.value; SUBPLAN=null; renderTT(); }
+  else if(id==="ttPer"){ ttS.per=e.target.value; renderTT(); }
+  else if(e.target.dataset.subi!=null){ const p=SUBPLAN.plan[+e.target.dataset.subi]; p.sub=e.target.value; p.why=p.sub?"chosen by the principal":"no substitute"; SUBPLAN.saved=false; renderSubs(); }
+  else if(e.target.dataset.pw){ const [g,s]=e.target.dataset.pw.split("|"); ttS.setup.perWeek[g][s]=Math.max(0,Math.min(12,+e.target.value||0)); renderTT(); }
+  else if(e.target.dataset.pt){ const [i,f]=e.target.dataset.pt.split("|"); ttS.setup.periods[+i][f]=e.target.value; }
+  else if(e.target.dataset.pwadd){ const g=e.target.dataset.pwadd, s=e.target.value; if(s){ ttS.setup.perWeek[g][s]=2; renderTT(); } }
+});
 
 /* ---------- Progress across exams ---------- */
 const EXAMS=["UT-1","Term I","UT-2","Term II"];
@@ -1988,8 +2185,9 @@ $("#importIn").onchange=async e=>{const f=e.target.files[0]; e.target.value=""; 
   let list, staff=[], hr=[]; try{ const j=JSON.parse(await f.text()); if(Array.isArray(j)) list=j; else if(j&&Array.isArray(j.results)){ list=j.results; staff=Array.isArray(j.staff)?j.staff:[]; hr=Array.isArray(j.hr)?j.hr:[]; } else throw 0; }catch(_){ return toast("That file isn't a results file"); }
   list=list.filter(r=>r&&r.name&&r.roll&&r.std&&r.div&&r.term&&r.year);
   staff=staff.filter(x=>x&&x.email&&x.role); 
-  hr=hr.filter(x=>x&&x.email);
-  if(!list.length&&!staff.length&&!hr.length) return toast("No results found in that file");
+  hr=hr.filter(x=>x&&x.email); let leaves=[]; try{ const j2=JSON.parse(await f.text()); leaves=Array.isArray(j2.leaves)?j2.leaves.filter(x=>x&&x.email&&x.from):[]; }catch(_){}
+  if(leaves.length){ try{ const b=writeBatch(db); leaves.slice(0,300).forEach(x=>b.set(doc(collection(db,"leaves")),{...x,email:String(x.email).toLowerCase()})); await b.commit(); if(!list.length&&!staff.length&&!hr.length) return toast(`Imported ${leaves.length} leave records ✓`); }catch(err){ return toast("Import of leave failed: "+errMsg(err)); } }
+  if(!list.length&&!staff.length&&!hr.length&&!leaves.length) return toast("No results found in that file");
   if(hr.length){ try{ const b=writeBatch(db); hr.slice(0,400).forEach(x=>{ const {email,...h}=x; b.set(doc(db,"staffHR",String(email).toLowerCase()),h); }); await b.commit(); if(!list.length&&!staff.length) return toast(`Imported contract details for ${hr.length} staff ✓`); }catch(err){ return toast("Import of contract details failed: "+errMsg(err)); } }
   if(staff.length){ try{ for(let i=0;i<staff.length;i+=100){ const b=writeBatch(db); staff.slice(i,i+100).forEach(x=>{ const em=String(x.email).toLowerCase(); b.set(doc(db,"staff",em),{...x,email:em}); }); await b.commit(); } }catch(err){ return toast("Import of staff failed: "+errMsg(err)); } }
   toast(`Importing ${list.length} results… please wait`); let skipped=0;
