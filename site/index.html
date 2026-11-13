@@ -872,11 +872,14 @@ function grade(t){ if(t==null||isNaN(t)) return ""; t=Math.round(t*100)/100;
   if(t>=91) return "A+"; if(t>=81) return "A"; if(t>=71) return "B+"; if(t>=61) return "B"; if(t>=51) return "C+"; if(t>=41) return "C"; if(t>=33) return "D"; return "E"; }
 const $ = s=>document.querySelector(s);
 const esc = s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const num = v=>{ if(v===""||v==null) return null; const n=parseFloat(v); return isNaN(n)?null:n; };
+const num = v=>{ if(v===""||v==null) return null; if(typeof v==="number") return isFinite(v)?v:null; return /^\s*-?\d+(\.\d+)?\s*$/.test(String(v))?parseFloat(v):null; };
+const isAB = v=>/^\s*ab\s*$/i.test(String(v??""));
+/* a mark box is fine if empty, a number from 0 to max, or AB (absent) */
+const markBad = (v,max)=>{ if(v==null||String(v).trim()==="") return false; if(isAB(v)) return false; const n=num(v); return n==null||n<0||n>max; };
 const r1 = n=>Math.round(n*10)/10;
 function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("on");clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove("on"),2600)}
 const safeImg=u=>/^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+\/=]+$/.test(String(u||""))?u:"";
-const normName=n=>String(n||"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
+const normName=n=>String(n||"").toLowerCase().replace(/[^\p{L}\p{M}\p{N}]+/gu," ").trim();
 function idFor(r){return [r.year,r.term,r.std,r.div,r.roll,normName(r.name).replace(/ /g,"-")].join("_").replace(/[^A-Za-z0-9_\-]/g,"-")}
 
 /* ---------- Store: Firebase ---------- */
@@ -906,7 +909,7 @@ async function saveRecord(id,store){
 /* Stored shape: marks is a map keyed by subject, so the database rules can check which subjects a teacher changed. */
 const MK=["pe","nb","sea","hy","ut","tot"];
 function fromStore(d,id){ const r={...d,id:id||d.id}; if(d.marks){ const names=d.subjectList||Object.keys(d.marks); r.subjects=names.map(n=>({name:n,...(d.marks[n]||{})})); } r._raw=d; return r; }
-function markOf(s){ const o={}; MK.forEach(k=>o[k]=num(s[k])); return o; }
+function markOf(s){ const o={}; MK.forEach(k=>o[k]=isAB(s[k])?"AB":num(s[k])); return o; }
 function sameMarks(a,b){ return MK.every(k=>((a&&a[k]!=null)?a[k]:null)===((b&&b[k]!=null)?b[k]:null)); }
 function buildStore(r,orig){
   const raw=(orig&&orig._raw)||null, rawMarks=(raw&&raw.marks)||{}, cls=r.std+"-"+r.div;
@@ -1007,7 +1010,7 @@ const isUT=t=>/^UT/.test(t||"");
 function compsFor(r){return isUT(r.term)?[{k:"ut",l:"Marks",max:+r.utMax||20}]:COMP;}
 function outOf(r){return isUT(r.term)?(+r.utMax||20):100;}
 function formCtx(){return {term:$("#fTerm").value,utMax:num($("#fUtMax").value)||20};}
-function calcTotal(s,ctx){ ctx=ctx||formCtx(); const cs=compsFor(ctx); const v=cs.map(c=>num(s[c.k])); if(v.every(x=>x==null)) return null; const raw=Math.round(v.reduce((a,b)=>a+(b||0),0)*100)/100; if(isUT(ctx.term)) return r1(raw); return Number.isInteger(raw*2)?raw:Math.round(raw); }
+function calcTotal(s,ctx){ ctx=ctx||formCtx(); const cs=compsFor(ctx); const v=cs.map(c=>isAB(s[c.k])?0:num(s[c.k])); if(v.every(x=>x==null)&&!cs.some(c=>isAB(s[c.k]))) return null; const raw=Math.round(v.reduce((a,b)=>a+(b||0),0)*100)/100; if(isUT(ctx.term)) return r1(raw); return Number.isInteger(raw*2)?raw:Math.round(raw); }
 function subjTotal(s,ctx){ ctx=ctx||formCtx(); if(!isUT(ctx.term)){const o=num(s.tot); if(o!=null) return o;} return calcTotal(s,ctx); }
 function subjGrade(t,ctx){ return t==null?"":grade(t/outOf(ctx)*100); }
 const rowTotal=s=>subjTotal(s);
@@ -1024,13 +1027,15 @@ function renderMarks(){
     return `<tr data-i="${i}"><td>${esc(s.name)}${ok?"":'<span class="lock" title="View only">🔒</span>'}${s.by?`<span class="by">by ${esc(staffName(s.by))}</span>`:""}</td>${cs.map(c=>`<td><input inputmode="decimal" data-k="${c.k}" data-max="${c.max}" value="${esc(s[c.k]??"")}" placeholder="–" ${dis}></td>`).join("")}
       ${ut?`<td class="tot pctc">${t!=null?r1(t/out*100)+"%":"–"}</td>`:`<td><input class="totin" data-k="tot" data-max="100" value="${esc(s.tot??"")}" placeholder="${calcTotal(s,ctx)??"–"}" title="Worked out automatically. Type a number only to override it." ${dis}></td>`}<td>${gp(g)}</td></tr>`;
   }).join("");
-  updateSum(); applyPerms();
+  updateSum(); applyPerms(); checkAllMarks();
 }
+function checkAllMarks(){ let n=0; document.querySelectorAll("#marksBody input[data-k]").forEach(i=>{ const b=markBad(i.value,+i.dataset.max); i.classList.toggle("bad",b); if(b) n++; }); return n; }
 $("#marksBody").addEventListener("input",e=>{
   const inp=e.target; if(!inp.dataset.k) return;
   const ctx=formCtx(), i=+inp.closest("tr").dataset.i, s=subjects[i];
   s[inp.dataset.k]=inp.value;
-  const v=num(inp.value); inp.classList.toggle("bad", v!=null && (v<0||v>+inp.dataset.max));
+  inp.classList.toggle("bad", markBad(inp.value,+inp.dataset.max)); inp.title=inp.classList.contains("bad")?`Type a number from 0 to ${inp.dataset.max}, or AB if absent`:"";
+  if(inp.dataset.k!=="tot"&&s.tot!==""&&s.tot!=null){ s.tot=""; const t0=inp.closest("tr").querySelector(".totin"); if(t0) t0.value=""; toast("The typed total was cleared because a mark changed"); }
   const tr=inp.closest("tr"), t=subjTotal(s,ctx), g=subjGrade(t,ctx);
   const ti=tr.querySelector(".totin"); if(ti&&inp.dataset.k!=="tot") ti.placeholder=calcTotal(s,ctx)??"–";
   const pc=tr.querySelector(".pctc"); if(pc) pc.textContent=t!=null?r1(t/outOf(ctx)*100)+"%":"–";
@@ -1106,7 +1111,7 @@ function collect(){
     gender:$("#fGender").value, father:$("#fFather").value.trim(), mother:$("#fMother").value.trim(),
     category:cat, branch:cat==="Serving"?$("#fBranch").value:"", branchOther:cat==="Serving"&&$("#fBranch").value==="Others"?$("#fBranchOther").value.trim():"", rank:cat==="Serving"?$("#fRank").value.trim():"",
     photo:photo||"",
-    subjects:subjects.map(s=>({name:s.name,pe:num(s.pe),nb:num(s.nb),sea:num(s.sea),hy:num(s.hy),ut:num(s.ut),tot:num(s.tot)})),
+    subjects:subjects.map(s=>({name:s.name,...markOf(s)})),
     utMax:isUT($("#fTerm").value)?(num($("#fUtMax").value)||20):null,
     nonScholastic:ns.map(x=>({name:x.name,grade:x.grade})),
     workDays:num($("#fWork").value), attended:num($("#fAtt").value), height:num($("#fHt").value), weight:num($("#fWt").value),
@@ -1116,7 +1121,7 @@ function collect(){
   r.id=idFor(r); return r;
 }
 const vStr=v=>v==null?"":String(v);
-function loadIntoForm(r){
+function loadIntoForm(r){ openedAt=((r&&(r._raw||r).updatedAt)||""); staleOK=null;
   editingId=r.id;
   $("#fYear").value=r.year;$("#fTerm").value=r.term;$("#fStd").value=r.std;$("#fDiv").value=r.div;
   $("#fRoll").value=r.roll||"";$("#fName").value=r.name||"";$("#fAdm").value=r.adm||"";$("#fDob").value=r.dob||"";
@@ -1142,8 +1147,9 @@ function clearForm(keepClass=true){
   resetSubjects(); resetNS(); renderClassList();
 }
 $("#newBtn").onclick=()=>clearForm(true);
-$("#fStd").addEventListener("change",()=>{ if(!editingId) resetSubjects(); else renderSubjPick(); renderMarks(); renderClassList(); });
-$("#fDiv").addEventListener("change",()=>{ renderMarks(); });
+function classChanged(){ if(editingId){ const old=RECORDS[editingId]; openedAt=null; const keep=["#fYear","#fTerm","#fStd","#fDiv"].map(x=>[x,$(x).value]); clearForm(true); keep.forEach(([x,v])=>{ if(x==="#fDiv") syncDiv("#fStd","#fDiv"); $(x).value=v; }); toast(`New entry for Class ${$("#fStd").value}-${$("#fDiv").value}. ${old?old.name+"'s result was not changed.":""}`); } }
+$("#fStd").addEventListener("change",()=>{ classChanged(); resetSubjects(); renderMarks(); renderClassList(); });
+$("#fDiv").addEventListener("change",()=>{ classChanged(); renderMarks(); renderClassList(); });
 ["#fYear","#fTerm","#fDiv"].forEach(s=>$(s).addEventListener("change",renderClassList));
 
 $("#entry").addEventListener("submit",async e=>{
@@ -1151,7 +1157,9 @@ $("#entry").addEventListener("submit",async e=>{
   if(!canWrite) return toast("Please sign in to save results");
   const r=collect();
   if(!r.roll||!r.name) return toast("Roll no. and name are required");
-  const bad=document.querySelector("table.marks input.bad"); if(bad){bad.focus(); return toast("A mark is above its maximum");}
+  if(checkAllMarks()){ const bad=document.querySelector("#marksBody input.bad"); if(bad) bad.focus(); return toast("A mark is above its maximum or isn't a number. Use AB for absent."); }
+  if(!(r.roll>=1)) return toast("Roll no. must be 1 or more");
+  if(editingId&&RECORDS[editingId]&&openedAt!==null&&((RECORDS[editingId]._raw||RECORDS[editingId]).updatedAt||"")!==openedAt&&staleOK!==editingId){ const who=(RECORDS[editingId]._raw||{}).updatedBy; staleOK=editingId; return toast(`${who?staffName(who):"Someone"} changed this student's result after you opened it. Press Save again to overwrite, or reopen the student to see their changes.`); }
   if(r.attended!=null&&r.workDays!=null&&r.attended>r.workDays) return toast("Days attended can't exceed working days");
   if(r.category==="Serving"&&!r.branch) return toast("Please pick the service (Army, Air Force, Navy, PMF, Others)");
   if(r.category==="Serving"&&r.branch==="Others"&&!r.branchOther) return toast("Please mention the service");
@@ -1169,12 +1177,12 @@ $("#entry").addEventListener("submit",async e=>{
   try{
     await saveRecord(newId,store);
     if(details&&editingId&&editingId!==newId) await deleteRecord(editingId);
-    editingId=newId; toast(`Saved ✓ ${r.name} (Roll ${r.roll})`);
+    editingId=newId; openedAt=store.updatedAt||""; staleOK=null; toast(`Saved ✓ ${r.name} (Roll ${r.roll})`);
     renderClassList(); renderMarks();
   }catch(err){ toast("Couldn't save: "+errMsg(err)); }
   finally{ applyPerms(); }
 });
-let replaceOK=null;
+let replaceOK=null, openedAt=null, staleOK=null;
 function confirmReplace(r){ if(replaceOK===r.id){replaceOK=null;return true;} replaceOK=r.id; toast(`Roll ${r.roll} already saved – press Save again to replace it`); return false; }
 
 /* Class list */
@@ -1250,7 +1258,7 @@ $("#bkIn").onchange=async e=>{ const f=e.target.files[0]; e.target.value=""; if(
     const rec=list.find(x=>+x.roll===roll&&normName(x.name)===normName(name));
     if(!rec){ errs.push(`Row ${i+1}: roll ${esc(r[0])} ${esc(name)} is not in ${esc(cls)}.`); return; }
     const vals={}; let bad=false;
-    C.forEach((c,j)=>{ const raw=(r[2+j]||"").replace(/^'/,""); if(raw===""||/^(ab|absent|-)$/i.test(raw)){ vals[c.k]=null; return; } const v=Number(raw);
+    C.forEach((c,j)=>{ const raw=(r[2+j]||"").replace(/^'/,""); if(raw===""||raw==="-"){ vals[c.k]=null; return; } if(/^(ab|absent)$/i.test(raw)){ vals[c.k]="AB"; return; } const v=Number(raw);
       if(!isFinite(v)||v<0||v>c.max){ errs.push(`Row ${i+1} (${esc(name)}): ${esc(c.l)} “${esc(raw)}” must be a number from 0 to ${c.max}.`); bad=true; } else vals[c.k]=Math.round(v*100)/100; });
     if(!bad) todo.push({rec,vals}); });
   const out=$("#bkOut");
@@ -1272,7 +1280,7 @@ function ring(pct,color,label,sub){
   const R=40,C=2*Math.PI*R,o=C*(1-Math.min(100,Math.max(0,pct||0))/100);
   return `<div class="ring"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="${R}" fill="none" stroke="#f0edfb" stroke-width="11"/><circle cx="50" cy="50" r="${R}" fill="none" stroke="${color}" stroke-width="11" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${o}" transform="rotate(-90 50 50)"/><text x="50" y="50" text-anchor="middle" font-family="Baloo 2" font-weight="800" font-size="20" fill="#1f1d3a">${esc(label)}</text><text x="50" y="66" text-anchor="middle" font-family="Nunito" font-weight="700" font-size="10" fill="#6b6890">${esc(sub)}</text></svg></div>`;
 }
-const fmt=v=>v==null?"–":(Number.isInteger(v)?v:r1(v));
+const fmt=v=>v==null?"–":isAB(v)?"AB":(Number.isInteger(+v)?+v:r1(+v));
 function reportCard(r){
   const CS=compsFor(r), OUT=outOf(r), UT=isUT(r.term);
   const rows=(r.subjects||[]).map(s=>{const t=subjTotal(s,r);return {...s,t,g:subjGrade(t,r)}});
@@ -1296,7 +1304,7 @@ function reportCard(r){
       <div class="rc-grid">
         <div><h4>📘 Scholastic areas</h4>
           <div class="tbl-wrap"><table class="rct"><thead><tr><th>Subject</th>${UT?"":CS.map(c=>`<th>${c.l}<small>${c.max}</small></th>`).join("")}<th>${UT?"Marks":"Total"}<small>${OUT}</small></th><th>Grade</th></tr></thead>
-          <tbody>${rows.map(s=>`<tr><td>${esc(s.name)}</td>${UT?"":CS.map(c=>`<td>${fmt(s[c.k])}</td>`).join("")}<td><b>${s.t??"–"}</b></td><td>${s.g?`<span class="gpill" style="background:${GCOL[s.g]}">${s.g}</span>`:"–"}</td></tr>`).join("")||`<tr><td colspan="7" class="empty">No subjects</td></tr>`}
+          <tbody>${rows.map(s=>`<tr><td>${esc(s.name)}</td>${UT?"":CS.map(c=>`<td>${fmt(s[c.k])}</td>`).join("")}<td><b>${compsFor(r).every(c=>isAB(s[c.k]))?"AB":(s.t??"–")}</b></td><td>${s.g?`<span class="gpill" style="background:${GCOL[s.g]}">${s.g}</span>`:"–"}</td></tr>`).join("")||`<tr><td colspan="7" class="empty">No subjects</td></tr>`}
           ${max?`<tr><td>Grand total</td>${UT?"":`<td colspan="${CS.length}"></td>`}<td><b>${tot}/${max}</b></td><td><span class="gpill" style="background:${GCOL[grade(pct)]}">${grade(pct)}</span></td></tr>`:""}</tbody></table></div>
         </div>
         <div><h4>📊 Subject-wise score</h4>
@@ -1324,6 +1332,7 @@ $("#lookup").addEventListener("submit",async e=>{
   if(!db){ out.innerHTML=`<div class="card" style="margin-top:22px;text-align:center"><h3>Results aren't online yet</h3><p style="color:var(--muted)">Please try again later.</p></div>`; return; }
   const btn=e.submitter; if(btn){btn.disabled=true;btn.textContent="Searching…";}
   let r=null;
+  if(!normName(q.name)) return toast("Please type the student's name");
   try{ const k=await reportKey(q); const d=k?await getDoc(doc(db,"reports",k)):null; if(d&&d.exists()) r=fromStore(d.data(),idFor(q)); }
   catch(err){ out.innerHTML=`<div class="card" style="margin-top:22px;text-align:center"><h3>Couldn't connect</h3><p style="color:var(--muted)">${esc(errMsg(err))}</p></div>`; }
   finally{ if(btn){btn.disabled=false;btn.textContent="🔍 Show report card";} }
@@ -1389,7 +1398,7 @@ function renderHome(){
   $("#prMsg").textContent=HOME.message||DEFAULT_PR.message;
   $("#prName").textContent=HOME.name||DEFAULT_PR.name;
   const pp=$("#prPhoto"); pp.classList.toggle("has",!!HOME.photo); pp.innerHTML=HOME.photo?`<img src="${safeImg(HOME.photo)}" alt="Principal">`:"Passport<br>photo";
-  $("#schoolImg").style.display=SCHOOL_PHOTO?"block":"none"; if(SCHOOL_PHOTO) $("#schoolImg").src=SCHOOL_PHOTO;
+  $("#schoolImg").style.display=SCHOOL_PHOTO?"block":"none"; if(SCHOOL_PHOTO) $("#schoolImg").src=safeImg(SCHOOL_PHOTO);
   $("#schoolPhEmpty").style.display=SCHOOL_PHOTO?"none":"flex";
 }
 async function writeConfig(id,data){ await setDoc(doc(db,"config",id),data); }
@@ -1907,6 +1916,10 @@ document.addEventListener("change",e=>{
   else if(e.target.dataset.pwadd){ const g=e.target.dataset.pwadd, s=e.target.value; if(s){ ttS.setup.perWeek[g][s]=2; renderTT(); } }
 });
 
+document.addEventListener("keydown",e=>{ if(e.key!=="Escape") return; const m=[...document.querySelectorAll(".modal.on")].pop(); if(m){ m.classList.remove("on"); e.preventDefault(); } });
+new MutationObserver(ms=>ms.forEach(m=>{ const el=m.target; if(el.classList&&el.classList.contains("modal")&&el.classList.contains("on")&&!el.contains(document.activeElement)){ const f=el.querySelector("input:not([disabled]),select,textarea,button"); if(f) setTimeout(()=>f.focus(),30); } })).observe(document.body,{subtree:true,attributes:true,attributeFilter:["class"]});
+document.addEventListener("keydown",e=>{ if(e.key!=="Tab") return; const m=[...document.querySelectorAll(".modal.on")].pop(); if(!m) return; const f=[...m.querySelectorAll("input:not([disabled]),select,textarea,button:not([disabled]),a[href]")].filter(x=>x.offsetParent); if(!f.length) return; const a=f[0], z=f[f.length-1]; if(e.shiftKey&&document.activeElement===a){ z.focus(); e.preventDefault(); } else if(!e.shiftKey&&document.activeElement===z){ a.focus(); e.preventDefault(); } });
+
 /* ---------- Progress across exams ---------- */
 const EXAMS=["UT-1","Term I","UT-2","Term II"];
 const EXLABEL={"UT-1":"UT-I","Term I":"Term I","UT-2":"UT-II","Term II":"Term II (Final)"}; const lab=t=>EXLABEL[t]||t;
@@ -2320,8 +2333,9 @@ $("#importIn").onchange=async e=>{const f=e.target.files[0]; e.target.value=""; 
     toast(`Imported ${list.length-skipped} results`+(skipped?` (${skipped} were already saved)`:"")+(staff.length?` and ${staff.length} staff`:"")+" ✓"); }catch(err){ toast("Import failed: "+errMsg(err)); }};
 renderHome();
 
-$("#fName").addEventListener("blur",()=>{$("#fName").value=$("#fName").value.trim().replace(/\s+/g," ").toLowerCase().replace(/(^|[\s.\-])([a-z])/g,(m,a,b)=>a+b.toUpperCase());});
-$("#qName").addEventListener("blur",()=>{$("#qName").value=$("#qName").value.trim().replace(/\s+/g," ").toLowerCase().replace(/(^|[\s.\-])([a-z])/g,(m,a,b)=>a+b.toUpperCase());});
+const capName=v=>v.trim().replace(/\s+/g," ").split(" ").map(w=>(w===w.toLowerCase()||w===w.toUpperCase())?w.toLowerCase().replace(/(^|[.\-'’])(\p{L})/gu,(m,a,b)=>a+b.toUpperCase()):w).join(" ");
+$("#fName").addEventListener("blur",()=>{$("#fName").value=capName($("#fName").value);});
+$("#qName").addEventListener("blur",()=>{$("#qName").value=capName($("#qName").value);});
 /* init */
 renderStSubj(); renderCP(); resetSubjects(); resetNS(); renderClassList(); renderStats(); route(); showGate("gSignin");
 $("#fRoll").value=1;
