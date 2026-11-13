@@ -450,6 +450,7 @@ td.ttc b{display:block;font-size:13px}td.ttc small{display:block;font-size:11px;
 td.ttc.canswap{cursor:pointer}td.ttc.sel{outline:3px solid #7b5cff;outline-offset:-2px}
 @media print{table.tt{min-width:0;font-size:10px}}
 tr.past td{opacity:.55}
+table.pt.duty td{font-size:13px;padding:6px 6px}
 </style>
 </head>
 <body>
@@ -1614,6 +1615,7 @@ $("#delSample").onclick=()=>{ const ids=Object.keys(RECORDS).filter(id=>RECORDS[
   confirmBox("Delete sample data?",`This deletes ${ids.length} dummy results and ${sids.length} dummy teachers. Real results and real staff are not touched.`,"Delete",async()=>{ try{
     const rk=(await Promise.all(ids.map(id=>reportKey(RECORDS[id]._raw||RECORDS[id])))).filter(Boolean);
     let extra=[]; try{ const [lv,sb,tt]=await Promise.all([getDocs(collection(db,"leaves")),getDocs(collection(db,"subs")),getDocs(collection(db,"timetable"))]);
+      try{ const du=await getDocs(collection(db,"duties")); du.forEach(d=>{ if(d.data().sample) extra.push(["duties",d.id]); }); }catch(_){}
       lv.forEach(d=>{ if(d.data().sample) extra.push(["leaves",d.id]); }); sb.forEach(d=>{ if(d.data().sample) extra.push(["subs",d.id]); }); tt.forEach(d=>{ if(d.data().sample) extra.push(["timetable",d.id]); }); }catch(_){}
     const ops=[...ids.map(id=>["results",id]),...rk.map(k=>["reports",k]),...sids.map(id=>["staff",id]),...sids.map(id=>["staffHR",id]),...extra];
     for(let i=0;i<ops.length;i+=100){ const b=writeBatch(db); ops.slice(i,i+100).forEach(([c,id])=>b.delete(doc(db,c,id))); await b.commit(); }
@@ -1627,7 +1629,7 @@ $("#delOld").onclick=()=>{ const ids=Object.keys(RECORDS).filter(id=>!(RECORDS[i
 
 /* ================= Timetable, leave planning and substitutes ================= */
 const TT_YEAR=()=>YEARS[0];
-let TT=null, unsubTT=null, LEAVES={}, unsubLV=null, SUBDOC=null, SUBPLAN=null, CAL=null, unsubCAL=null, calDraft=null;
+let DUTY=null, unsubDUTY=null, dutyDraft=null, TT=null, unsubTT=null, LEAVES={}, unsubLV=null, SUBDOC=null, SUBPLAN=null, CAL=null, unsubCAL=null, calDraft=null;
 const ttS={tab:"",cls:"I-A",teacher:"",date:"",swap:null,draft:null,setup:null};
 const DAYNAMES=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const todayISO=()=>{ const d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); };
@@ -1646,10 +1648,11 @@ function leaveDays(from,to){ return workingDays(from,to||from,ttSet().days,calDa
 function leavesOn(date){ return Object.values(LEAVES).filter(l=>l.status==="Approved"&&l.from<=date&&date<=(l.to||l.from)); }
 function startTT(){ if(!db||!ME) return;
   if(!unsubTT) unsubTT=onSnapshot(doc(db,"timetable",TT_YEAR()),d=>{ TT=d.exists()?d.data():null; if(location.hash==="#timetable") renderTT(); },()=>{});
+  if(!unsubDUTY) unsubDUTY=onSnapshot(doc(db,"duties",TT_YEAR()),d=>{ DUTY=d.exists()?d.data():null; if(location.hash==="#timetable"&&ttS.tab==="exam"&&!dutyDraft) renderTT(); },()=>{});
   if(!unsubCAL) unsubCAL=onSnapshot(doc(db,"calendar",TT_YEAR()),d=>{ CAL=d.exists()?d.data():null; if(location.hash==="#timetable"&&!calDraft) renderTT(); },()=>{});
   if(!unsubLV){ const q=isFull()?collection(db,"leaves"):query(collection(db,"leaves"),where("email","==",ME.email));
     unsubLV=onSnapshot(q,snap=>{ const n={}; snap.forEach(d=>n[d.id]={...d.data(),id:d.id}); LEAVES=n; if(location.hash==="#timetable") renderTT(); },()=>{}); } }
-function stopTT(){ ttS.tab=""; ttS.teacher=""; ttS.cls="I-A"; ttS.setup=null; if(unsubCAL){unsubCAL();unsubCAL=null;} calDraft=null; if(unsubTT){unsubTT();unsubTT=null;} if(unsubLV){unsubLV();unsubLV=null;} TT=null; LEAVES={}; SUBDOC=null; SUBPLAN=null; }
+function stopTT(){ if(unsubDUTY){unsubDUTY();unsubDUTY=null;} DUTY=null; dutyDraft=null; ttS.tab=""; ttS.teacher=""; ttS.cls="I-A"; ttS.setup=null; if(unsubCAL){unsubCAL();unsubCAL=null;} calDraft=null; if(unsubTT){unsubTT();unsubTT=null;} if(unsubLV){unsubLV();unsubLV=null;} TT=null; LEAVES={}; SUBDOC=null; SUBPLAN=null; }
 
 function ttTable(set,cell){ // cell(dayIdx,periodIdx) -> html
   const cols=set.periods;
@@ -1659,7 +1662,7 @@ const SUBCOL={English:"#e9e3ff",Hindi:"#ffe6ee",Mathematics:"#e1f5ff",EVS:"#e3f9
 
 function renderTT(){
   const box=$("#ttBody"); if(!box) return; if(!ME){ box.innerHTML=""; return; }
-  const full=isFull(), tabs=full?[["today","📍 Today"],["class","📅 Classes"],["teacher","👩‍🏫 Teachers"],["leave","🏖 Leave"],["cal","📆 Calendar"],["setup","✨ Set up"]]:[["mine","🙋 My week"],["class","📅 Classes"],["leave","🏖 My leave"],["cal","📆 Calendar"]];
+  const full=isFull(), tabs=full?[["today","📍 Today"],["class","📅 Classes"],["teacher","👩‍🏫 Teachers"],["leave","🏖 Leave"],["exam","📝 Exams"],["cal","📆 Calendar"],["setup","✨ Set up"]]:[["mine","🙋 My week"],["class","📅 Classes"],["leave","🏖 My leave"],["exam","📝 Exams"],["cal","📆 Calendar"]];
   if(!ttS.tab||!tabs.some(t=>t[0]===ttS.tab)) ttS.tab=full?((!TT||!(CAL&&(CAL.holidays||[]).length))?"setup":"today"):"mine";
   if(!ttS.teacher) ttS.teacher=ME.role==="teacher"?ME.email:((teachersList()[0]||{}).email||"");
   if(!ttS.date) ttS.date=todayISO();
@@ -1718,6 +1721,7 @@ function renderTT(){
   }
   else if(ttS.tab==="setup"&&full){ body=wizardHTML()+`<details style="margin-top:14px"${ttS.adv?" open":""}><summary style="cursor:pointer;font-weight:800;font-size:16px" data-adv="1">⚙️ Change the rules (periods a week, timings, days, fixed periods)</summary><div style="margin-top:10px">${setupHTML()}</div></details>`; }
   else if(ttS.tab==="cal"){ body=calHTML(full); }
+  else if(ttS.tab==="exam"){ body=examHTML(full); }
   box.innerHTML=`<div class="title-row"><h2>🗓 Timetable & calendar</h2><span class="hint">${esc(TT_YEAR())}</span></div>${head}${body}`;
 }
 
@@ -1804,6 +1808,63 @@ function setupHTML(){
     <details><summary class="hint" style="cursor:pointer;font-weight:800">Show every teacher's weekly periods</summary><div class="tbl-wrap"><table class="pt"><thead><tr><th style="text-align:left">Teacher</th><th>Periods needed</th><th>Periods in a week</th><th></th></tr></thead><tbody>${loadRows}</tbody></table></div></details></div>
     <div class="row" style="justify-content:flex-start"><button class="btn pri" id="ttGen">⚡ Make the timetable</button><button class="btn sec" id="ttSaveSet">💾 Save settings only</button></div><div id="ttGenOut"></div>`;
 }
+/* ----- exams: date sheet and invigilation duty ----- */
+const EXLONG={"UT-1":"Unit Test I","Term I":"Term I","UT-2":"Unit Test II","Term II":"Term II (Final)"};
+function examTime(e,d){ return (d&&d.time)||(String(e.key).startsWith("UT")?"08:30 – 09:30":"08:30 – 10:30"); }
+function dayName(iso){ return new Date(iso+"T00:00:00").toLocaleDateString("en-IN",{weekday:"long"}); }
+/* Pick one invigilator per class for every paper: not on leave that day, not the teacher of that
+   subject in that class, not the class's own class teacher, one room each, duties shared evenly.
+   The coordinator is kept free as the reserve (relief) where possible. */
+function assignDuty(e){
+  const classes=allClasses(), staff=Object.values(STAFF).filter(t=>t.role==="teacher"), count={}, out={dates:{}};
+  staff.forEach(t=>count[t.email]=0);
+  (e.sheet||[]).forEach((row,ri)=>{ const date=row.date, off=new Set(leavesOn(date).map(l=>l.email)), used=new Set(), map={};
+    const subj=c=>String(row[STDS.indexOf(c.split("-")[0])<=4?"I–V":"VI–VIII"]||"").split(" + ");
+    const coord=staff.find(t=>t.coordinator&&!off.has(t.email));
+    // hardest rooms first (fewest possible invigilators)
+    const opts=c=>staff.filter(t=>!off.has(t.email)&&!(t.classTeacher||[]).includes(c)&&!subj(c).some(sb=>teachesIn(t,c).includes(sb))&&!(coord&&t.email===coord.email));
+    [...classes].sort((a,b)=>opts(a).length-opts(b).length).forEach((c,i)=>{
+      const o=opts(c).filter(t=>!used.has(t.email)).sort((a,b)=>(count[a.email]-count[b.email])||((a.email+date).length%3-(b.email+date).length%3)||a.name.localeCompare(b.name));
+      let pick=o[0]; if(!pick&&coord&&!used.has(coord.email)) pick=coord;
+      if(pick){ map[c]=pick.email; used.add(pick.email); count[pick.email]++; } else map[c]=""; });
+    const spare=staff.filter(t=>!off.has(t.email)&&!used.has(t.email)).sort((a,b)=>(b.coordinator?1:0)-(a.coordinator?1:0)||count[a.email]-count[b.email]);
+    map._reserve=spare[0]?spare[0].email:""; map._off=[...off];
+    out.dates[date]=map; });
+  return out; }
+function examHTML(full){
+  const C=calData(), ex=C.exams||[];
+  if(!ex.length) return `<div class="empty">Exam dates aren't planned yet.${full?" Open <b>✨ Set up</b> and press one button.":""}</div>`;
+  if(!ttS.exam||!ex.some(x=>x.key===ttS.exam)){ const t=todayISO(); ttS.exam=(ex.find(x=>x.to>=t)||ex[ex.length-1]).key; }
+  const e=ex.find(x=>x.key===ttS.exam), D=(dutyDraft&&dutyDraft[e.key])||(DUTY&&DUTY[e.key])||null, classes=allClasses();
+  const groups=Object.keys(e.sheet[0]||{}).filter(k=>k!=="date");
+  const pick=`<div class="apick">${ex.map(x=>`<button class="chip ${x.key===e.key?"on":""}" data-exam="${esc(x.key)}">${esc(EXLONG[x.key]||x.label)} · ${fmtD(x.from).replace(/ \d{4}$/,"")}</button>`).join("")}</div>`;
+  const sheet=`<div class="tbl-wrap"><table class="pt"><thead><tr><th>Date</th><th>Day</th>${groups.map(g=>`<th>Classes ${esc(g)}</th>`).join("")}<th>Time</th></tr></thead><tbody>${e.sheet.map(r=>`<tr><td><b>${fmtD(r.date)}</b></td><td>${esc(dayName(r.date))}</td>${groups.map(g=>`<td>${esc(r[g]||"–")}</td>`).join("")}<td>${esc(examTime(e,D))}</td></tr>`).join("")}</tbody></table></div>`;
+  let duty="";
+  if(full||D&&D.published){
+    if(!D) duty=`<div class="empty">Invigilation duty not assigned yet.</div>`;
+    else { const cnt={}; Object.values(D.dates||{}).forEach(m=>Object.entries(m).forEach(([k,v])=>{ if(!k.startsWith("_")&&v) cnt[v]=(cnt[v]||0)+1; }));
+      const cell=(date,c)=>{ const v=(D.dates[date]||{})[c]||""; return full&&!D.published?`<select class="in" data-duty="${esc(date)}|${esc(c)}" style="min-width:150px;font-size:13px;padding:6px">${`<option value="">—</option>`+Object.values(STAFF).filter(t=>t.role==="teacher").map(t=>`<option value="${esc(t.email)}" ${t.email===v?"selected":""}>${esc(t.name)}</option>`).join("")}</select>`:esc(tName(v)||"—"); };
+      duty=`<div class="tbl-wrap"><table class="pt duty"><thead><tr><th>Date</th>${classes.map(c=>`<th>${esc(c)}</th>`).join("")}<th>Reserve</th></tr></thead><tbody>${e.sheet.map(r=>`<tr><td style="white-space:nowrap"><b>${fmtD(r.date).replace(/ \d{4}$/,"")}</b></td>${classes.map(c=>`<td>${cell(r.date,c)}</td>`).join("")}<td>${esc(tName((D.dates[r.date]||{})._reserve)||"—")}</td></tr>`).join("")}</tbody></table></div>
+      ${e.sheet.some(r=>((D.dates[r.date]||{})._off||[]).length)?`<p class="hint" style="margin:6px 0 0">On leave, so not given duty: ${e.sheet.filter(r=>((D.dates[r.date]||{})._off||[]).length).map(r=>`${fmtD(r.date).replace(/ \d{4}$/,"")}: ${(D.dates[r.date]._off).map(tName).map(esc).join(", ")}`).join(" · ")}</p>`:""}
+      <h4 style="margin:14px 0 6px">Duties per teacher</h4><p style="font-size:15px;line-height:1.7">${Object.values(STAFF).filter(t=>t.role==="teacher").sort((a,b)=>(cnt[b.email]||0)-(cnt[a.email]||0)).map(t=>`${esc(t.name)} <b>${cnt[t.email]||0}</b>`).join(" · ")}</p>`; } }
+  const mine=!full&&D&&D.published?(()=>{ const m=e.sheet.map(r=>({r,c:Object.entries(D.dates[r.date]||{}).find(([k,v])=>!k.startsWith("_")&&v===ME.email),res:(D.dates[r.date]||{})._reserve===ME.email})).filter(x=>x.c||x.res);
+     return `<h4 style="margin:14px 0 6px">🧑‍🏫 Your invigilation duty</h4>${m.length?`<ul class="alist hi">${m.map(x=>`<li><b>${fmtD(x.r.date)}</b> · ${x.c?`Class <b>${esc(x.c[0])}</b>`:"Reserve (relief)"} · ${esc(examTime(e,D))}</li>`).join("")}</ul>`:'<div class="empty">No invigilation duty for you in this exam. 👍</div>'}`; })():"";
+  return `${pick}${mine}
+   <div class="card" style="box-shadow:none;background:#fbfaff;margin:8px 0"><h3 style="margin:0 0 4px">📝 ${esc(EXLONG[e.key]||e.label)} · date sheet</h3><p class="hint" style="margin:0 0 8px">${fmtD(e.from)} – ${fmtD(e.to)} · reporting time 15 minutes before the paper</p>${sheet}
+   ${full?`<label class="f" style="max-width:260px;margin-top:10px">Exam time<input class="in" id="exTime" value="${esc(examTime(e,D))}"></label>`:""}</div>
+   ${full||D&&D.published?`<div class="card" style="box-shadow:none;background:#fbfaff;margin:8px 0"><h3 style="margin:0 0 4px">🧑‍🏫 Invigilation duty</h3><p class="hint" style="margin:0 0 8px">One teacher per class for each paper. Nobody invigilates their own subject or their own class, and teachers on leave are left out. The coordinator is kept as the reserve.${D&&D.published?' <span class="done">✓ Published to teachers</span>':""}</p>${duty}</div>`:""}
+   <div class="row" style="justify-content:flex-start">${full?`<button class="btn pri" id="dutyGen">⚡ ${D?"Assign again":"Assign invigilators"}</button>${D?`<button class="btn sec" id="dutyPub">${D.published?"✏️ Edit duty":"📢 Publish to teachers"}</button>`:""}`:""}<button class="btn sec" id="examPrint">🖨 Print / Save PDF</button><button class="btn sec" id="examPrintAll">🖨 All four exams on one page</button></div>`;
+}
+function examPrintHTML(){ const C=calData(), e=(C.exams||[]).find(x=>x.key===ttS.exam); if(!e) return ""; const D=(DUTY&&DUTY[e.key])||(dutyDraft&&dutyDraft[e.key])||null, classes=allClasses(), groups=Object.keys(e.sheet[0]||{}).filter(k=>k!=="date");
+  const head=`<div style="display:flex;gap:14px;align-items:center;border-bottom:3px solid #1f1d3a;padding-bottom:8px;margin-bottom:12px"><img src="${LOGO}" style="width:60px;height:60px"><div><h2 style="margin:0">${esc(SCHOOL.name)}</h2><div>${esc(SCHOOL.addr)}</div></div></div>`;
+  const p1=`<div class="rc" style="padding:18px">${head}<h2 style="margin:6px 0">${esc(EXLONG[e.key]||e.label)} ${esc(TT_YEAR())} · Date sheet</h2><p>Classes ${esc(classes[0]+" to "+classes[classes.length-1])} · Time: <b>${esc(examTime(e,D))}</b> · Students report 15 minutes early.</p>
+    <table class="pt" style="width:100%;font-size:15px"><thead><tr><th>Date</th><th>Day</th>${groups.map(g=>`<th>Classes ${esc(g)}</th>`).join("")}</tr></thead><tbody>${e.sheet.map(r=>`<tr><td><b>${fmtD(r.date)}</b></td><td>${esc(dayName(r.date))}</td>${groups.map(g=>`<td>${esc(r[g]||"–")}</td>`).join("")}</tr>`).join("")}</tbody></table>
+    <p style="margin-top:14px">Results will be shared on the school's Results Portal. Parents check them with class, section, roll number, name and date of birth.</p><p style="margin-top:40px;text-align:right"><b>Principal</b></p></div>`;
+  const p2=D?`<div class="rc" style="padding:18px">${head}<h2 style="margin:6px 0">${esc(EXLONG[e.key]||e.label)} · Invigilation duty</h2><p>Time: <b>${esc(examTime(e,D))}</b> · Invigilators report 20 minutes before the paper.</p>
+    <table class="pt" style="width:100%;font-size:12px"><thead><tr><th>Date</th>${classes.map(c=>`<th>${esc(c)}</th>`).join("")}<th>Reserve</th></tr></thead><tbody>${e.sheet.map(r=>`<tr><td><b>${fmtD(r.date).replace(/ \d{4}$/,"")}</b></td>${classes.map(c=>`<td>${esc(tName((D.dates[r.date]||{})[c])||"—")}</td>`).join("")}<td>${esc(tName((D.dates[r.date]||{})._reserve)||"—")}</td></tr>`).join("")}</tbody></table>
+    <p style="margin-top:40px;text-align:right"><b>Principal</b></p></div>`:"";
+  return p1+p2; }
+
 /* ----- school calendar ----- */
 function calHTML(full){
   const C=calData(), set=ttSet(), today=todayISO(), ALLH=[...(C.holidays||[])].sort((a,b)=>a.from.localeCompare(b.from)), H=ALLH.filter(h=>CLOSED_KINDS.includes(h.kind||"Holiday")), CC=ALLH.filter(h=>h.kind==="CCA"), IMP=ALLH.filter(h=>h.kind==="Important day"||h.kind==="School event");
@@ -1853,6 +1914,16 @@ document.addEventListener("click",async e=>{
   const dn=e.target.closest("[data-dnav]"); if(dn){ stepDate(+dn.dataset.dnav); SUBPLAN=null; renderTT(); return; }
   const pr=e.target.closest("[data-per]"); if(pr){ ttS.per=+pr.dataset.per===+ttS.per?0:+pr.dataset.per; renderTT(); return; }
   if(e.target.closest("[data-adv]")){ ttS.adv=!ttS.adv; return; }
+  const exb=e.target.closest("[data-exam]"); if(exb){ ttS.exam=exb.dataset.exam; renderTT(); return; }
+  if(e.target.id==="examPrint"){ printCards(examPrintHTML()); return; }
+  if(e.target.id==="examPrintAll"){ const C=calData(), ex=C.exams||[]; const g=Object.keys((ex[0]&&ex[0].sheet[0])||{}).filter(k=>k!=="date");
+    printCards(`<div class="rc" style="padding:18px"><div style="display:flex;gap:14px;align-items:center;border-bottom:3px solid #1f1d3a;padding-bottom:8px;margin-bottom:12px"><img src="${LOGO}" style="width:60px;height:60px"><div><h2 style="margin:0">${esc(SCHOOL.name)}</h2><div>${esc(SCHOOL.addr)}</div></div></div>
+      <h2 style="margin:6px 0">Examination schedule ${esc(TT_YEAR())} · Classes ${esc(allClasses()[0]+" to "+allClasses().slice(-1)[0])}</h2>
+      ${ex.map(e=>`<h3 style="margin:14px 0 6px">${esc(EXLONG[e.key]||e.label)} · ${fmtD(e.from)} – ${fmtD(e.to)} · ${esc(examTime(e,DUTY&&DUTY[e.key]))}</h3><table class="pt" style="width:100%;font-size:14px"><thead><tr><th>Date</th><th>Day</th>${g.map(x=>`<th>Classes ${esc(x)}</th>`).join("")}</tr></thead><tbody>${e.sheet.map(r=>`<tr><td><b>${fmtD(r.date)}</b></td><td>${esc(dayName(r.date))}</td>${g.map(x=>`<td>${esc(r[x]||"–")}</td>`).join("")}</tr>`).join("")}</tbody></table>`).join("")}
+      <p style="margin-top:30px;text-align:right"><b>Principal</b></p></div>`); return; }
+  if(e.target.id==="dutyGen"){ const ex=(calData().exams||[]).find(x=>x.key===ttS.exam); if(!ex) return; const d=assignDuty(ex); d.time=($("#exTime")&&$("#exTime").value)||examTime(ex,null); d.published=false;
+    try{ await setDoc(doc(db,"duties",TT_YEAR()),{...(DUTY||{}),[ex.key]:d,sample:teachersList().some(t=>t.sample),updatedAt:new Date().toISOString()}); toast("Invigilators assigned ✓ Check them, then publish"); }catch(err){ toast("Couldn't save: "+errMsg(err)); } return; }
+  if(e.target.id==="dutyPub"){ const k=ttS.exam, cur=DUTY&&DUTY[k]; if(!cur) return; try{ await setDoc(doc(db,"duties",TT_YEAR()),{...DUTY,[k]:{...cur,published:!cur.published,time:($("#exTime")&&$("#exTime").value)||cur.time}}); toast(cur.published?"You can change the duty now":"Published ✓ Teachers see it under Exams"); }catch(err){ toast("Couldn't save: "+errMsg(err)); } return; }
   if(e.target.id==="wzAll"){ setupAll("all"); return; } if(e.target.id==="wzTT"){ setupAll("tt"); return; } if(e.target.id==="wzEx"){ setupAll("ex"); return; }
   const set=ttSet();
   // class grid swap
@@ -1907,6 +1978,10 @@ document.addEventListener("change",e=>{
   else if(id==="ttTeacher"){ ttS.teacher=e.target.value; renderTT(); }
   else if(id==="ttDate"){ ttS.date=e.target.value; SUBPLAN=null; renderTT(); }
   else if(id==="ttPer"){ ttS.per=e.target.value; renderTT(); }
+  else if(e.target.dataset.duty){ const [date,c]=e.target.dataset.duty.split("|"), k=ttS.exam, cur=JSON.parse(JSON.stringify(DUTY[k])); const v=e.target.value;
+    if(v&&Object.entries(cur.dates[date]||{}).some(([cc,em])=>cc!==c&&!cc.startsWith("_")&&em===v)){ toast(`${tName(v)} already has a room on that day`); renderTT(); return; }
+    cur.dates[date][c]=v; setDoc(doc(db,"duties",TT_YEAR()),{...DUTY,[k]:cur}).then(()=>toast("Changed ✓")).catch(err=>toast("Couldn't save: "+errMsg(err))); }
+  else if(id==="exTime"){ const k=ttS.exam; if(DUTY&&DUTY[k]) setDoc(doc(db,"duties",TT_YEAR()),{...DUTY,[k]:{...DUTY[k],time:e.target.value}}).catch(()=>{}); }
   else if(id==="calStart"||id==="calEnd"){ calTouch()[id==="calStart"?"start":"end"]=e.target.value; renderTT(); }
   else if(e.target.dataset.exd){ const [ei,ri]=e.target.dataset.exd.split("|").map(Number); const c=calTouch(), ex=c.exams[ei]; ex.sheet[ri].date=e.target.value; ex.sheet.sort((a,b)=>a.date.localeCompare(b.date)); ex.from=ex.sheet[0].date; ex.to=ex.sheet[ex.sheet.length-1].date; renderTT(); }
   else if(e.target.dataset.subi!=null){ const p=SUBPLAN.plan[+e.target.dataset.subi]; p.sub=e.target.value; p.why=p.sub?"chosen by the principal":"no substitute"; SUBPLAN.saved=false; renderSubs(); }

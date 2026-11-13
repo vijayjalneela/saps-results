@@ -101,6 +101,12 @@ service cloud.firestore {
       allow write: if isPrincipal();
     }
 
+    // ---- Exam invigilation duty (one document per year): staff see it, principal/admin assign it ----
+    match /duties/{year} {
+      allow read: if anyStaff();
+      allow write: if isPrincipal();
+    }
+
     // ---- Substitute plans (one document per date): published by the principal, seen by staff ----
     match /subs/{date} {
       allow read: if anyStaff();
