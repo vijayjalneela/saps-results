@@ -65,7 +65,8 @@ service cloud.firestore {
       // so the site can confirm an email is on the list before sending a link.
       allow get: if (request.auth != null && em == request.auth.token.email.lower()) || anyStaff();
       allow list: if anyStaff();
-      allow write: if isAdmin() && (!('photo' in request.resource.data) || request.resource.data.photo == null || request.resource.data.photo.size() < 150000);
+      allow create, update: if isAdmin() && (!('photo' in request.resource.data) || request.resource.data.photo == null || request.resource.data.photo.size() < 150000);
+      allow delete: if isAdmin();
     }
 
     // ---- Home page: school photo and principal's message (admin only) ----
