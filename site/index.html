@@ -464,6 +464,7 @@ table.pt.duty td{font-size:13px;padding:6px 6px}
       <a href="#teacher" data-v="teacher" class="staff-only" id="navEntry">Results entry</a>
       <a href="#dashboard" data-v="dashboard" class="pr-only">Dashboard</a>
       <a href="#analysis" data-v="analysis" class="staff-only">Analysis</a>
+      <a href="#students" data-v="students" class="staff-only">Students</a>
       <a href="#timetable" data-v="timetable" class="staff-only">Timetable</a>
       <a href="#admin" data-v="admin" class="admin-only">Admin</a>
     </nav>
@@ -514,6 +515,7 @@ table.pt.duty td{font-size:13px;padding:6px 6px}
     </div>
     <div class="doors">
       <a class="door t" href="#adminlogin"><div class="ic" style="background:#e9fbf5">🛠️</div><h3>Admin login</h3><p>Manage staff, the home page and data.</p><span class="go" style="color:var(--teal)">Log in →</span></a>
+      <a class="door t" href="#coordinator"><div class="ic" style="background:#fff4e0">🗂️</div><h3>Coordinator login</h3><p>Students, attendance, leave and day-to-day running of the school.</p><span class="go" style="color:var(--saffron)">Log in →</span></a>
       <a class="door t" href="#teacher"><div class="ic">✏️</div><h3>Teacher login</h3><p>Enter marks for your subjects, and see class analysis.</p><span class="go">Log in →</span></a>
       <a class="door p" href="#results"><div class="ic">🎓</div><h3>Parents login</h3><p>See your child's report card and results across all exams.</p><span class="go">Check a result →</span></a>
     </div>
@@ -600,7 +602,7 @@ table.pt.duty td{font-size:13px;padding:6px 6px}
 
     <!-- 2. Category -->
     <div class="card">
-      <div class="sec-h"><div class="dot" style="background:var(--teal)">2</div><div><h3>Parent category</h3><p>Serving, retired or civilian</p></div></div>
+      <div class="sec-h"><div class="dot" style="background:var(--teal)">2</div><div><h3>Parent category</h3><p>Serving, retired or civilian. For security, the exact rank and unit are not recorded.</p></div></div>
       <div class="chips" id="catChips">
         <label class="chip c-serving"><input type="radio" name="cat" value="Serving">🎖️ Serving</label>
         <label class="chip c-retired"><input type="radio" name="cat" value="Retired">🏅 Retired</label>
@@ -612,7 +614,7 @@ table.pt.duty td{font-size:13px;padding:6px 6px}
             <option value="">Select service</option><option>Army</option><option>Air Force</option><option>Navy</option><option>PMF</option><option>Others</option>
           </select></label>
           <label class="f" id="otherWrap" style="display:none">Please mention<input class="in" id="fBranchOther" placeholder="e.g. Coast Guard, DRDO"></label>
-          <label class="f">Rank / Unit (optional)<input class="in" id="fRank" placeholder="e.g. Hav, 12 MAHAR"></label>
+          <label class="f">Rank group<select class="in" id="fRankGrp"><option value="">Select</option><option>Officer</option><option>JCO</option><option value="OR">OR (other ranks)</option></select></label>
         </div>
       </div>
     </div>
@@ -700,6 +702,8 @@ table.pt.duty td{font-size:13px;padding:6px 6px}
   <div class="card pr-only" style="display:block" id="dashBody"></div>
   <div class="card" id="dashLock"><div class="unauth" style="margin:0"><b class="t">⛔ Unauthorised access</b>The dashboard is only for the principal. Please sign in with the Principal login.</div></div>
 </section>
+
+<section class="view" id="v-students"><div class="card" id="stuBody"></div></section>
 
 <section class="view" id="v-timetable"><div class="card" id="ttBody"></div></section>
 
@@ -899,7 +903,7 @@ function errMsg(err){ const c=(err&&err.code)||String(err); if(c.includes("permi
 async function reportKey(r){ if(!r||!r.dob||!crypto.subtle) return null;
   const t=[r.year,r.term,r.std,r.div,String(r.roll),normName(r.name),String(r.dob).trim()].join("|");
   const h=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(t)); return [...new Uint8Array(h)].map(b=>b.toString(16).padStart(2,"0")).join(""); }
-function publicCopy(store){ const o=JSON.parse(JSON.stringify(store)); delete o.updatedBy; delete o._raw; delete o.id; Object.values(o.marks||{}).forEach(m=>{ if(m) delete m.by; }); o.cls=o.std+"-"+o.div; return o; }
+function publicCopy(store){ const o=JSON.parse(JSON.stringify(store)); delete o.updatedBy; delete o._raw; delete o.id; delete o.rank; delete o.unit; delete o.phone; Object.values(o.marks||{}).forEach(m=>{ if(m) delete m.by; }); o.cls=o.std+"-"+o.div; return o; }
 async function saveRecord(id,store){
   const before=RECORDS[id]; const oldK=before?await reportKey(before._raw||before):null, newK=await reportKey(store);
   await setDoc(doc(db,"results",id),store);
@@ -909,7 +913,7 @@ async function saveRecord(id,store){
 }
 /* Stored shape: marks is a map keyed by subject, so the database rules can check which subjects a teacher changed. */
 const MK=["pe","nb","sea","hy","ut","tot"];
-function fromStore(d,id){ const r={...d,id:id||d.id}; if(d.marks){ const names=d.subjectList||Object.keys(d.marks); r.subjects=names.map(n=>({name:n,...(d.marks[n]||{})})); } r._raw=d; return r; }
+function fromStore(d,id){ const r={...d,id:id||d.id}; delete r.rank; if(d.marks){ const names=d.subjectList||Object.keys(d.marks); r.subjects=names.map(n=>({name:n,...(d.marks[n]||{})})); } r._raw=d; return r; }
 function markOf(s){ const o={}; MK.forEach(k=>o[k]=isAB(s[k])?"AB":num(s[k])); return o; }
 function sameMarks(a,b){ return MK.every(k=>((a&&a[k]!=null)?a[k]:null)===((b&&b[k]!=null)?b[k]:null)); }
 function buildStore(r,orig){
@@ -924,7 +928,7 @@ function buildStore(r,orig){
   subs.forEach(x=>{ const o=rawMarks[x.name];
     if(canEditSubject(x.name,cls)){ const m=markOf(x); out.marks[x.name]=(o&&sameMarks(m,o))?o:{...m,by:ME.email}; }
     else if(o) out.marks[x.name]=o; });
-  if(!isFull()) Object.keys(rawMarks).forEach(k=>{ if(!(k in out.marks)) out.marks[k]=rawMarks[k]; });
+  if(!isOffice()) Object.keys(rawMarks).forEach(k=>{ if(!(k in out.marks)) out.marks[k]=rawMarks[k]; });
   return out;
 }
 async function deleteRecord(id){
@@ -940,7 +944,7 @@ function myClasses(){ return ME?[...new Set([...(ME.classes||[]),...(ME.classTea
 function startTeacherData(year){
   if(!db||!ME) return;
   year=year||LOAD.year||YEARS[0];
-  const full=isFull()||LOAD.all, cls=full?[]:myClasses().slice(0,30);
+  const full=isOffice()||LOAD.all, cls=full?[]:myClasses().slice(0,30);
   const key=year+"|"+(full?"*":cls.join(","));
   if(unsubResults&&key===LOAD.key) return;
   if(unsubResults){ unsubResults(); unsubResults=null; }
@@ -951,8 +955,8 @@ function startTeacherData(year){
     const next={}; snap.forEach(d=>{ next[d.id]=fromStore(d.data(),d.id); }); RECORDS=next; refreshAll(); renderRoleBar();
   },err=>{ toast("Couldn't load results: "+errMsg(err)); });
 }
-function stopTeacherData(){ if(unsubResults){unsubResults();unsubResults=null;} RECORDS={}; LOAD={year:null,all:false,key:""}; refreshAll(); }
-function classLoaded(c){ return isFull()||LOAD.all||myClasses().includes(c); }
+function stopTeacherData(){ stopStu(); if(unsubResults){unsubResults();unsubResults=null;} RECORDS={}; LOAD={year:null,all:false,key:""}; refreshAll(); }
+function classLoaded(c){ return isOffice()||LOAD.all||myClasses().includes(c); }
 if(db){
   onSnapshot(doc(db,"config","home"),d=>{ if(d.exists()){ HOME={...DEFAULT_PR,...d.data()}; renderHome(); } },()=>{});
   onSnapshot(doc(db,"config","backup"),d=>{ BACKUP=d.exists()?d.data():null; if(typeof renderStaff==="function") renderStaff(); },()=>{});
@@ -963,10 +967,10 @@ if(db){
 function route(){
   if(window._actionMode){ document.querySelectorAll(".view").forEach(s=>s.classList.toggle("on",s.id==="v-action")); return; }
   const v=(location.hash||"#home").slice(1);
-  const name=["home","teacher","principal","adminlogin","results","admin","analysis","dashboard","timetable"].includes(v)?v:"home"; if(name==="timetable"){ if(!ME){ location.hash="teacher"; return; } startTT(); setTimeout(renderTT,0); } if(name==="dashboard") setTimeout(()=>renderDash(),0); if(name==="analysis") setTimeout(renderAnalysis,0);
-  if(name==="teacher"||name==="principal"||name==="adminlogin") setLoginMode(name==="adminlogin"?"admin":name);
+  const name=["home","teacher","principal","coordinator","adminlogin","results","admin","analysis","dashboard","timetable","students"].includes(v)?v:"home"; if(name==="students"){ if(!ME){ location.hash="teacher"; return; } startTT(); setTimeout(renderStu,0); } if(name==="timetable"){ if(!ME){ location.hash="teacher"; return; } startTT(); setTimeout(renderTT,0); } if(name==="dashboard") setTimeout(()=>renderDash(),0); if(name==="analysis") setTimeout(renderAnalysis,0);
+  if(name==="teacher"||name==="principal"||name==="coordinator"||name==="adminlogin") setLoginMode(name==="adminlogin"?"admin":name);
   if(name==="adminlogin"&&ME&&ME.role==="admin"){ location.hash="admin"; return; }
-  const view=(name==="principal"||name==="adminlogin")?"teacher":name;
+  const view=(name==="principal"||name==="coordinator"||name==="adminlogin")?"teacher":name;
   document.querySelectorAll(".view").forEach(s=>s.classList.toggle("on",s.id==="v-"+view));
   document.querySelectorAll("nav.tabs a").forEach(a=>a.classList.toggle("on",a.dataset.v===view));
   window.scrollTo(0,0);
@@ -1110,7 +1114,7 @@ function collect(){
     year:$("#fYear").value, term:$("#fTerm").value, std:$("#fStd").value, div:$("#fDiv").value,
     roll:+$("#fRoll").value||0, name:$("#fName").value.trim(), adm:$("#fAdm").value.trim(), dob:$("#fDob").value,
     gender:$("#fGender").value, father:$("#fFather").value.trim(), mother:$("#fMother").value.trim(),
-    category:cat, branch:cat==="Serving"?$("#fBranch").value:"", branchOther:cat==="Serving"&&$("#fBranch").value==="Others"?$("#fBranchOther").value.trim():"", rank:cat==="Serving"?$("#fRank").value.trim():"",
+    category:cat, branch:cat==="Serving"?$("#fBranch").value:"", branchOther:cat==="Serving"&&$("#fBranch").value==="Others"?$("#fBranchOther").value.trim():"", rankGroup:cat==="Serving"?$("#fRankGrp").value:"",
     photo:photo||"",
     subjects:subjects.map(s=>({name:s.name,...markOf(s)})),
     utMax:isUT($("#fTerm").value)?(num($("#fUtMax").value)||20):null,
@@ -1127,7 +1131,7 @@ function loadIntoForm(r){ openedAt=((r&&(r._raw||r).updatedAt)||""); staleOK=nul
   $("#fYear").value=r.year;$("#fTerm").value=r.term;$("#fStd").value=r.std;$("#fDiv").value=r.div;
   $("#fRoll").value=r.roll||"";$("#fName").value=r.name||"";$("#fAdm").value=r.adm||"";$("#fDob").value=r.dob||"";
   $("#fGender").value=r.gender||"";$("#fFather").value=r.father||"";$("#fMother").value=r.mother||"";
-  setCat(r.category||""); $("#fBranch").value=r.branch||""; $("#fBranchOther").value=r.branchOther||""; $("#fRank").value=r.rank||"";
+  setCat(r.category||""); $("#fBranch").value=r.branch||""; $("#fBranchOther").value=r.branchOther||""; $("#fRankGrp").value=r.rankGroup||"";
   $("#otherWrap").style.display=r.branch==="Others"?"flex":"none";
   setPhoto(r.photo||null);
   $("#fUtMax").value=r.utMax||20;
@@ -1200,7 +1204,7 @@ function renderClassList(){
   if(ME&&!classLoaded($("#fStd").value+"-"+$("#fDiv").value)){ $("#clsList").innerHTML=`<div class="empty">This is not one of your classes, so it isn't loaded.<br><button class="btn sec sm" data-loadall="1" style="margin-top:8px">Show all classes</button></div>`; return; }
   $("#clsList").innerHTML=f.length?f.map(r=>{const p=pctOf(r);return `<div class="li" data-id="${esc(r.id)}" style="${r.id===editingId?"border-color:var(--violet);background:#f6f3ff":""}">
     <div class="av">${r.photo?`<img src="${safeImg(r.photo)}" alt="">`:esc(r.roll)}</div>
-    <div><div class="nm">${esc(r.name)}${r.sample?'<span class="sample-tag">sample</span>':""}</div><div class="mt">Roll ${esc(r.roll)}${r.category?" · "+esc(r.category):""}</div></div>
+    <div><div class="nm">${esc(r.name)}${r.sample?'<span class="sample-tag">sample</span>':""}${ME&&isLeft(r)?' <span class="ctag none">Left</span>':""}</div><div class="mt">Roll ${esc(r.roll)}${r.category?" · "+esc(r.category):""}</div></div>
     <div class="pc" style="color:${GCOL[grade(p)]||"var(--muted)"}">${p!=null?p+"%":"–"}</div>
     ${canEditDetails(r.std+"-"+r.div)?`<button type="button" class="btn warn sm" data-del="${esc(r.id)}" title="Delete">✕</button>`:""}</div>`}).join(""):`<div class="empty">No students saved for this class yet.</div>`;
 }
@@ -1287,7 +1291,7 @@ function reportCard(r){
   const rows=(r.subjects||[]).map(s=>{const t=subjTotal(s,r);return {...s,t,g:subjGrade(t,r)}});
   const scored=rows.filter(x=>x.t!=null), tot=r1(scored.reduce((a,b)=>a+b.t,0)), max=scored.length*OUT, pct=max?r1(tot/max*100):null;
   const att=(r.workDays&&r.attended!=null)?r1(r.attended/r.workDays*100):null;
-  const svc=r.category==="Serving"?[r.branch==="Others"?r.branchOther||"Others":r.branch, r.rank].filter(Boolean).join(" · "):"";
+  const svc=r.category==="Serving"?[r.branch==="Others"?r.branchOther||"Others":r.branch, r.rankGroup].filter(Boolean).join(" · "):"";
   const initials=(r.name||"?").split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase();
   return `<div class="rc">
     <div class="rc-head"><div class="logo"><img src="${LOGO}" alt="School crest"></div>
@@ -1370,7 +1374,7 @@ function renderStats(){
 document.addEventListener("change",e=>{ if(e.target.id==="sumYear"){ SUM.year=e.target.value; SUM.picked=false; renderStats(); } if(e.target.id==="sumExam"){ SUM.exam=e.target.value; SUM.picked=true; renderStats(); } });
 document.addEventListener("click",e=>{ const tr=e.target.closest("[data-sumcls]"); if(!tr) return; const [st,dv]=tr.dataset.sumcls.split("-"); const fromDash=location.hash==="#dashboard"; $("#aYear").value=fromDash?YEARS[0]:SUM.year; $("#aStd").value=st; $("#aDiv").value=dv; aTab="exam"; aSel.exam=fromDash?DASH.exam:SUM.exam; location.hash="analysis"; });
 
-function refreshAll(){ renderClassList(); renderStats(); if(location.hash==="#dashboard"&&typeof renderDash==="function") renderDash(); if(typeof renderStaff==="function") renderStaff(); if(location.hash==="#analysis"&&typeof renderAnalysis==="function") renderAnalysis(); }
+function refreshAll(){ renderClassList(); renderStats(); if(location.hash==="#dashboard"&&typeof renderDash==="function") renderDash(); if(typeof renderStaff==="function") renderStaff(); if(location.hash==="#analysis"&&typeof renderAnalysis==="function") renderAnalysis(); if(location.hash==="#students"&&ME){ if(stu.tab==="find"&&!stu.sel) renderStuList(); else if(stu.tab!=="att") renderStu(); } }
 
 /* ---------- Cartoon animals (original drawings) ---------- */
 const ANIMALS={
@@ -1419,17 +1423,20 @@ $("#prSave").onclick=async()=>{const d={name:$("#prNameIn").value.trim()||DEFAUL
 
 /* ---------- Staff sign-in, roles and permissions ---------- */
 let ME=null, STAFF={}, unsubStaff=null;
+const tms=t=>!t?0:t.toMillis?t.toMillis():t.seconds?t.seconds*1000:new Date(t).getTime();
 const ADMIN=String(window.ADMIN_EMAIL||"").toLowerCase();
 const isFull=()=>!!ME&&(ME.role==="admin"||ME.role==="principal");
-const canEditDetails=cls=>isFull()||(!!ME&&ME.role==="teacher"&&(ME.classTeacher||[]).includes(cls));
-const canEditSubject=(sub,cls)=>isFull()||(!!ME&&ME.role==="teacher"&&teachesIn(ME,cls).includes(sub));
+/* Office = principal, admin, the coordinator, or a teacher acting as coordinator while she is away. */
+const isOffice=()=>isFull()||(!!ME&&!!ME.office);
+const canEditDetails=cls=>isOffice()||(!!ME&&ME.role==="teacher"&&(ME.classTeacher||[]).includes(cls));
+const canEditSubject=(sub,cls)=>isOffice()||(!!ME&&ME.role==="teacher"&&teachesIn(ME,cls).includes(sub));
 const formCls=()=>$("#fStd").value+"-"+$("#fDiv").value;
 function staffName(em){ const x=STAFF[em]; return x&&x.name?x.name:(ME&&ME.email===em?ME.name:em.split("@")[0]); }
 function applyPerms(){
   const cls=formCls(), det=canEditDetails(cls);
   document.querySelectorAll("#entry .card").forEach(c=>{ if(c.contains($("#marksBody"))) return; c.querySelectorAll("input,select,textarea,button").forEach(el=>el.disabled=!det); });
   document.querySelectorAll("#subjPick button,#addSubj,#newSubj").forEach(el=>el.disabled=!det);
-  $("#newBtn").style.display=(isFull()||(ME&&(ME.classTeacher||[]).length))?"":"none";
+  $("#newBtn").style.display=(isOffice()||(ME&&(ME.classTeacher||[]).length))?"":"none";
   const anyEdit=det||subjects.some(x=>canEditSubject(x.name,cls));
   $("#saveBtn").disabled=!anyEdit; $("#saveBtn").title=anyEdit?"":"View only for this class";
 }
@@ -1441,8 +1448,8 @@ function renderRoleBar(){
   else if(ME.role==="principal") t=`<span class="rb">Principal</span> You can add, change and delete all results.`;
   else { const subj=(ME.subjects||[]).join(", ")||"no subjects yet", cl=(ME.classes||[]).join(", ")||"no classes yet";
     const per=(ME.classes||[]).map(c=>`<b>${esc(teachesIn(ME,c).join(", ")||"–")}</b> in <b>${esc(c)}</b>`).join("; ");
-    t=`<span class="rb">${ME.coordinator?"Coordinator":"Teacher"}</span> You can change ${per||"no marks yet"}.`+((ME.classTeacher||[]).length?` As class teacher of <b>${esc(ME.classTeacher.join(", "))}</b> you can also add students and edit details, attendance and remarks.`:"")+` Everything else is view-only (🔒).`; }
-  const scope=ME.role==="teacher"?(LOAD.all?` <span class="hint">Showing all classes, ${esc(LOAD.year||"")}.</span> <button class="btn sec sm" data-loadall="0">Show only my classes</button>`:` <span class="hint">Showing your classes, ${esc(LOAD.year||"")}.</span> <button class="btn sec sm" data-loadall="1">Show all classes</button>`):"";
+    t=(ME.office?`<span class="rb">${ME.coordinator?"Coordinator":"Acting coordinator"}</span> You manage students, attendance, leave, timetable and exams, and can add or correct all results${ME.acting?` (acting until ${fmtD(ME.acting.to)})`:""}. `:"")+`<span class="rb">Teacher</span> You can change ${per||"no marks yet"}.`+((ME.classTeacher||[]).length?` As class teacher of <b>${esc(ME.classTeacher.join(", "))}</b> you can also add students and edit details, attendance and remarks.`:"")+` Everything else is view-only (🔒).`; }
+  const scope=ME.role==="teacher"&&!ME.office?(LOAD.all?` <span class="hint">Showing all classes, ${esc(LOAD.year||"")}.</span> <button class="btn sec sm" data-loadall="0">Show only my classes</button>`:` <span class="hint">Showing your classes, ${esc(LOAD.year||"")}.</span> <button class="btn sec sm" data-loadall="1">Show all classes</button>`):"";
   $("#roleBar").innerHTML=`<span>👋 ${esc(ME.name)}</span> ${t}${scope} <a href="guide.html" class="hint" style="font-weight:800">📖 How to use</a>`;
 }
 function showGate(mode){
@@ -1500,42 +1507,48 @@ $("#vContinue").onclick=async()=>{ const u=auth.currentUser; if(!u) return; awai
   if(auth.currentUser.emailVerified) loadMe(auth.currentUser); else $("#gateErr").textContent="Not verified yet. Click the link in the email first (check Spam too)."; };
 $("#forgotBtn").onclick=async()=>{const em=$("#gateEmail").value.trim(); if(!em){$("#gateErr").textContent=`To reset your password, type ${LOGIN_MODE==="principal"?"the principal's":LOGIN_MODE==="admin"?"the admin":"your teacher"} email in the box above, then tap Forgot password? again.`;$("#gateEmail").focus();return;}
   try{await sendReset(em);$("#gateErr").textContent="";toast("Password reset email sent to "+em);}catch(err){$("#gateErr").textContent=AUTH_ERR[err.code]||err.code;}};
-document.addEventListener("click",async e=>{ if(e.target.closest("[data-signout]")){ const wasP=!!(ME&&ME.role==="principal"); try{await signOut(auth);}catch(_){} toast("Signed out"); if(location.hash==="#admin"||location.hash==="#analysis") location.hash=wasP?"principal":"teacher"; } });
+document.addEventListener("click",async e=>{ if(e.target.closest("[data-signout]")){ const wasP=!!(ME&&ME.role==="principal"), wasC=!!(ME&&ME.coordinator); try{await signOut(auth);}catch(_){} toast("Signed out"); if(["#admin","#analysis","#students","#timetable","#dashboard"].includes(location.hash)) location.hash=wasP?"principal":wasC?"coordinator":"teacher"; } });
 /* Separate Teacher and Principal logins */
 let LOGIN_MODE="teacher";
 function setLoginMode(m){
-  LOGIN_MODE=m; const pr=m==="principal", ad=m==="admin";
-  $("#gateTitle").textContent=ad?"Admin login 🔒":pr?"Principal login 🔒":"Teacher login 🔒";
-  $("#gateSub").textContent=ad?"Admin only: sign in with the admin email.":pr?"Principal: sign in with your school email.":"Teachers: sign in with your school email.";
+  LOGIN_MODE=m; const pr=m==="principal", ad=m==="admin", co=m==="coordinator";
+  $("#gateTitle").textContent=ad?"Admin login 🔒":pr?"Principal login 🔒":co?"Coordinator login 🔒":"Teacher login 🔒";
+  $("#gateSub").textContent=ad?"Admin only: sign in with the admin email.":pr?"Principal: sign in with your school email.":co?"Coordinator (or the teacher acting as coordinator): sign in with your school email.":"Teachers: sign in with your school email.";
   const a=$("#gate [data-animal]"); if(a){ a.dataset.animal=ad?"elephant":pr?"lion":"owl"; a.innerHTML=ANIMALS[a.dataset.animal]||""; }
-  $("#gateEmail").placeholder=ad?"Admin email":pr?"Principal's email":"Teacher's email";
+  $("#gateEmail").placeholder=ad?"Admin email":pr?"Principal's email":co?"Coordinator's email":"Teacher's email";
   $("#toSetup").style.display=ad?"none":"";
   $("#suEmail").placeholder=pr?"Principal's email":"Teacher's email";
   $("#suText").textContent=pr?"Use the principal's email that the admin added, and choose a password.":"Use the teacher's email that the admin added for you, and choose a password.";
-  $("#uWhat").textContent=pr?"registered as the principal":"on the teachers' list";
+  $("#uWhat").textContent=pr?"registered as the principal":co?"registered as the coordinator":"on the teachers' list";
 }
 async function loadMe(u){
   const em=(u.email||"").toLowerCase(), admin=!!ADMIN&&em===ADMIN; let sd=null;
   try{ const d=await getDoc(doc(db,"staff",em)); if(d.exists()) sd=d.data(); }catch(_){}
   if(!sd&&!admin){ $("#uEmail").textContent=em; showGate("gUnreg"); return; }
   const role=admin?"admin":((sd&&sd.role)||"teacher");
+  /* acting coordinator: set by the principal while the coordinator is on leave */
+  let acting=null; if(!admin&&role==="teacher"&&!(sd&&sd.coordinator)){ try{ const a=await getDoc(doc(db,"office","acting")); if(a.exists()){ const x=a.data(), now=Date.now(); if(String(x.email||"").toLowerCase()===em&&tms(x.since)<=now&&now<tms(x.until)) acting=x; } }catch(_){} }
+  const office=role==="teacher"&&(!!(sd&&sd.coordinator)||!!acting);
+  const loginAs=role==="principal"?"principal":(sd&&sd.coordinator)?"coordinator":"teacher";
   if(!admin&&window._freshLogin&&LOGIN_MODE==="admin"){ window._freshLogin=false; try{await signOut(auth);}catch(_){}
     setTimeout(()=>unauth("This login is only for the school admin. Please use the "+(role==="principal"?"Principal":"Teacher")+" login."),60); return; }
-  if(!admin&&window._freshLogin&&role!==LOGIN_MODE){ window._freshLogin=false; try{await signOut(auth);}catch(_){}
-    const right=role==="principal"?"principal":"teacher";
-    setTimeout(()=>unauth(role==="principal"?"This is the Teacher login. Please use the Principal login.":"This is the Principal login. Teachers please use the Teacher login."),60);
-    setTimeout(()=>{ location.hash=right; $("#gateErr").textContent=role==="principal"?"We've opened the Principal login for you. Please sign in here.":"We've opened the Teacher login for you. Please sign in here."; },2600); return; }
+  const okDoor=loginAs===LOGIN_MODE||(acting&&(LOGIN_MODE==="coordinator"||LOGIN_MODE==="teacher"));
+  if(!admin&&window._freshLogin&&!okDoor){ window._freshLogin=false; try{await signOut(auth);}catch(_){}
+    const right=loginAs, nm={principal:"Principal",coordinator:"Coordinator",teacher:"Teacher"};
+    setTimeout(()=>unauth(`This is the ${nm[LOGIN_MODE]||"Teacher"} login. Please use the ${nm[right]} login.`),60);
+    setTimeout(()=>{ location.hash=right; $("#gateErr").textContent=`We've opened the ${nm[right]} login for you. Please sign in here.`; },2600); return; }
   window._freshLogin=false;
-  ME={email:em,name:(sd&&sd.name)||(admin?"Admin":em),role,subjects:(sd&&sd.subjects)||[],classes:(sd&&sd.classes)||[],classTeacher:(sd&&sd.classTeacher)||[],teaches:(sd&&sd.teaches)||{},coordinator:!!(sd&&sd.coordinator)};
-  document.body.classList.toggle("admin",admin); document.body.classList.add("staff"); document.body.classList.toggle("principal",admin||((sd&&sd.role)==="principal"));
+  ME={email:em,name:(sd&&sd.name)||(admin?"Admin":em),role,subjects:(sd&&sd.subjects)||[],classes:(sd&&sd.classes)||[],classTeacher:(sd&&sd.classTeacher)||[],teaches:(sd&&sd.teaches)||{},coordinator:!!(sd&&sd.coordinator),office,acting};
+  document.body.classList.toggle("admin",admin); document.body.classList.add("staff"); document.body.classList.toggle("principal",admin||((sd&&sd.role)==="principal")); document.body.classList.toggle("office",admin||role==="principal"||office);
   canWrite=true; { const c0=(ME.classTeacher||[])[0]||(ME.classes||[])[0]; if(ME.role==="teacher"&&c0){ const [cs,cd]=c0.split("-"); $("#aStd").value=cs; $("#aDiv").value=cd; $("#fStd").value=cs; $("#fDiv").value=cd; } } setUnlocked(true); startTeacherData(); startStaffData();
   renderRoleBar(); renderMarks(); renderStats(); toast(`Welcome, ${ME.name}`);
-  $("#navEntry").href=role==="principal"?"#principal":"#teacher";
+  $("#navEntry").href=role==="principal"?"#principal":loginAs==="coordinator"?"#coordinator":"#teacher";
+  if(office&&(location.hash==="#coordinator"||location.hash==="#teacher"&&acting)) location.hash="students";
   if(admin&&LOGIN_MODE==="admin"&&location.hash==="#adminlogin") location.hash="admin";
   if(role==="principal"&&(location.hash==="#principal"||location.hash==="")) location.hash="dashboard";
 }
 if(auth){
-  onAuthStateChanged(auth,u=>{ user=u; ME=null; canWrite=false; document.body.classList.remove("admin","staff","principal");
+  onAuthStateChanged(auth,u=>{ user=u; ME=null; canWrite=false; document.body.classList.remove("admin","staff","principal","office");
     if(!u){ if(!window._settingUp&&!$("#gSetup").hidden&&$("#gateErr").textContent){ stopTeacherData(); stopStaffData(); return; } showGate("gSignin"); stopTeacherData(); stopStaffData(); renderStats(); renderRoleBar(); return; }
     if(!u.emailVerified){ if(window._settingUp) return;
       onList(u.email).then(ok=>{ if(!ok){ $("#uEmail").textContent=u.email; showGate("gUnreg"); return; }
@@ -1616,6 +1629,7 @@ $("#delSample").onclick=()=>{ const ids=Object.keys(RECORDS).filter(id=>RECORDS[
     const rk=(await Promise.all(ids.map(id=>reportKey(RECORDS[id]._raw||RECORDS[id])))).filter(Boolean);
     let extra=[]; try{ const [lv,sb,tt]=await Promise.all([getDocs(collection(db,"leaves")),getDocs(collection(db,"subs")),getDocs(collection(db,"timetable"))]);
       try{ const du=await getDocs(collection(db,"duties")); du.forEach(d=>{ if(d.data().sample) extra.push(["duties",d.id]); }); }catch(_){}
+      for(const c of ["students","studentNotes","attendance","staffAtt"]){ try{ const q=await getDocs(collection(db,c)); q.forEach(d=>{ if(d.data().sample) extra.push([c,d.id]); }); }catch(_){} }
       lv.forEach(d=>{ if(d.data().sample) extra.push(["leaves",d.id]); }); sb.forEach(d=>{ if(d.data().sample) extra.push(["subs",d.id]); }); tt.forEach(d=>{ if(d.data().sample) extra.push(["timetable",d.id]); }); }catch(_){}
     const ops=[...ids.map(id=>["results",id]),...rk.map(k=>["reports",k]),...sids.map(id=>["staff",id]),...sids.map(id=>["staffHR",id]),...extra];
     for(let i=0;i<ops.length;i+=100){ const b=writeBatch(db); ops.slice(i,i+100).forEach(([c,id])=>b.delete(doc(db,c,id))); await b.commit(); }
@@ -1646,13 +1660,15 @@ function notWorkingMsg(date,set){ const h=holidayOn(date,calData().holidays); re
 function examOn(date){ for(const e of (calData().exams||[])) for(const r of (e.sheet||[])) if(r.date===date) return {e,r}; return null; }
 function leaveDays(from,to){ return workingDays(from,to||from,ttSet().days,calData().holidays).length; }
 function leavesOn(date){ return Object.values(LEAVES).filter(l=>l.status==="Approved"&&l.from<=date&&date<=(l.to||l.from)); }
+let ACTING=null, unsubACT=null;
 function startTT(){ if(!db||!ME) return;
+  if(!unsubACT) unsubACT=onSnapshot(doc(db,"office","acting"),d=>{ ACTING=d.exists()?d.data():null; if(location.hash==="#timetable") renderTT(); },()=>{});
   if(!unsubTT) unsubTT=onSnapshot(doc(db,"timetable",TT_YEAR()),d=>{ TT=d.exists()?d.data():null; if(location.hash==="#timetable") renderTT(); },()=>{});
   if(!unsubDUTY) unsubDUTY=onSnapshot(doc(db,"duties",TT_YEAR()),d=>{ DUTY=d.exists()?d.data():null; if(location.hash==="#timetable"&&ttS.tab==="exam"&&!dutyDraft) renderTT(); },()=>{});
   if(!unsubCAL) unsubCAL=onSnapshot(doc(db,"calendar",TT_YEAR()),d=>{ CAL=d.exists()?d.data():null; if(location.hash==="#timetable"&&!calDraft) renderTT(); },()=>{});
-  if(!unsubLV){ const q=isFull()?collection(db,"leaves"):query(collection(db,"leaves"),where("email","==",ME.email));
+  if(!unsubLV){ const q=isOffice()?collection(db,"leaves"):query(collection(db,"leaves"),where("email","==",ME.email));
     unsubLV=onSnapshot(q,snap=>{ const n={}; snap.forEach(d=>n[d.id]={...d.data(),id:d.id}); LEAVES=n; if(location.hash==="#timetable") renderTT(); },()=>{}); } }
-function stopTT(){ if(unsubDUTY){unsubDUTY();unsubDUTY=null;} DUTY=null; dutyDraft=null; ttS.tab=""; ttS.teacher=""; ttS.cls="I-A"; ttS.setup=null; if(unsubCAL){unsubCAL();unsubCAL=null;} calDraft=null; if(unsubTT){unsubTT();unsubTT=null;} if(unsubLV){unsubLV();unsubLV=null;} TT=null; LEAVES={}; SUBDOC=null; SUBPLAN=null; }
+function stopTT(){ if(unsubACT){unsubACT();unsubACT=null;} ACTING=null; if(unsubDUTY){unsubDUTY();unsubDUTY=null;} DUTY=null; dutyDraft=null; ttS.tab=""; ttS.teacher=""; ttS.cls="I-A"; ttS.setup=null; if(unsubCAL){unsubCAL();unsubCAL=null;} calDraft=null; if(unsubTT){unsubTT();unsubTT=null;} if(unsubLV){unsubLV();unsubLV=null;} TT=null; LEAVES={}; SUBDOC=null; SUBPLAN=null; }
 
 function ttTable(set,cell){ // cell(dayIdx,periodIdx) -> html
   const cols=set.periods;
@@ -1662,7 +1678,7 @@ const SUBCOL={English:"#e9e3ff",Hindi:"#ffe6ee",Mathematics:"#e1f5ff",EVS:"#e3f9
 
 function renderTT(){
   const box=$("#ttBody"); if(!box) return; if(!ME){ box.innerHTML=""; return; }
-  const full=isFull(), tabs=full?[["today","📍 Today"],["class","📅 Classes"],["teacher","👩‍🏫 Teachers"],["leave","🏖 Leave"],["exam","📝 Exams"],["cal","📆 Calendar"],["setup","✨ Set up"]]:[["mine","🙋 My week"],["class","📅 Classes"],["leave","🏖 My leave"],["exam","📝 Exams"],["cal","📆 Calendar"]];
+  const full=isOffice(), tabs=full?[["today","📍 Today"],["class","📅 Classes"],["teacher","👩‍🏫 Teachers"],["leave","🏖 Leave"],["exam","📝 Exams"],["cal","📆 Calendar"],["setup","✨ Set up"]]:[["mine","🙋 My week"],["class","📅 Classes"],["leave","🏖 My leave"],["exam","📝 Exams"],["cal","📆 Calendar"]];
   if(!ttS.tab||!tabs.some(t=>t[0]===ttS.tab)) ttS.tab=full?((!TT||!(CAL&&(CAL.holidays||[]).length))?"setup":"today"):"mine";
   if(!ttS.teacher) ttS.teacher=ME.role==="teacher"?ME.email:((teachersList()[0]||{}).email||"");
   if(!ttS.date) ttS.date=todayISO();
@@ -1719,11 +1735,35 @@ function renderTT(){
       ${L.length?`<div class="tbl-wrap"><table class="pt"><thead><tr>${full?"<th style='text-align:left'>Teacher</th>":""}<th>From</th><th>To</th><th>School days</th><th>Type</th><th>Status</th><th></th></tr></thead><tbody>${L.map(l=>`<tr>${full?`<td style="text-align:left"><b>${esc(tName(l.email))}</b>${l.reason?`<br><span class="hint">${esc(l.reason)}</span>`:""}</td>`:""}<td>${fmtD(l.from)}</td><td>${fmtD(l.to||l.from)}</td><td>${leaveDays(l.from,l.to)}</td><td>${esc(l.type||"")}</td><td>${st(l.status)}</td>
         <td style="white-space:nowrap">${full&&l.status==="Requested"?`<button class="btn sec sm" data-lv="ok" data-id="${esc(l.id)}">Approve</button> <button class="btn sec sm" data-lv="no" data-id="${esc(l.id)}">Reject</button>`:""}${full||l.status==="Requested"?` <button class="btn sec sm" data-lv="del" data-id="${esc(l.id)}">🗑</button>`:""}</td></tr>`).join("")}</tbody></table></div>`:'<div class="empty">No leave recorded.</div>'}`;
   }
+  if(ttS.tab==="leave"&&full) body+=reliefHTML();
   else if(ttS.tab==="setup"&&full){ body=wizardHTML()+`<details style="margin-top:14px"${ttS.adv?" open":""}><summary style="cursor:pointer;font-weight:800;font-size:16px" data-adv="1">⚙️ Change the rules (periods a week, timings, days, fixed periods)</summary><div style="margin-top:10px">${setupHTML()}</div></details>`; }
   else if(ttS.tab==="cal"){ body=calHTML(full); }
   else if(ttS.tab==="exam"){ body=examHTML(full); }
   box.innerHTML=`<div class="title-row"><h2>🗓 Timetable & calendar</h2><span class="hint">${esc(TT_YEAR())}</span></div>${head}${body}`;
 }
+
+/* ---------- Coordinator relief: who acts as coordinator while she is on leave ---------- */
+function reliefPick(l){ const grid=TT&&TT.grid, busy=grid?teacherSlots(grid):{};
+  const away=new Set(Object.values(LEAVES).filter(x=>x.status==="Approved"&&x.from<=(l.to||l.from)&&(x.to||x.from)>=l.from).map(x=>x.email));
+  return teachersList().filter(t=>!t.coordinator&&!away.has(t.email)).map(t=>{ const per=Object.keys(busy[t.email]||{}).length, ex=+t.experience||0; return {t,per,ex,score:per-ex*0.6}; }).sort((a,b)=>a.score-b.score); }
+function reliefHTML(){ const t0=todayISO(), coords=Object.values(STAFF).filter(x=>x.coordinator);
+  if(!coords.length) return `<div class="card" style="box-shadow:none;background:#fff8ec;margin-top:14px"><h4 style="margin:0 0 4px">🗂️ Coordinator relief</h4><p class="hint" style="margin:0">No coordinator is set yet. The admin marks one on the Admin page (Staff → Coordinator).</p></div>`;
+  const L=Object.values(LEAVES).filter(l=>l.status==="Approved"&&coords.some(c=>c.email===l.email)&&(l.to||l.from)>=t0).sort((a,b)=>a.from.localeCompare(b.from));
+  const cur=ACTING&&tms(ACTING.until)>Date.now()?ACTING:null;
+  let h=`<div class="card" style="box-shadow:none;background:#fff8ec;margin-top:14px"><h4 style="margin:0 0 4px">🗂️ Coordinator relief</h4><p class="hint" style="margin:0 0 10px">When the coordinator is on leave, pick a teacher to act for her. The acting coordinator gets the coordinator's powers only for those dates (it switches off by itself). Her own periods are covered by the substitute plan as usual.</p>`;
+  if(cur) h+=`<div class="banner" style="margin:0 0 10px">✅ <b>${esc(tName(cur.email))}</b> is acting coordinator from ${fmtD(cur.from)} to ${fmtD(cur.to)}.${isFull()?` <button class="btn sec sm" data-act="end">End now</button>`:""}</div>`;
+  if(!L.length) h+=`<p class="hint" style="margin:0">No upcoming leave for ${esc(coords.map(c=>c.name).join(", "))}.</p>`;
+  L.forEach(l=>{ const pk=reliefPick(l), best=pk[0], set=cur&&cur.from===l.from&&cur.to===(l.to||l.from);
+    h+=`<div class="dcard" style="cursor:default;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:8px"><span style="flex:1;min-width:220px"><b>${esc(tName(l.email))}</b> on leave ${fmtD(l.from)} – ${fmtD(l.to||l.from)}<small>${best?`Suggested: <b>${esc(best.t.name)}</b> (lightest load: ${best.per} periods a week${best.ex?`, ${best.ex} years' experience`:""}, not on leave then)`:"Nobody is free on those dates."}</small></span>
+      ${set?`<span class="ctag perm">Acting: ${esc(tName(cur.email))}</span>`:isFull()&&pk.length?`<select class="in" id="actWho_${esc(l.id)}" style="max-width:220px">${pk.map(x=>`<option value="${esc(x.t.email)}">${esc(x.t.name)} · ${x.per} p/wk</option>`).join("")}</select><button class="btn pri sm" data-act="set" data-id="${esc(l.id)}">Make acting coordinator</button>`:""}</div>`; });
+  return h+`</div>`; }
+document.addEventListener("click",async e=>{ const b=e.target.closest("[data-act]"); if(!b) return; if(!isFull()) return toast("⛔ Only the principal can choose the acting coordinator");
+  try{ if(b.dataset.act==="end"){ await deleteDoc(doc(db,"office","acting")); toast("Acting coordinator ended"); return; }
+    const l=LEAVES[b.dataset.id]; if(!l) return; const em=$("#actWho_"+b.dataset.id).value, to=l.to||l.from;
+    const since=new Date(l.from+"T00:00:00"), until=new Date(to+"T00:00:00"); until.setDate(until.getDate()+1);
+    await setDoc(doc(db,"office","acting"),{email:em,from:l.from,to,since,until,forEmail:l.email,by:ME.email,at:new Date().toISOString()});
+    toast(`✅ ${tName(em)} will act as coordinator ${l.from===to?"on "+l.from:"from "+l.from+" to "+to}. She signs in with the Coordinator login.`); }
+  catch(err){ toast("Couldn't save: "+errMsg(err)); } });
 
 function dateBar(){ const t=todayISO(); return `<div class="apick" style="align-items:center"><button class="chip" data-dnav="-1">◀</button><input class="in" type="date" id="ttDate" value="${esc(ttS.date)}" style="max-width:180px"><button class="chip" data-dnav="1">▶</button>${ttS.date!==t?`<button class="chip" data-dnav="0">Today</button>`:""}<b style="margin-left:6px">${esc(new Date(ttS.date+"T00:00:00").toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long"}))}</b></div>`; }
 function stepDate(n){ if(!n){ ttS.date=todayISO(); return; } const set=ttSet(); let d=new Date(ttS.date+"T00:00:00");
@@ -1762,7 +1802,7 @@ async function setupAll(what){ const out=$("#wzOut"); if(out) out.innerHTML='<di
 
 /* ----- substitutes ----- */
 async function renderSubs(){
-  const out=$("#subOut"); if(!out) return; const set=ttSet(), grid=TT&&TT.grid, full=isFull()&&ttS.tab!=="mine";
+  const out=$("#subOut"); if(!out) return; const set=ttSet(), grid=TT&&TT.grid, full=isOffice()&&ttS.tab!=="mine";
   if(!grid){ out.innerHTML=full?`<div class="empty">No timetable yet. Open <b>✨ Set up</b> and press one button.</div>`:""; return; }
   const di=dayIdxOf(ttS.date,set); if(di<0){ out.innerHTML=`<div class="empty">${notWorkingMsg(ttS.date,set)}</div>`; return; } const exd=examOn(ttS.date);
   try{ const d=await getDoc(doc(db,"subs",ttS.date)); SUBDOC=d.exists()?d.data():null; }catch(_){ SUBDOC=null; }
@@ -1927,7 +1967,7 @@ document.addEventListener("click",async e=>{
   if(e.target.id==="wzAll"){ setupAll("all"); return; } if(e.target.id==="wzTT"){ setupAll("tt"); return; } if(e.target.id==="wzEx"){ setupAll("ex"); return; }
   const set=ttSet();
   // class grid swap
-  const cell=e.target.closest(".ttc.canswap"); if(cell&&ttS.tab==="class"&&isFull()&&TT&&TT.grid){ const k=+cell.dataset.k;
+  const cell=e.target.closest(".ttc.canswap"); if(cell&&ttS.tab==="class"&&isOffice()&&TT&&TT.grid){ const k=+cell.dataset.k;
     if(ttS.swap==null){ ttS.swap=k; renderTT(); return; }
     if(ttS.swap===k){ ttS.swap=null; renderTT(); return; }
     const g=ttS.draft||JSON.parse(JSON.stringify(TT.grid)), row=g[ttS.cls], a=ttS.swap, b=k, A=row[a], B=row[b];
@@ -1941,8 +1981,8 @@ document.addEventListener("click",async e=>{
   if(e.target.id==="ttPrint"){ printCards(`<div class="rc" style="padding:12px"><h2 style="margin:0 0 8px">Shivneri Army Public School · Timetable ${esc(TT_YEAR())}</h2><h3 style="margin:0 0 10px">${ttS.tab==="class"?"Class "+esc(ttS.cls):esc(tName(ttS.teacher))}</h3>${$("#ttBody .tbl-wrap").outerHTML}</div>`); return; }
   // leave
   if(e.target.id==="lvAdd"){ const from=$("#lvFrom").value, to=$("#lvTo").value||from; if(!from) return toast("Choose the dates"); if(to<from) return toast("'To' can't be before 'From'");
-    const who=isFull()?$("#lvWho").value:ME.email; const d={email:who,from,to,type:$("#lvType").value,reason:$("#lvWhy").value.trim().slice(0,200),status:isFull()?"Approved":"Requested",createdBy:ME.email,createdAt:new Date().toISOString(),sample:!!(STAFF[who]&&STAFF[who].sample)};
-    try{ await setDoc(doc(collection(db,"leaves")),d); toast(isFull()?"Leave saved ✓":"Request sent to the principal ✓"); SUBPLAN=null; }catch(err){ toast("Couldn't save: "+errMsg(err)); } return; }
+    const who=isOffice()?$("#lvWho").value:ME.email; const d={email:who,from,to,type:$("#lvType").value,reason:$("#lvWhy").value.trim().slice(0,200),status:isOffice()?"Approved":"Requested",createdBy:ME.email,createdAt:new Date().toISOString(),sample:!!(STAFF[who]&&STAFF[who].sample)};
+    try{ await setDoc(doc(collection(db,"leaves")),d); toast(isOffice()?"Leave saved ✓":"Request sent to the principal ✓"); SUBPLAN=null; }catch(err){ toast("Couldn't save: "+errMsg(err)); } return; }
   const lb=e.target.closest("[data-lv]"); if(lb){ const id=lb.dataset.id, l=LEAVES[id]; if(!l) return;
     try{ if(lb.dataset.lv==="del") await deleteDoc(doc(db,"leaves",id)); else { const {id:_x,...rest}=l; await setDoc(doc(db,"leaves",id),{...rest,status:lb.dataset.lv==="ok"?"Approved":"Rejected",decidedBy:ME.email,decidedAt:new Date().toISOString()}); } SUBPLAN=null; toast("Done ✓"); }catch(err){ toast("Couldn't change: "+errMsg(err)); } return; }
   // substitutes
@@ -2398,7 +2438,9 @@ $("#importIn").onchange=async e=>{const f=e.target.files[0]; e.target.value=""; 
   list=list.filter(r=>r&&r.name&&r.roll&&r.std&&r.div&&r.term&&r.year);
   staff=staff.filter(x=>x&&x.email&&x.role); 
   hr=hr.filter(x=>x&&x.email); let leaves=[]; try{ const j2=JSON.parse(await f.text()); leaves=Array.isArray(j2.leaves)?j2.leaves.filter(x=>x&&x.email&&x.from):[]; }catch(_){}
-  if(leaves.length){ try{ const b=writeBatch(db); leaves.slice(0,300).forEach(x=>b.set(doc(collection(db,"leaves")),{...x,email:String(x.email).toLowerCase()})); await b.commit(); if(!list.length&&!staff.length&&!hr.length) return toast(`Imported ${leaves.length} leave records ✓`); }catch(err){ return toast("Import of leave failed: "+errMsg(err)); } }
+  if(leaves.length){ try{ const b=writeBatch(db); leaves.slice(0,300).forEach(x=>{ const em=String(x.email).toLowerCase(); b.set(doc(db,"leaves",("imp-"+em+"-"+x.from).replace(/[^A-Za-z0-9_\-]/g,"-")),{...x,email:em}); }); await b.commit(); if(!list.length&&!staff.length&&!hr.length) return toast(`Imported ${leaves.length} leave records ✓`); }catch(err){ return toast("Import of leave failed: "+errMsg(err)); } }
+  let extras=[]; try{ const j3=JSON.parse(await f.text()); [["students","students"],["notes","studentNotes"],["attendance","attendance"],["staffAtt","staffAtt"]].forEach(([k,c])=>(Array.isArray(j3[k])?j3[k]:[]).forEach(x=>{ if(x&&x.id){ const {id,...b}=x; extras.push([c,String(id),b]); } })); }catch(_){}
+  if(extras.length){ try{ for(let i=0;i<extras.length;i+=100){ const b=writeBatch(db); extras.slice(i,i+100).forEach(([c,id,d])=>b.set(doc(db,c,id),d)); await b.commit(); } toast(`Imported ${extras.length} attendance, student and notes records ✓`); if(!list.length&&!staff.length&&!hr.length) return; }catch(err){ return toast("Import of attendance/notes failed: "+errMsg(err)); } }
   if(!list.length&&!staff.length&&!hr.length&&!leaves.length) return toast("No results found in that file");
   if(hr.length){ try{ const b=writeBatch(db); hr.slice(0,400).forEach(x=>{ const {email,...h}=x; b.set(doc(db,"staffHR",String(email).toLowerCase()),h); }); await b.commit(); if(!list.length&&!staff.length) return toast(`Imported contract details for ${hr.length} staff ✓`); }catch(err){ return toast("Import of contract details failed: "+errMsg(err)); } }
   if(staff.length){ try{ for(let i=0;i<staff.length;i+=100){ const b=writeBatch(db); staff.slice(i,i+100).forEach(x=>{ const em=String(x.email).toLowerCase(); b.set(doc(db,"staff",em),{...x,email:em}); }); await b.commit(); } }catch(err){ return toast("Import of staff failed: "+errMsg(err)); } }
@@ -2411,6 +2453,200 @@ renderHome();
 const capName=v=>v.trim().replace(/\s+/g," ").split(" ").map(w=>(w===w.toLowerCase()||w===w.toUpperCase())?w.toLowerCase().replace(/(^|[.\-'’])(\p{L})/gu,(m,a,b)=>a+b.toUpperCase()):w).join(" ");
 $("#fName").addEventListener("blur",()=>{$("#fName").value=capName($("#fName").value);});
 $("#qName").addEventListener("blur",()=>{$("#qName").value=capName($("#qName").value);});
+/* ================= STUDENTS: profiles, section transfer, leaving, attendance, notes ================= */
+const EXO=["UT-1","Term I","UT-2","Term II"];
+const stuY=()=>LOAD.year||YEARS[0];
+function sidOf(r){ return [r.year,normName(r.name).replace(/ /g,"-"),r.dob||r.adm||"x"].join("_").replace(/[^A-Za-z0-9_\-]/g,"-"); }
+const ALLCLS=STDS.flatMap(s=>secOf(s).map(d=>s+"-"+d));
+let STUDOCS={}, unsubSTU=null, stuYearOn=null, ATTM={}, ATTC={}, SATTM={}, NOTES={};
+const stu={tab:"find",q:"",cls:"",status:"active",sel:null,date:"",acls:"",sdate:"",abs:null,absKey:"",sabs:null,sKey:""};
+function startStu(){ if(!db||!ME) return; const y=stuY(); if(unsubSTU&&stuYearOn===y) return; if(unsubSTU) unsubSTU(); stuYearOn=y;
+  unsubSTU=onSnapshot(query(collection(db,"students"),where("year","==",y)),snap=>{ const n={}; snap.forEach(d=>n[d.id]={...d.data(),id:d.id}); STUDOCS=n; if(location.hash==="#students") renderStu(); else renderClassList(); },()=>{}); }
+function stopStu(){ if(unsubSTU){unsubSTU();unsubSTU=null;} STUDOCS={}; stuYearOn=null; ATTM={}; ATTC={}; SATTM={}; NOTES={}; Object.assign(stu,{tab:"find",q:"",cls:"",sel:null,abs:null,absKey:"",sabs:null,sKey:""}); }
+const isLeft=r=>{ const d=STUDOCS[sidOf(r)]; return !!(d&&d.status==="left"); };
+function allStudents(){ const m={}, y=stuY();
+  Object.values(RECORDS).forEach(r=>{ if(r.year!==y) return; const k=sidOf(r); (m[k]||(m[k]={sid:k,recs:[]})).recs.push(r); });
+  return Object.values(m).map(s=>{ s.recs.sort((a,b)=>EXO.indexOf(a.term)-EXO.indexOf(b.term)); const L=s.recs[s.recs.length-1], d=STUDOCS[s.sid]||{};
+    return Object.assign(s,{r:L,doc:d,name:L.name,std:L.std,div:L.div,cls:L.std+"-"+L.div,roll:+L.roll||0,left:d.status==="left"}); })
+    .sort((a,b)=>ALLCLS.indexOf(a.cls)-ALLCLS.indexOf(b.cls)||a.roll-b.roll); }
+const canCT=cls=>isOffice()||(!!ME&&(ME.classTeacher||[]).includes(cls));
+const canSeeNotes=cls=>isOffice()||myClasses().includes(cls);
+const ctName=cls=>{ const t=Object.values(STAFF).find(x=>(x.classTeacher||[]).includes(cls)); return t?t.name:""; };
+const catTag=r=>r.category?`<span class="ctag" style="background:${r.category==="Serving"?"#dcf7f0":r.category==="Retired"?"#ffefdc":"#dff4ff"};color:#333">${esc(r.category)}${r.category==="Serving"&&r.rankGroup?" · "+esc(r.rankGroup):""}</span>`:"";
+const avatar=(r,sz)=>`<div class="av" style="width:${sz}px;height:${sz}px;flex:none;border-radius:12px;overflow:hidden;display:grid;place-items:center;background:#f2edff;font-weight:900;color:#5435c9">${r.photo&&safeImg(r.photo)?`<img src="${safeImg(r.photo)}" alt="" style="width:100%;height:100%;object-fit:cover">`:esc((r.name||"?").split(" ").map(w=>w[0]).slice(0,2).join(""))}</div>`;
+
+function renderStu(){ const box=$("#stuBody"); if(!box) return; if(!ME){ box.innerHTML=`<div class="empty">Please sign in.</div>`; return; } startStu();
+  const tabs=[["find","🔎 Find a student"],["att","✅ Class attendance"]].concat(isOffice()?[["staff","👩‍🏫 Staff attendance"]]:[]);
+  if(!tabs.some(t=>t[0]===stu.tab)) stu.tab="find";
+  const head=`<div class="title-row"><h2>🧒 Students</h2><span class="hint">${esc(stuY())}${ME.office&&!isFull()?` · <b>${ME.coordinator?"Coordinator":"Acting coordinator"}</b>`:""}</span></div>
+    <div class="atabs">${tabs.map(([k,l])=>`<button data-stab="${k}" class="${stu.tab===k?"on":""}">${l}</button>`).join("")}</div>`;
+  let body="";
+  if(stu.tab==="find") body=stu.sel?profileHTML():findHTML();
+  else if(stu.tab==="att") body=attHTML();
+  else body=staffAttHTML();
+  box.innerHTML=head+body;
+  if(stu.tab==="find"&&!stu.sel) renderStuList();
+  if(stu.tab==="find"&&stu.sel) fillProfileAsync();
+  if(stu.tab==="att") fillAtt(); if(stu.tab==="staff") fillStaffAtt();
+}
+function findHTML(){ const opts=ALLCLS.filter(c=>classLoaded(c));
+  return `<div class="apick" style="align-items:flex-end">
+    <label class="f" style="flex:2;min-width:220px">Search<input class="in" id="stuQ" placeholder="Name, roll, admission no. or parent's name" value="${esc(stu.q)}"></label>
+    <label class="f">Class<select class="in" id="stuCls"><option value="">All classes</option>${opts.map(c=>`<option ${c===stu.cls?"selected":""}>${c}</option>`).join("")}</select></label>
+    <label class="f">Status<select class="in" id="stuSt">${[["active","Studying"],["left","Left the school"],["all","All"]].map(([v,l])=>`<option value="${v}" ${v===stu.status?"selected":""}>${l}</option>`).join("")}</select></label>
+    ${(isOffice()||(ME.classTeacher||[]).length)?`<button class="btn pri" data-stuadd="1">➕ Add a new student</button>`:""}</div>
+    ${ME.role==="teacher"&&!ME.office&&!LOAD.all?`<p class="hint">Showing students of your classes. <button class="btn sec sm" data-loadall="1">Show all classes</button></p>`:""}
+    <div id="stuList"></div>`; }
+function renderStuList(){ const out=$("#stuList"); if(!out) return; const q=normName(stu.q);
+  const L=allStudents().filter(s=>(!stu.cls||s.cls===stu.cls)&&(stu.status==="all"||(stu.status==="left")===s.left)
+    &&(!q||[s.name,s.r.father,s.r.mother,s.r.adm].some(x=>normName(x).includes(q))||String(s.roll)===stu.q.trim()));
+  out.innerHTML=`<p class="hint" style="margin:6px 0">${L.length} student${L.length===1?"":"s"}</p>`+(L.length?`<div class="dir-grid">${L.slice(0,300).map(s=>`<div class="dcard" data-sid="${esc(s.sid)}">${avatar(s.r,44)}<span><b>${esc(s.name)}</b>${s.left?' <span class="ctag none">Left</span>':""}<small>${esc(s.cls)} · Roll ${esc(s.roll)}${s.r.father?` · ${esc(s.r.father)}`:""}</small></span></div>`).join("")}</div>`:`<div class="empty">No student found.${Object.keys(RECORDS).length?"":" Results for this year are still loading, or none are saved yet."}</div>`); }
+
+function profileHTML(){ const s=allStudents().find(x=>x.sid===stu.sel); if(!s){ stu.sel=null; return findHTML(); }
+  const r=s.r, d=s.doc, off=isOffice(), ct=canCT(s.cls);
+  const row=(k,v)=>v?`<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line)"><span class="hint" style="min-width:130px">${k}</span><b style="font-weight:700">${v}</b></div>`:"";
+  const svc=r.category==="Serving"?[r.branch==="Others"?r.branchOther||"Others":r.branch,r.rankGroup].filter(Boolean).join(" · "):"";
+  const exams=s.recs.map(x=>{ const p=pctOf(x); return `<tr><td><b>${esc(EXLONG[x.term]||x.term)}</b></td><td class="p"><b>${p!=null?p+"%":"–"}</b></td><td>${esc(grade(p)||"–")}</td><td><button class="btn sec sm" data-stucard="${esc(x.id)}">👁 Report card</button></td></tr>`; }).join("");
+  const hist=(d.history||[]).slice().reverse();
+  return `<div class="row" style="justify-content:flex-start;margin:0 0 10px"><button class="btn sec sm" data-stuback="1">← All students</button></div>
+  <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:14px">${avatar(r,84)}<div><h3 style="margin:0">${esc(s.name)} ${s.left?'<span class="ctag none">Left the school</span>':'<span class="ctag perm">Studying</span>'}</h3>
+    <div class="hint">Class ${esc(s.cls)} · Roll ${esc(s.roll)}${r.adm?` · Adm. ${esc(r.adm)}`:""} · Class teacher: ${esc(ctName(s.cls)||"–")}</div></div></div>
+  <div class="grid g2" style="align-items:start">
+   <div class="card" style="box-shadow:none;margin:0"><h4 style="margin:0 0 6px">👪 Student & parents</h4>
+     ${row("Date of birth",r.dob?fmtD(r.dob):"")}${row("Gender",esc(r.gender||""))}${row("Father",esc(r.father||""))}${row("Mother",esc(r.mother||""))}
+     ${row("Category",r.category?esc(r.category):"")}${row("Service",esc(svc))}
+     ${row("Contact phone",d.phone?esc(d.phone):"")}
+     ${ct?`<div class="row" style="justify-content:flex-start;margin-top:8px"><input class="in" id="stuPhone" placeholder="Parent's phone (staff only)" value="${esc(d.phone||"")}" maxlength="15" style="max-width:220px"><button class="btn sec sm" data-stuphone="1">Save phone</button></div>`:""}
+     <p class="hint" style="margin:8px 0 0">🔒 For security, only the category is kept: Officer / JCO / OR for serving parents. Exact rank and unit are not recorded.</p></div>
+   <div class="card" style="box-shadow:none;margin:0"><h4 style="margin:0 0 6px">✅ Attendance (${esc(stuY())})</h4><div id="stuAtt" class="hint">Loading…</div></div>
+  </div>
+  <div class="card" style="box-shadow:none;margin:14px 0 0"><h4 style="margin:0 0 6px">📝 Results</h4><div class="tbl-wrap"><table class="pt"><thead><tr><th>Exam</th><th>Overall</th><th>Grade</th><th></th></tr></thead><tbody>${exams}</tbody></table></div></div>
+  <div class="card" style="box-shadow:none;margin:14px 0 0;background:#fff8f8"><h4 style="margin:0 0 6px">🩺 Health & ⚖️ discipline <span class="hint" style="font-weight:600">(staff only, never shown to parents)</span></h4><div id="stuNotes" class="hint">${canSeeNotes(s.cls)?"Loading…":"Only the teachers of this class, the coordinator and the principal can see these notes."}</div></div>
+  ${off?`<div class="card" style="box-shadow:none;margin:14px 0 0;background:#f8f6ff"><h4 style="margin:0 0 8px">🛠 Office actions</h4>
+    ${s.left?`<p style="margin:0 0 8px">Left on <b>${fmtD(d.leftOn)}</b>: ${esc(d.leftReason||"")}${d.tc?` · TC <b>${esc(d.tc)}</b>`:""}</p><button class="btn pri sm" data-sturead="1">↩ Re-admit</button>`:`
+    <div class="grid g3"><label class="f">Move to section<select class="in" id="trDiv">${secOf(s.std).filter(x=>x!==s.div).map(x=>`<option>${x}</option>`).join("")}</select></label>
+      <label class="f">New roll no.<input class="in" type="number" min="1" id="trRoll" value="${nextRoll(s.std+"-"+(secOf(s.std).find(x=>x!==s.div)||s.div))}"></label>
+      <div class="f" style="justify-content:flex-end"><button class="btn sec" data-stutr="1" ${secOf(s.std).length>1?"":"disabled"}>🔀 Transfer section</button></div></div>
+    <p class="hint" style="margin:4px 0 12px">All this year's results move with the student. Parents then use the new section and roll no.</p>
+    <div class="grid g3"><label class="f">Leaving date<input class="in" type="date" id="lfDate" value="${esc(todayISO())}"></label>
+      <label class="f">Reason<select class="in" id="lfWhy">${["Parent posted out (transfer)","Admission elsewhere","Moved city","Other"].map(x=>`<option>${x}</option>`).join("")}</select></label>
+      <label class="f">TC no. (optional)<input class="in" id="lfTc" maxlength="30"></label></div>
+    <div class="row" style="justify-content:flex-start"><button class="btn warn" data-stuleft="1">🚪 Mark as left the school</button></div>`}</div>`:""}
+  ${hist.length?`<div class="card" style="box-shadow:none;margin:14px 0 0"><h4 style="margin:0 0 6px">🕘 History</h4>${hist.map(h=>`<div class="hint" style="padding:3px 0">${fmtD(h.on)} · ${esc(h.what)}</div>`).join("")}</div>`:""}`; }
+function nextRoll(cls){ const used=allStudents().filter(x=>x.cls===cls).map(x=>x.roll); return used.length?Math.max(...used)+1:1; }
+
+/* attendance helpers */
+const monthOf=d=>String(d).slice(0,7);
+const attKey=(cls,m)=>`${stuY()}_${cls}_${m}`;
+async function classAtt(cls){ if(ATTC[cls]) return ATTC[cls]; const snap=await getDocs(query(collection(db,"attendance"),where("year","==",stuY()),where("cls","==",cls))); const L=[]; snap.forEach(d=>L.push(d.data())); ATTC[cls]=L; return L; }
+/* which class a student was in on each date (from the move history) */
+function segments(s){ const mv=(s.doc.history||[]).filter(h=>h.from&&h.to).sort((a,b)=>a.on.localeCompare(b.on)); if(!mv.length) return [{cls:s.cls,from:"",to:"9999"}];
+  const seg=[]; let st=""; mv.forEach(h=>{ seg.push({cls:h.from,from:st,to:h.on}); st=h.on; }); seg.push({cls:s.cls,from:st,to:"9999"}); return seg; }
+async function attOf(s){ let days=0, abs=[]; const leftOn=s.left&&s.doc.leftOn||"9999";
+  for(const g of segments(s)){ const L=await classAtt(g.cls); L.forEach(m=>Object.entries(m.days||{}).forEach(([dt,v])=>{ if(dt<g.from||dt>=g.to||dt>=leftOn) return; days++; if((v.absent||[]).includes(s.sid)) abs.push(dt); })); }
+  return {days,abs:abs.sort()}; }
+async function fillProfileAsync(){ const s=allStudents().find(x=>x.sid===stu.sel); if(!s) return;
+  try{ const a=await attOf(s), el=$("#stuAtt"); if(el&&stu.sel===s.sid){ const p=a.days?r1((a.days-a.abs.length)/a.days*100):null;
+    el.innerHTML=a.days?`<div style="font-size:30px;font-weight:900;color:${p>=90?"#0b7a64":p>=75?"#a55a00":"#b3164f"}">${p}%</div><div>Present <b>${a.days-a.abs.length}</b> of <b>${a.days}</b> school days marked.</div>${a.abs.length?`<div style="margin-top:6px">Absent on: ${a.abs.slice(-12).map(x=>fmtD(x).replace(/ \d{4}$/,"")).join(", ")}${a.abs.length>12?" …":""}</div>`:""}${p<75?`<div class="banner warn" style="margin-top:8px">⚠️ Below 75%. Please speak to the parents.</div>`:""}`:"No attendance has been marked yet."; } }
+  catch(err){ const el=$("#stuAtt"); if(el) el.textContent="Couldn't load attendance: "+errMsg(err); }
+  if(!canSeeNotes(s.cls)) return;
+  let n=NOTES[s.sid]; if(n===undefined){ try{ const d=await getDoc(doc(db,"studentNotes",s.sid)); n=d.exists()?d.data():null; }catch(_){ n=null; } NOTES[s.sid]=n; }
+  const el=$("#stuNotes"); if(!el||stu.sel!==s.sid) return; const ed=canCT(s.cls), dl=(n&&n.discipline)||[];
+  el.innerHTML=`<div style="color:var(--ink)"><b>Medical / health</b><div style="margin:4px 0 10px">${n&&n.medical?esc(n.medical):'<span class="hint">Nothing recorded.</span>'}</div>
+    ${ed?`<textarea class="in" id="ntMed" maxlength="600" placeholder="Allergies, conditions, medicines kept at school, emergency notes">${esc((n&&n.medical)||"")}</textarea><div class="row" style="justify-content:flex-start"><button class="btn sec sm" data-ntmed="1">Save health note</button></div>`:""}
+    <b style="display:block;margin-top:12px">Discipline log</b>${dl.length?`<div class="tbl-wrap"><table class="pt"><thead><tr><th>Date</th><th>What happened</th><th>Action taken</th><th>By</th>${isOffice()?"<th></th>":""}</tr></thead><tbody>${dl.map((x,i)=>`<tr><td>${fmtD(x.date)}</td><td style="text-align:left">${esc(x.text)}</td><td style="text-align:left">${esc(x.action||"")}</td><td>${esc(x.by==="sample"?"–":tName(x.by))}</td>${isOffice()?`<td><button class="btn sec sm" data-ntdel="${i}">🗑</button></td>`:""}</tr>`).join("")}</tbody></table></div>`:'<div class="hint">No incidents recorded.</div>'}
+    ${ed?`<div class="grid g3" style="margin-top:8px"><label class="f">Date<input class="in" type="date" id="ntDate" value="${esc(todayISO())}"></label><label class="f">What happened<input class="in" id="ntText" maxlength="200"></label><label class="f">Action taken<input class="in" id="ntAct" maxlength="200" placeholder="e.g. Parents informed"></label></div><div class="row" style="justify-content:flex-start"><button class="btn sec sm" data-ntadd="1">➕ Add to log</button></div>`:""}</div>`; }
+async function saveNotes(s,patch){ const cur=NOTES[s.sid]||{}; const d={medical:cur.medical||"",discipline:cur.discipline||[],...patch,year:stuY(),std:s.std,div:s.div,cls:s.cls,updatedAt:new Date().toISOString(),updatedBy:ME.email};
+  await setDoc(doc(db,"studentNotes",s.sid),d); NOTES[s.sid]=d; fillProfileAsync(); }
+function stuDoc(s,patch){ const d=s.doc||{}; return {year:stuY(),name:s.name,std:s.std,div:s.div,cls:s.cls,roll:s.roll,status:d.status||"active",phone:d.phone||"",history:d.history||[],...patch,updatedAt:new Date().toISOString(),updatedBy:ME.email}; }
+async function transferStu(s,div,roll){ const cls=s.std+"-"+div;
+  if(allStudents().some(x=>x.cls===cls&&x.roll===roll&&!x.left)) throw {code:"Roll "+roll+" is already taken in "+cls+". Please pick another roll no."};
+  const b=writeBatch(db), ct=ctName(cls);
+  for(const r of s.recs){ const raw=JSON.parse(JSON.stringify(r._raw||r)); const oldK=await reportKey(raw);
+    const n={...raw,div,cls,roll,updatedAt:new Date().toISOString(),updatedBy:ME.email}; if(ct) n.teacher=ct.toUpperCase(); delete n.id;
+    const nid=idFor(n), nk=await reportKey(n); b.set(doc(db,"results",nid),n); if(nk) b.set(doc(db,"reports",nk),publicCopy(n));
+    if(nid!==r.id) b.delete(doc(db,"results",r.id)); if(oldK&&oldK!==nk) b.delete(doc(db,"reports",oldK)); }
+  b.set(doc(db,"students",s.sid),stuDoc(s,{std:s.std,div,cls,roll,history:[...(s.doc.history||[]),{on:todayISO(),from:s.cls,to:cls,what:`Moved from ${s.cls} (roll ${s.roll}) to ${cls} (roll ${roll})`,by:ME.email}]}));
+  if(NOTES[s.sid]) b.set(doc(db,"studentNotes",s.sid),{year:stuY(),std:s.std,div,cls},{merge:true});
+  await b.commit(); ATTC={}; }
+
+/* ---- class attendance (class teacher marks daily) ---- */
+function closedMsg(date){ const wd=new Date(date+"T00:00:00").getDay(); if(wd===0||wd===6) return "It's a weekend: no school."; const h=holidayOn(date,calData().holidays); return h?`School closed: ${esc(h.name)}.`:""; }
+function attHTML(){ if(!stu.date) stu.date=todayISO(); const mine=[...new Set([...(ME.classTeacher||[]),...myClasses()])];
+  const opts=isOffice()?ALLCLS:ALLCLS.filter(c=>mine.includes(c)); if(!opts.includes(stu.acls)) stu.acls=(ME.classTeacher||[])[0]||opts[0]||"";
+  if(!stu.acls) return `<div class="empty">You have no classes yet.</div>`;
+  const ed=canCT(stu.acls), cm=closedMsg(stu.date);
+  return `<div class="apick" style="align-items:flex-end"><label class="f">Date<input class="in" type="date" id="atDate" value="${esc(stu.date)}" max="${esc(todayISO())}"></label>
+    <label class="f">Class<select class="in" id="atCls">${opts.map(c=>`<option ${c===stu.acls?"selected":""}>${c}</option>`).join("")}</select></label>
+    <span class="hint">${ed?"Tap a name to mark absent. Everyone else is present.":"View only: the class teacher marks attendance."}</span></div>
+    ${cm?`<div class="banner warn">${cm} ${ed?"You can still mark it if the school was open.":""}</div>`:""}<div id="atOut" class="hint">Loading…</div>`; }
+async function fillAtt(){ const out=$("#atOut"); if(!out) return; const cls=stu.acls, key=attKey(cls,monthOf(stu.date));
+  try{ if(!(key in ATTM)){ const d=await getDoc(doc(db,"attendance",key)); ATTM[key]=d.exists()?d.data():null; } }catch(err){ out.textContent="Couldn't load: "+errMsg(err); return; }
+  const M=ATTM[key], day=M&&M.days&&M.days[stu.date], marked=!!day;
+  if(stu.absKey!==key+"|"+stu.date){ stu.abs=new Set(day?day.absent||[]:[]); stu.absKey=key+"|"+stu.date; }
+  const L=allStudents().filter(s=>s.cls===cls&&!(s.left&&(s.doc.leftOn||"")<=stu.date)), ed=canCT(cls);
+  if(!L.length){ out.innerHTML=`<div class="empty">No students found in ${esc(cls)}.${classLoaded(cls)?"":` <button class="btn sec sm" data-loadall="1">Show all classes</button>`}</div>`; return; }
+  const ab=L.filter(s=>stu.abs.has(s.sid)).length, mdays=Object.keys((M&&M.days)||{}).sort();
+  const cnt={}; mdays.forEach(dt=>(M.days[dt].absent||[]).forEach(k=>cnt[k]=(cnt[k]||0)+1));
+  out.innerHTML=`<div style="color:var(--ink)"><p style="margin:6px 0">${marked?`✅ Marked${day.by&&day.by!=="sample"?" by "+esc(tName(day.by)):""}.`:"Not marked yet for this day."} <b style="color:#0b7a64">Present ${L.length-ab}</b> · <b style="color:#b3164f">Absent ${ab}</b></p>
+    <div class="dir-grid">${L.map(s=>{ const a=stu.abs.has(s.sid); return `<div class="dcard" data-atk="${esc(s.sid)}" style="${ed?"":"cursor:default;"}border-color:${a?"#ff9bb5":"#bfeedd"};background:${a?"#fff0f5":"#f2fcf8"}"><span style="font-weight:900;min-width:28px">${esc(s.roll)}</span><span><b>${esc(s.name)}</b><small>${a?"❌ Absent":"✓ Present"}</small></span></div>`; }).join("")}</div>
+    ${ed?`<div class="row" style="justify-content:flex-start;margin-top:10px"><button class="btn sec" data-atall="1">Everyone present</button><button class="btn pri" data-atsave="1">💾 Save attendance</button></div>`:""}
+    <h4 style="margin:18px 0 6px">${esc(new Date(stu.date+"T00:00:00").toLocaleDateString("en-IN",{month:"long",year:"numeric"}))}: ${mdays.length} day${mdays.length===1?"":"s"} marked</h4>
+    ${mdays.length?`<div class="tbl-wrap"><table class="pt"><thead><tr><th>Student</th><th>Days absent</th><th>Attendance</th></tr></thead><tbody>${L.map(s=>({s,a:cnt[s.sid]||0})).sort((x,y)=>y.a-x.a||x.s.roll-y.s.roll).map(({s,a})=>{ const p=r1((mdays.length-a)/mdays.length*100); return `<tr><td>${esc(s.roll)}. <b>${esc(s.name)}</b></td><td>${a}</td><td class="p" style="color:${p>=90?"#0b7a64":p>=75?"#a55a00":"#b3164f"}"><b>${p}%</b></td></tr>`; }).join("")}</tbody></table></div>`:""}</div>`; }
+
+/* ---- staff attendance (principal / coordinator) ---- */
+function staffAttHTML(){ if(!stu.sdate) stu.sdate=todayISO(); const cm=closedMsg(stu.sdate);
+  return `<div class="apick" style="align-items:flex-end"><label class="f">Date<input class="in" type="date" id="saDate" value="${esc(stu.sdate)}" max="${esc(todayISO())}"></label><span class="hint">Tap a name to switch: Present → Absent → Late. Approved leave is filled in automatically.</span></div>${cm?`<div class="banner warn">${cm}</div>`:""}<div id="saOut" class="hint">Loading…</div>`; }
+async function fillStaffAtt(){ const out=$("#saOut"); if(!out) return; const m=monthOf(stu.sdate), key=`${YEARS[0]}_${m}`;
+  try{ if(!(key in SATTM)){ const d=await getDoc(doc(db,"staffAtt",key)); SATTM[key]=d.exists()?d.data():null; } }catch(err){ out.textContent="Couldn't load: "+errMsg(err); return; }
+  const M=SATTM[key], day=M&&M.days&&M.days[stu.sdate], onLv=new Set(leavesOn(stu.sdate).map(l=>l.email));
+  if(stu.sKey!==key+"|"+stu.sdate){ stu.sabs={}; ((day&&day.absent)||[]).forEach(e=>stu.sabs[e]="A"); ((day&&day.late)||[]).forEach(e=>stu.sabs[e]="L"); stu.sKey=key+"|"+stu.sdate; }
+  const T=Object.values(STAFF).filter(x=>x.role==="teacher").sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+  const st=e=>onLv.has(e)?"V":(stu.sabs[e]||"P"), lab={P:"✓ Present",A:"❌ Absent",L:"⏰ Late",V:"🏖 On leave"}, col={P:"#f2fcf8",A:"#fff0f5",L:"#fff8ec",V:"#eef6ff"};
+  const mdays=Object.keys((M&&M.days)||{}).sort(), agg={}; mdays.forEach(dt=>{ const x=M.days[dt]; ["absent","late","leave"].forEach(k=>(x[k]||[]).forEach(e=>{ (agg[e]=agg[e]||{absent:0,late:0,leave:0})[k]++; })); });
+  out.innerHTML=`<div style="color:var(--ink)"><p style="margin:6px 0">${day?"✅ Marked for this day.":"Not marked yet for this day."}</p>
+    <div class="dir-grid">${T.map(t=>{ const s=st(t.email); return `<div class="dcard" data-sak="${esc(t.email)}" style="background:${col[s]};${s==="V"?"cursor:default":""}">${tAvatar(t,40)}<span><b>${esc(t.name)}</b><small>${lab[s]}${t.coordinator?" · Coordinator":""}</small></span></div>`; }).join("")}</div>
+    <div class="row" style="justify-content:flex-start;margin-top:10px"><button class="btn pri" data-sasave="1">💾 Save staff attendance</button></div>
+    <h4 style="margin:18px 0 6px">This month: ${mdays.length} day${mdays.length===1?"":"s"} marked</h4>
+    ${mdays.length?`<div class="tbl-wrap"><table class="pt"><thead><tr><th>Teacher</th><th>Absent</th><th>Late</th><th>On leave</th><th>Present</th></tr></thead><tbody>${T.map(t=>{ const a=agg[t.email]||{absent:0,late:0,leave:0}, p=r1((mdays.length-a.absent-a.leave)/mdays.length*100); return `<tr><td><b>${esc(t.name)}</b></td><td>${a.absent}</td><td>${a.late}</td><td>${a.leave}</td><td class="p"><b>${p}%</b></td></tr>`; }).join("")}</tbody></table></div>`:""}</div>`; }
+
+/* ---- events ---- */
+document.addEventListener("input",e=>{ if(e.target.id==="stuQ"){ stu.q=e.target.value; renderStuList(); } });
+document.addEventListener("change",e=>{ const id=e.target.id;
+  if(id==="stuCls"){ stu.cls=e.target.value; renderStuList(); } else if(id==="stuSt"){ stu.status=e.target.value; renderStuList(); }
+  else if(id==="atDate"||id==="atCls"){ if(id==="atDate") stu.date=e.target.value||todayISO(); else stu.acls=e.target.value; renderStu(); }
+  else if(id==="saDate"){ stu.sdate=e.target.value||todayISO(); renderStu(); }
+  else if(id==="trDiv"){ const s=allStudents().find(x=>x.sid===stu.sel); if(s) $("#trRoll").value=nextRoll(s.std+"-"+e.target.value); } });
+document.addEventListener("click",async e=>{ const t=e.target.closest("[data-stab],[data-sid],[data-stuback],[data-stucard],[data-stuadd],[data-stuphone],[data-stutr],[data-stuleft],[data-sturead],[data-ntmed],[data-ntadd],[data-ntdel],[data-atk],[data-atall],[data-atsave],[data-sak],[data-sasave]"); if(!t||!$("#stuBody")||!$("#stuBody").contains(t)) return;
+  const D=t.dataset, s=stu.sel?allStudents().find(x=>x.sid===stu.sel):null;
+  if(D.stab){ stu.tab=D.stab; stu.sel=null; renderStu(); return; }
+  if(D.sid){ stu.sel=D.sid; renderStu(); window.scrollTo(0,0); return; }
+  if(D.stuback){ stu.sel=null; renderStu(); return; }
+  if(D.stucard){ const r=RECORDS[D.stucard]; if(r){ $("#pvOut").innerHTML=reportCard(r); $("#pvModal").classList.add("on"); } return; }
+  if(D.stuadd){ const c=stu.cls||(ME.classTeacher||[])[0]||"I-A"; const [a,b]=c.split("-"); location.hash=(ME.role==="principal"||ME.role==="admin")?"principal":"teacher"; setTimeout(()=>{ $("#fStd").value=a; $("#fStd").dispatchEvent(new Event("change",{bubbles:true})); $("#fDiv").value=b; $("#fDiv").dispatchEvent(new Event("change",{bubbles:true})); clearForm(true); $("#fStd").value=a; syncDiv("#fStd","#fDiv"); $("#fDiv").value=b; $("#fRoll").value=nextRoll(c); $("#fName").focus(); toast(`New student for ${c}: fill in the details and save`); },60); return; }
+  try{
+    if(D.stuphone&&s){ const v=$("#stuPhone").value.trim(); if(v&&!/^[+0-9 \-]{6,15}$/.test(v)) return toast("Please type a valid phone number"); await setDoc(doc(db,"students",s.sid),stuDoc(s,{phone:v})); toast("Phone saved ✓"); return; }
+    if(D.stutr&&s){ const div=$("#trDiv").value, roll=+$("#trRoll").value; if(!(roll>=1)) return toast("Please type the new roll no.");
+      confirmBox("Transfer section?",`Move ${s.name} from ${s.cls} to ${s.std}-${div} with roll no. ${roll}? All ${s.recs.length} results of ${stuY()} move too.`,"Transfer",async()=>{ try{ await transferStu(s,div,roll); stu.sel=s.sid; toast(`✅ ${s.name} is now in ${s.std}-${div}, roll ${roll}`); }catch(err){ toast(err.code&&err.code.startsWith("Roll")?err.code:"Couldn't transfer: "+errMsg(err)); } }); return; }
+    if(D.stuleft&&s){ const on=$("#lfDate").value||todayISO(), why=$("#lfWhy").value, tc=$("#lfTc").value.trim();
+      confirmBox("Mark as left?",`${s.name} (${s.cls}) will be marked as left the school on ${on}. Results stay saved, and you can re-admit later.`,"Mark as left",async()=>{ try{ await setDoc(doc(db,"students",s.sid),stuDoc(s,{status:"left",leftOn:on,leftReason:why,tc,history:[...(s.doc.history||[]),{on,what:"Left the school: "+why+(tc?" (TC "+tc+")":""),by:ME.email}]})); toast("Marked as left ✓"); }catch(err){ toast("Couldn't save: "+errMsg(err)); } }); return; }
+    if(D.sturead&&s){ await setDoc(doc(db,"students",s.sid),stuDoc(s,{status:"active",leftOn:"",leftReason:"",tc:"",history:[...(s.doc.history||[]),{on:todayISO(),what:"Re-admitted",by:ME.email}]})); toast("Re-admitted ✓"); return; }
+    if(D.ntmed&&s){ await saveNotes(s,{medical:$("#ntMed").value.trim().slice(0,600)}); toast("Health note saved ✓"); return; }
+    if(D.ntadd&&s){ const text=$("#ntText").value.trim(); if(!text) return toast("Please write what happened"); const cur=(NOTES[s.sid]&&NOTES[s.sid].discipline)||[];
+      await saveNotes(s,{discipline:[...cur,{date:$("#ntDate").value||todayISO(),text:text.slice(0,200),action:$("#ntAct").value.trim().slice(0,200),by:ME.email}].sort((a,b)=>a.date.localeCompare(b.date))}); toast("Added to the log ✓"); return; }
+    if(D.ntdel!=null&&s){ const cur=((NOTES[s.sid]&&NOTES[s.sid].discipline)||[]).filter((_,i)=>i!==+D.ntdel); await saveNotes(s,{discipline:cur}); toast("Removed"); return; }
+    if(D.atk){ if(!canCT(stu.acls)) return; stu.abs.has(D.atk)?stu.abs.delete(D.atk):stu.abs.add(D.atk); fillAtt(); return; }
+    if(D.atall){ stu.abs=new Set(); fillAtt(); return; }
+    if(D.atsave){ const cls=stu.acls, [sd,dv]=cls.split("-"), m=monthOf(stu.date), key=attKey(cls,m), ids=allStudents().filter(x=>x.cls===cls).map(x=>x.sid);
+      const absent=[...stu.abs].filter(k=>ids.includes(k)), day={absent,by:ME.email,at:new Date().toISOString()};
+      await setDoc(doc(db,"attendance",key),{year:stuY(),std:sd,div:dv,cls,month:m,days:{[stu.date]:day}},{merge:true});
+      ATTM[key]={...(ATTM[key]||{}),year:stuY(),cls,month:m,days:{...((ATTM[key]&&ATTM[key].days)||{}),[stu.date]:day}}; delete ATTC[cls]; fillAtt(); toast(`✅ Attendance saved: ${absent.length} absent`); return; }
+    if(D.sak){ if(leavesOn(stu.sdate).some(l=>l.email===D.sak)) return; const nx={P:"A",A:"L",L:"P"}; stu.sabs[D.sak]=nx[stu.sabs[D.sak]||"P"]; if(stu.sabs[D.sak]==="P") delete stu.sabs[D.sak]; fillStaffAtt(); return; }
+    if(D.sasave){ const m=monthOf(stu.sdate), key=`${YEARS[0]}_${m}`, day={absent:Object.keys(stu.sabs).filter(e=>stu.sabs[e]==="A"),late:Object.keys(stu.sabs).filter(e=>stu.sabs[e]==="L"),leave:[...new Set(leavesOn(stu.sdate).map(l=>l.email))],by:ME.email,at:new Date().toISOString()};
+      await setDoc(doc(db,"staffAtt",key),{year:YEARS[0],month:m,days:{[stu.sdate]:day}},{merge:true});
+      SATTM[key]={...(SATTM[key]||{}),days:{...((SATTM[key]&&SATTM[key].days)||{}),[stu.sdate]:day}}; fillStaffAtt(); toast("✅ Staff attendance saved"); return; }
+  }catch(err){ toast("Couldn't save: "+errMsg(err)); } });
+
 /* init */
 renderStSubj(); renderCP(); resetSubjects(); resetNS(); renderClassList(); renderStats(); route(); showGate("gSignin");
 $("#fRoll").value=1;

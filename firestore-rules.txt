@@ -13,6 +13,14 @@ service cloud.firestore {
     function isPrincipal() { return isAdmin() || (isStaffMember() && me().role == 'principal'); }
     function isTeacher()   { return isStaffMember() && me().role == 'teacher'; }
     function anyStaff()    { return isAdmin() || isStaffMember(); }
+    // Coordinator: marked by the admin on the staff list. While she is on leave the principal can name
+    // an acting coordinator in office/acting; that power switches off by itself after the 'until' time.
+    function actingPath() { return /databases/$(database)/documents/office/acting; }
+    function isActing() { return exists(actingPath()) && get(actingPath()).data.email == myEmail()
+                            && request.time >= get(actingPath()).data.since && request.time < get(actingPath()).data.until; }
+    function isCoord()  { return isTeacher() && (me().get('coordinator', false) == true || isActing()); }
+    // "Office" = principal, admin or (acting) coordinator: runs students, attendance, leave, timetable, exams.
+    function isOffice() { return isPrincipal() || isCoord(); }
 
     // ---- Helpers for one report card ----
     function cls(d) { return d.std + '-' + d.div; }
@@ -45,9 +53,9 @@ service cloud.firestore {
     // ---- Report cards (full records): STAFF ONLY ----
     match /results/{id} {
       allow get, list: if anyStaff();
-      allow create: if (isPrincipal() || isClassTeacherOf(request.resource.data)) && okCard(request.resource.data);
-      allow delete: if isPrincipal() || isClassTeacherOf(resource.data);
-      allow update: if okCard(request.resource.data) && (isPrincipal()
+      allow create: if (isOffice() || isClassTeacherOf(request.resource.data)) && okCard(request.resource.data);
+      allow delete: if isOffice() || isClassTeacherOf(resource.data);
+      allow update: if okCard(request.resource.data) && (isOffice()
         || (isTeacher() && onlyOwnSubjects()
             && (onlyMarks()
                 || (isClassTeacherOf(resource.data) && cls(request.resource.data) == cls(resource.data)))));
@@ -59,8 +67,8 @@ service cloud.firestore {
     match /reports/{key} {
       allow get: if true;
       allow list: if false;
-      allow create, update: if (isPrincipal() || teachesCard(request.resource.data)) && okCard(request.resource.data);
-      allow delete: if isPrincipal() || teachesCard(resource.data);
+      allow create, update: if (isOffice() || teachesCard(request.resource.data)) && okCard(request.resource.data);
+      allow delete: if isOffice() || teachesCard(resource.data);
     }
 
     // ---- Staff list (roles, subjects, classes): only the admin can change it ----
@@ -82,35 +90,75 @@ service cloud.firestore {
     // ---- Timetable (one document per year): all staff can see it, principal/admin change it ----
     match /timetable/{year} {
       allow read: if anyStaff();
-      allow write: if isPrincipal();
+      allow write: if isOffice();
     }
 
     // ---- Leave: a teacher can request leave for herself and see only her own;
     //      the principal/admin see all, approve or reject. ----
     match /leaves/{id} {
-      allow read: if isPrincipal() || (isStaffMember() && resource.data.email == myEmail());
-      allow create: if isPrincipal()
+      allow read: if isOffice() || (isStaffMember() && resource.data.email == myEmail());
+      allow create: if isOffice()
         || (isStaffMember() && request.resource.data.email == myEmail() && request.resource.data.status == 'Requested');
-      allow update: if isPrincipal();
-      allow delete: if isPrincipal() || (isStaffMember() && resource.data.email == myEmail() && resource.data.status == 'Requested');
+      allow update: if isOffice();
+      allow delete: if isOffice() || (isStaffMember() && resource.data.email == myEmail() && resource.data.status == 'Requested');
     }
 
     // ---- School calendar (holidays, vacations, exam dates): everyone can see it ----
     match /calendar/{year} {
       allow read: if true;
-      allow write: if isPrincipal();
+      allow write: if isOffice();
     }
 
     // ---- Exam invigilation duty (one document per year): staff see it, principal/admin assign it ----
     match /duties/{year} {
       allow read: if anyStaff();
-      allow write: if isPrincipal();
+      allow write: if isOffice();
     }
 
     // ---- Substitute plans (one document per date): published by the principal, seen by staff ----
     match /subs/{date} {
       allow read: if anyStaff();
+      allow write: if isOffice();
+    }
+
+    // ---- Acting coordinator (only the principal / admin chooses) ----
+    match /office/{id} {
+      allow read: if anyStaff();
       allow write: if isPrincipal();
+    }
+
+    // ---- Student register: status (studying / left), section moves, parent phone. Staff only. ----
+    function okStu(d) { return d.year is string && d.std is string && d.div is string; }
+    match /students/{sid} {
+      allow read: if anyStaff();
+      allow create: if okStu(request.resource.data) && (isOffice()
+        || (isClassTeacherOf(request.resource.data) && request.resource.data.get('status', 'active') == 'active'));
+      allow update: if okStu(request.resource.data) && (isOffice()
+        || (isClassTeacherOf(resource.data) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['phone', 'updatedAt', 'updatedBy'])));
+      allow delete: if isOffice();
+    }
+
+    // ---- Health and discipline notes: only teachers of that class, the coordinator and principal.
+    //      Never copied to the parents' report cards. ----
+    match /studentNotes/{sid} {
+      allow read: if isOffice() || teachesCard(resource.data);
+      allow create: if okStu(request.resource.data) && (isOffice() || isClassTeacherOf(request.resource.data));
+      allow update: if okStu(request.resource.data) && (isOffice() || (isClassTeacherOf(resource.data) && isClassTeacherOf(request.resource.data)));
+      allow delete: if isOffice();
+    }
+
+    // ---- Daily class attendance: one document per class per month, marked by the class teacher ----
+    match /attendance/{id} {
+      allow read: if anyStaff();
+      allow create, update: if okStu(request.resource.data)
+        && id == request.resource.data.year + '_' + cls(request.resource.data) + '_' + request.resource.data.month
+        && (isOffice() || isClassTeacherOf(request.resource.data));
+      allow delete: if isOffice();
+    }
+
+    // ---- Staff attendance: principal and coordinator only ----
+    match /staffAtt/{id} {
+      allow read, write: if isOffice();
     }
 
     // ---- Home page: school photo and principal's message (principal or admin) ----
