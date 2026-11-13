@@ -1724,6 +1724,7 @@ function tCard(x,kind,i,pe){ const st=STAFF[x.em]||{name:x.name}; const exp=st.e
   return `<div class="tcard ${kind}" data-goana="teachers" style="animation-delay:${i*.12}s"><span class="rk">${kind==="top"?["🥇","🥈","🥉"][i]||"🌟":"🤝"}</span>${tAvatar(st,74)}
     <div><div class="nm">${esc(x.name)}</div><div class="sub">${esc([...x.subs].join(", "))} · ${x.cls.size} class${x.cls.size>1?"es":""}${exp}</div>${pill?`<span class="pill">${pill}</span>`:""}${tr?`<div class="sub" style="margin:6px 0 0">${tr}</div>`:""}</div>
     <div class="avg" style="color:${barCol(x.avg)}">${x.avg}%<small>class average</small></div></div>`; }
+function ctOf(c){ const st=Object.values(STAFF).find(x=>(x.classTeacher||[]).includes(c)); const n=st?st.name:(Object.values(RECORDS).find(r=>r.std+"-"+r.div===c&&r.teacher)||{}).teacher; return ` (class teacher: ${n?esc(n):"not assigned yet"})`; }
 /* ---------- Principal dashboard ---------- */
 let DASH={exam:null,picked:false};
 function renderDash(){
@@ -1765,11 +1766,11 @@ function renderDash(){
   if(pendN) att.push(`<b>${pendN} subject marks</b> are still not entered for ${esc(lab(t))}. See Marks entry status below.`);
   const hi=[];
   if(top[0]) hi.push(`School topper: <b>${esc(top[0].r.name)}</b> (${esc(top[0].r.std)}-${esc(top[0].r.div)}) with ${top[0].v}%. Top 5: ${top.map(x=>`${esc(x.r.name)} (${esc(x.r.std)}-${esc(x.r.div)}) ${x.v}%`).join(", ")}.`);
-  if(bestCls) hi.push(`Best class: <b>${esc(bestCls.c)}</b> with ${bestCls.avg}% average.`);
-  if(impCls&&impCls.chg>0) hi.push(`Most improved class: <b>${esc(impCls.c)}</b> (up ${impCls.chg}% since ${esc(lab(pe))}).`);
+  if(bestCls) hi.push(`Best class: <b>${esc(bestCls.c)}</b>${ctOf(bestCls.c)} with ${bestCls.avg}% average.`);
+  if(impCls&&impCls.chg>0) hi.push(`Most improved class: <b>${esc(impCls.c)}</b>${ctOf(impCls.c)} (up ${impCls.chg}% since ${esc(lab(pe))}).`);
   if(subjAll.length) hi.push(`Strongest subject in the school: <b>${esc(subjAll[subjAll.length-1].sb)}</b> (${subjAll[subjAll.length-1].a}% average).`);
-  if(tBest&&tBest.vsA>0) hi.push(`Teacher with the strongest results: <b>${esc(tBest.name)}</b> (+${tBest.vsA}% above the school average in the same subject).`);
-  if(tImp&&tImp.chgA>0) hi.push(`Most improvement by a teacher's classes: <b>${esc(tImp.name)}</b> (up ${tImp.chgA}%).`);
+  if(tBest&&tBest.vsA>0) hi.push(`Teacher with the strongest results: <b>${esc(tBest.name)}</b>, ${esc([...tBest.subs].join(", "))} (${esc([...tBest.cls].join(", "))}): +${tBest.vsA}% above the school average in ${tBest.subs.size>1?"the same subjects":esc([...tBest.subs][0])}.`);
+  if(tImp&&tImp.chgA>0) hi.push(`Most improvement by a teacher's classes: <b>${esc(tImp.name)}</b>, ${esc([...tImp.subs].join(", "))} (${esc([...tImp.cls].join(", "))}): up ${tImp.chgA}% since ${esc(lab(pe))}.`);
   const kpis=`<div class="kpis">${kpi("School average",(sAvg??"–")+"%"+(pAvg!=null&&sAvg!=null?` <small style="font-size:14px">${r1(sAvg-pAvg)>=0?"▲":"▼"} ${Math.abs(r1(sAvg-pAvg))}</small>`:""),"#e8f7ff","#0b6c99")}${kpi("Students",vals.length,"#f2edff","#5435c9")}${kpi("A+ students",vals.filter(v=>v>=91).length,"#e9fbf5","#0b7a64")}${kpi("Below 50%",lowN,"#fff0f5","#b3164f")}${kpi("Marks pending",pendN,pendN?"#fff6ea":"#e9fbf5",pendN?"#a55a00":"#0b7a64")}</div>`;
   const status=`<div class="tbl-wrap"><table class="pt"><thead><tr><th>Class</th><th>Students</th><th>Average</th><th>Change</th><th>Marks entry</th></tr></thead><tbody>${cls.map(x=>`<tr data-sumcls="${esc(x.c)}" style="cursor:pointer"><td><b>${esc(x.c)}</b></td><td>${x.n}</td><td class="p">${pc(x.avg)}</td><td>${sgn(x.chg)}</td><td style="text-align:left;font-size:13px">${x.ps.length?`<span class="pend">Pending:</span> ${x.ps.map(sb=>`${esc(sb)} (${pend[x.c+"|"+sb].miss}/${pend[x.c+"|"+sb].total}${whoTeaches(sb,x.c)?", "+esc(whoTeaches(sb,x.c)):""})`).join("; ")}`:`<span class="done">✓ All ${x.subs.length} subjects entered</span>`}</td></tr>`).join("")}</tbody></table></div>`;
   // teacher spotlight
