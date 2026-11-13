@@ -71,20 +71,27 @@ service cloud.firestore {
       allow delete: if isOffice() || teachesCard(resource.data);
     }
 
-    // ---- Staff list (roles, subjects, classes): only the admin can change it ----
+    // ---- Staff list (roles, subjects, classes): the admin, or the principal approving the coordinator's
+    //      recommendation. Only the admin can add, change or remove a principal. ----
     match /staff/{em} {
       // Anyone signed in (even before verifying) may check only their OWN entry,
       // so the site can confirm an email is on the list before sending a link.
       allow get: if (request.auth != null && em == request.auth.token.email.lower()) || anyStaff();
       allow list: if anyStaff();
-      allow create, update: if isAdmin() && (!('photo' in request.resource.data) || request.resource.data.photo == null || request.resource.data.photo.size() < 150000);
-      allow delete: if isAdmin();
+      allow create: if (isAdmin() || (isPrincipal() && request.resource.data.role == 'teacher'))
+        && (!('photo' in request.resource.data) || request.resource.data.photo == null || request.resource.data.photo.size() < 150000);
+      allow update: if (isAdmin() || (isPrincipal() && resource.data.role == 'teacher' && request.resource.data.role == 'teacher'))
+        && (!('photo' in request.resource.data) || request.resource.data.photo == null || request.resource.data.photo.size() < 150000);
+      allow delete: if isAdmin() || (isPrincipal() && resource.data.role == 'teacher');
     }
 
     // ---- Contract details (type, renewal / re-tender and termination dates) ----
-    // Private: only the principal and the admin can read or change them. Teachers cannot.
+    // Private: the principal, admin and coordinator can read; only the principal / admin change them
+    // (the coordinator's changes arrive as drafts for approval). Teachers cannot see them.
     match /staffHR/{em} {
-      allow read, write: if isPrincipal();
+      // The coordinator sees teachers' contracts only, never the principal's.
+      allow read: if isPrincipal() || (isCoord() && resource.data.get('role', '') == 'teacher');
+      allow write: if isPrincipal();
     }
 
     // ---- Timetable (one document per year): all staff can see it, principal/admin change it ----
@@ -129,7 +136,7 @@ service cloud.firestore {
     //      disclosure page here; only the principal / admin publishes them (writes the real document). ----
     match /drafts/{key} {
       allow read: if isOffice();
-      allow create, update: if isCoord() && request.resource.data.col in ['timetable', 'calendar', 'duties', 'subs', 'config']
+      allow create, update: if isCoord() && request.resource.data.col in ['timetable', 'calendar', 'duties', 'subs', 'config', 'staff', 'staffHR', 'import', 'action']
         && key == request.resource.data.col + '__' + request.resource.data.id;
       allow delete: if isOffice();
     }

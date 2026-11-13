@@ -223,7 +223,7 @@ table.rct td:first-child,table.rct th:first-child{text-align:left;font-weight:80
 .school-photo .ph-empty svg{width:62%;max-width:300px}
 .school-photo .cap{position:absolute;left:12px;bottom:12px;background:rgba(31,29,58,.72);color:#fff;font-weight:800;font-size:13px;padding:6px 12px;border-radius:999px}
 .edit-only{display:none!important}
-body.principal .edit-only{display:inline-flex!important}
+body.principal .edit-only,body.office .edit-only{display:inline-flex!important}
 .school-photo .edit-only{position:absolute;right:12px;top:12px}
 .parade{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:22px 0 4px}
 @media(max-width:700px){.parade{grid-template-columns:repeat(2,1fr)}}
@@ -266,7 +266,8 @@ body.principal .edit-only{display:inline-flex!important}
 .title-btns{display:flex;gap:8px;flex-wrap:wrap}
 .tag-miss{display:inline-block;background:#ffe5ec;color:#c81e5a;font-size:11px;font-weight:800;padding:1px 7px;border-radius:999px;margin-left:4px}
 /* Roles */
-body:not(.admin) .admin-only{display:none!important}
+body:not(.admin):not(.office) .admin-only{display:none!important}
+body:not(.admin) .admin-strict{display:none!important}
 body:not(.staff) .staff-only{display:none!important}
 body:not(.principal) .pr-only{display:none!important}
 .note{background:#f8f6ff;border:1px dashed #cfc6f5;border-radius:14px;padding:10px 14px;font-size:13px;font-weight:700;color:#5a5684;margin:10px 0}
@@ -467,7 +468,7 @@ table.pt.duty td{font-size:13px;padding:6px 6px}
       <a href="#analysis" data-v="analysis" class="staff-only">Analysis</a>
       <a href="#students" data-v="students" class="staff-only">Students</a>
       <a href="#timetable" data-v="timetable" class="staff-only">Timetable</a>
-      <a href="#admin" data-v="admin" class="admin-only">Admin</a>
+      <a href="#admin" data-v="admin" class="admin-only" id="navAdmin">Admin</a>
     </nav>
   </div>
 </header>
@@ -731,15 +732,16 @@ table.pt.duty td{font-size:13px;padding:6px 6px}
 
 <!-- ================= ADMIN ================= -->
 <section class="view" id="v-admin">
-  <div class="page-title"><div><h2>Admin</h2><p>Staff logins, subjects and classes, home page and data.</p></div><div class="title-btns"><button class="btn sec" data-chpw>🔑 Change password</button><button class="btn warn" data-signout>Sign out</button></div></div>
+  <div class="page-title"><div><h2 id="admTitle">Admin</h2><p id="admSub">Staff logins, subjects and classes, home page and data.</p></div><div class="title-btns"><button class="btn sec" data-chpw>🔑 Change password</button><button class="btn warn" data-signout>Sign out</button></div></div>
   <div class="card" id="adminLock"><div class="unauth" style="margin:0"><b class="t">⛔ Unauthorised access</b>This page is only for the school admin. <a href="#adminlogin">Go to Admin login</a></div></div>
   <div id="adminBody" class="admin-only" style="display:block">
+    <div id="admApprovals"></div>
     <div class="card">
       <div class="sec-h"><div class="dot" style="background:var(--violet)">👩‍🏫</div><div><h3>Add or edit staff</h3><p>After you add someone, they open the Teacher login (or Principal login) → “First time? Set up your password”.</p></div></div>
       <div class="grid g3">
         <label class="f">Name<input class="in" id="stName" placeholder="MRS ASHA PATIL"></label>
         <label class="f">Email<input class="in" id="stEmail" type="email" placeholder="teacher@gmail.com"></label>
-        <label class="f">Role<select class="in" id="stRole"><option value="teacher">Teacher</option><option value="principal">Principal (full access)</option></select></label>
+        <label class="f">Role<select class="in" id="stRole"><option value="teacher">Teacher</option><option value="principal" class="admin-strict">Principal (full access)</option></select></label>
         <label class="f">Qualification<input class="in" id="stQual" placeholder="e.g. M.Sc., B.Ed."></label>
         <label class="f">Total teaching experience (years)<input class="in" id="stExp" type="number" min="0" max="50" placeholder="e.g. 12"></label>
         <label class="f">Date of joining this school<input class="in" id="stJoin" type="date"></label>
@@ -1414,7 +1416,7 @@ function renderHome(){
 async function writeConfig(id,data){ await setDoc(doc(db,"config",id),data); }
 
 $("#schoolPhotoBtn").onclick=()=>$("#schoolPhotoIn").click();
-$("#schoolPhotoIn").onchange=e=>{const f=e.target.files[0];e.target.value="";shrinkImage(f,1200,750,230000,async d=>{SCHOOL_PHOTO=d;renderHome();try{await writeConfig("schoolPhoto",{photo:d});toast("School photo saved ✓")}catch(err){toast("Couldn't save photo: "+errMsg(err))}})};
+$("#schoolPhotoIn").onchange=e=>{const f=e.target.files[0];e.target.value="";shrinkImage(f,1200,750,230000,async d=>{try{ if(await pubSet("config","schoolPhoto",{photo:d},"School photo on the Home page")){SCHOOL_PHOTO=d;renderHome();} toast("School photo saved ✓")}catch(err){toast("Couldn't save photo: "+errMsg(err))}})};
 
 let prDraftPhoto="";
 function setPrDraft(p){prDraftPhoto=p;const b=$("#prPhotoEd");b.classList.toggle("has",!!p);b.innerHTML=p?`<img src="${safeImg(p)}" alt="">`:"Passport<br>photo";}
@@ -1424,7 +1426,7 @@ $("#prPhotoBtn").onclick=$("#prPhotoEd").onclick=()=>$("#prPhotoIn").click();
 $("#prPhotoIn").onchange=e=>{const f=e.target.files[0];e.target.value="";shrinkImage(f,280,360,60000,setPrDraft)};
 $("#prPhotoRm").onclick=()=>setPrDraft("");
 $("#prSave").onclick=async()=>{const d={name:$("#prNameIn").value.trim()||DEFAULT_PR.name,message:$("#prMsgIn").value.trim()||DEFAULT_PR.message,photo:prDraftPhoto};
-  try{await writeConfig("home",d);HOME=d;renderHome();$("#prModal").classList.remove("on");toast("Principal's message saved ✓")}catch(err){toast("Couldn't save: "+errMsg(err))}};
+  try{ if(await pubSet("config","home",d,"Principal's message and photo on the Home page")){HOME=d;renderHome();} $("#prModal").classList.remove("on");toast("Principal's message saved ✓")}catch(err){toast("Couldn't save: "+errMsg(err))}};
 
 /* ---------- Staff sign-in, roles and permissions ---------- */
 let ME=null, STAFF={}, unsubStaff=null;
@@ -1462,7 +1464,7 @@ function showGate(mode){
   ["gSignin","gSetup","gVerify","gUnreg"].forEach(id=>$("#"+id).hidden=(id!==mode));
   $("#gateErr").textContent="";
 }
-function setUnlocked(on){ $("#gate").style.display=on?"none":"block"; $("#teacherBody").style.display=on?"block":"none"; $("#adminLock").style.display=document.body.classList.contains("admin")?"none":"block"; if(on) renderClassList(); }
+function setUnlocked(on){ $("#gate").style.display=on?"none":"block"; $("#teacherBody").style.display=on?"block":"none"; $("#adminLock").style.display=(document.body.classList.contains("admin")||document.body.classList.contains("office"))?"none":"block"; if(on) renderClassList(); }
 const AUTH_ERR={"auth/invalid-credential":"Email or password is wrong.","auth/wrong-password":"Email or password is wrong.","auth/user-not-found":"No account with that email.","auth/too-many-requests":"Too many tries. Please wait a few minutes.","auth/network-request-failed":"No internet connection.","auth/invalid-email":"Please type a valid email.","auth/email-already-in-use":"This email already has a login. Use Sign in, or Forgot password.","auth/weak-password":"Please use at least 6 characters."};
 $("#gateForm").addEventListener("submit",async e=>{e.preventDefault();
   if(!auth){$("#gateErr").textContent="The website isn't connected to Firebase yet (see config.js).";return;}
@@ -1545,11 +1547,12 @@ async function loadMe(u){
   window._freshLogin=false;
   ME={email:em,name:(sd&&sd.name)||(admin?"Admin":em),role,subjects:(sd&&sd.subjects)||[],classes:(sd&&sd.classes)||[],classTeacher:(sd&&sd.classTeacher)||[],teaches:(sd&&sd.teaches)||{},coordinator:!!(sd&&sd.coordinator),office,acting};
   document.body.classList.toggle("admin",admin); document.body.classList.add("staff"); document.body.classList.toggle("principal",admin||((sd&&sd.role)==="principal")); document.body.classList.toggle("office",admin||role==="principal"||office);
-  canWrite=true; { const c0=(ME.classTeacher||[])[0]||(ME.classes||[])[0]; if(ME.role==="teacher"&&c0){ const [cs,cd]=c0.split("-"); $("#aStd").value=cs; $("#aDiv").value=cd; $("#fStd").value=cs; $("#fDiv").value=cd; } } setUnlocked(true); startTeacherData(); startStaffData(); startStu();
+  canWrite=true; { const c0=(ME.classTeacher||[])[0]||(ME.classes||[])[0]; if(ME.role==="teacher"&&c0){ const [cs,cd]=c0.split("-"); $("#aStd").value=cs; $("#aDiv").value=cd; $("#fStd").value=cs; $("#fDiv").value=cd; } } setUnlocked(true); startTeacherData(); startStaffData(); startStu(); startDrafts();
   renderRoleBar(); renderMarks(); renderStats(); toast(`Welcome, ${ME.name}`);
   $("#navEntry").href=role==="principal"?"#principal":loginAs==="coordinator"?"#coordinator":"#teacher";
   if(office&&(location.hash==="#coordinator"||location.hash==="#teacher"&&acting)) location.hash="students";
   if(admin&&LOGIN_MODE==="admin"&&location.hash==="#adminlogin") location.hash="admin";
+  $("#navAdmin").textContent=admin?"Admin":"Office"; $("#admTitle").textContent=admin?"Admin":"Office: staff, contracts and data"; $("#admSub").textContent=admin?"Staff logins, subjects and classes, home page and data.":role==="principal"?"Your changes go live straight away. Changes made by the coordinator wait for your approval (see the Dashboard).":"Your changes are sent to the principal for approval before they go live.";
   if(role==="principal"&&(location.hash==="#principal"||location.hash==="")) location.hash="dashboard";
 }
 if(auth){
@@ -1563,7 +1566,7 @@ if(auth){
 /* Contract / HR details live in "staffHR", readable only by the principal and admin. */
 let HR={}, unsubHR=null;
 function startStaffData(){ if(unsubStaff) return; unsubStaff=onSnapshot(collection(db,"staff"),snap=>{ const n={}; snap.forEach(d=>n[d.id]=d.data()); STAFF=n; renderStaff(); if(location.hash==="#dashboard") renderDash(); },()=>{});
-  if(isFull()&&!unsubHR) unsubHR=onSnapshot(collection(db,"staffHR"),snap=>{ const n={}; snap.forEach(d=>n[d.id]=d.data()); HR=n; if(location.hash==="#dashboard") renderDash(); },()=>{}); }
+  if(isOffice()&&!unsubHR) unsubHR=onSnapshot(isFull()?collection(db,"staffHR"):query(collection(db,"staffHR"),where("role","==","teacher")),snap=>{ const n={}; snap.forEach(d=>n[d.id]=d.data()); HR=n; if(location.hash==="#dashboard") renderDash(); },()=>{}); }
 function stopStaffData(){ stopTT(); if(unsubStaff){unsubStaff();unsubStaff=null;} if(unsubHR){unsubHR();unsubHR=null;} STAFF={}; HR={}; }
 
 /* ---------- Admin page ---------- */
@@ -1596,7 +1599,8 @@ $("#stSave").onclick=async()=>{
   if(role==="teacher"&&!stSubjects.length&&!c2.list.length) return toast("Pick at least one subject, or a class she is class teacher of");
   const teaches={}; if(role==="teacher") stCls.forEach(c=>{ teaches[c]=(stTeach[c]||stSubjects).filter(x=>stSubjects.includes(x)); });
   const data={coordinator:role==="teacher"&&$("#stCoord").value==="yes",teaches,name:$("#stName").value.trim()||em,email:em,role,qualification:$("#stQual").value.trim(),experience:num($("#stExp").value),joined:$("#stJoin").value||"",photo:stPhoto||"",subjects:role==="teacher"?stSubjects:[],classes:role==="teacher"?c1.list:[],classTeacher:role==="teacher"?c2.list:[],updatedAt:new Date().toISOString()};
-  try{ await setDoc(doc(db,"staff",em),data); toast(`Saved ${data.name} ✓`); clearStaffForm(); }catch(err){ toast("Couldn't save: "+errMsg(err)); }
+  if(ME.role!=="admin"&&(role==="principal"||(STAFF[em]&&STAFF[em].role==="principal"))) return toast("⛔ Only the admin can add or change the principal");
+  try{ await pubSet("staff",em,data,`Staff: ${data.name} (${STAFF[em]?"changes":"new"}${data.coordinator?", coordinator":""})`); toast(`Saved ${data.name} ✓`); clearStaffForm(); }catch(err){ toast("Couldn't save: "+errMsg(err)); }
 };
 let stPhoto="";
 function setStPhoto(d){ stPhoto=d||""; $("#stPhotoPrev").innerHTML=tAvatar({name:$("#stName").value||"?",photo:stPhoto},56); $("#stPhotoDel").style.display=stPhoto?"":"none"; $("#stPhotoBtn").textContent=stPhoto?"📷 Change photo":"📷 Choose photo"; }
@@ -1619,7 +1623,7 @@ function renderStaff(){
   $("#stCount").textContent=`${rows.length} staff`+(ADMIN?` · Admin: ${ADMIN}`:"");
   $("#stList").innerHTML=rows.length?rows.map(x=>`<tr><td><div class="tcell">${tAvatar(x,40)}<div><b>${esc(x.name)}</b>${x.sample?'<span class="sample-tag">sample</span>':""}<br><span class="hint">${esc(x.email)}</span></div></div></td><td><span class="tagc ${x.role==="principal"?"role-p":"role-t"}">${x.role==="principal"?"Principal":x.coordinator?"Coordinator":"Teacher"}</span></td><td style="font-size:13px;min-width:170px">${profileText(x)}</td>
     <td>${x.role==="principal"?"All":(x.subjects||[]).map(n=>`<span class="tagc">${esc(n)}</span>`).join("")||"–"}</td><td style="font-size:12px">${x.role==="principal"?"All":(x.classes||[]).map(n=>`<span class="tagc">${esc(n)}</span> ${esc(teachesIn(x,n).join(", "))}`).join("<br>")||"–"}</td><td>${(x.classTeacher||[]).map(n=>`<span class="tagc">${esc(n)}</span>`).join("")||"–"}</td>
-    <td style="white-space:nowrap"><button class="btn sec sm" data-sted="${esc(x.email)}">Edit</button> <button class="btn warn sm" data-stdel="${esc(x.email)}">Remove</button></td></tr>`).join(""):`<tr><td colspan="7" class="empty">No staff yet. Add the principal and teachers above.</td></tr>`;
+    <td style="white-space:nowrap">${x.role==="principal"&&ME&&ME.role!=="admin"?"":`<button class="btn sec sm" data-sted="${esc(x.email)}">Edit</button> <button class="btn warn sm" data-stdel="${esc(x.email)}">Remove</button>`} ${x.role==="teacher"||(x.role==="principal"&&ME&&isFull())?`<button class="btn sec sm" data-prof="${esc(x.email)}">📄 Contract</button>`:""}</td></tr>`).join(""):`<tr><td colspan="7" class="empty">No staff yet. Add the principal and teachers above.</td></tr>`;
   const all=Object.values(RECORDS); $("#dataInfo").textContent=`${all.length} results saved, of which ${all.filter(r=>r.sample).length} are sample (dummy) marks. ${Object.values(STAFF).filter(x=>x.sample).length} sample staff.`;
   const bd=BACKUP&&BACKUP.at?Math.floor((Date.now()-new Date(BACKUP.at))/864e5):null;
   $("#bkInfo").innerHTML=bd==null?`<span class="pend">⚠️ No backup downloaded yet.</span> Download one now and keep it safe (e.g. Google Drive).`:bd>30?`<span class="pend">⚠️ Last backup was ${bd} days ago.</span> Please download a new one, and always after each exam's marks are entered.`:`<span class="done">✓ Last backup ${bd===0?"today":bd+" day"+(bd>1?"s":"")+" ago"}.</span> Download a new one after each exam's marks are entered.`;
@@ -1627,9 +1631,10 @@ function renderStaff(){
 $("#stList").addEventListener("click",e=>{
   const ed=e.target.closest("[data-sted]"), dl=e.target.closest("[data-stdel]");
   if(ed){ const x=STAFF[ed.dataset.sted]; $("#stName").value=x.name||""; $("#stQual").value=x.qualification||""; $("#stExp").value=x.experience??""; $("#stJoin").value=x.joined||""; setStPhoto(x.photo||""); $("#stEmail").value=x.email; $("#stEmail").disabled=true; $("#stRole").value=x.role||"teacher"; stSubjects=[...(x.subjects||[])]; renderStSubj(); stCls=[...(x.classes||[])]; stCT=[...(x.classTeacher||[])]; stTeach={}; (x.classes||[]).forEach(c=>stTeach[c]=[...teachesIn(x,c)]); $("#stCoord").value=x.coordinator?"yes":""; $("#stIsCT").dataset.forced=""; renderCP(); $("#stTeacherBits").style.display=x.role==="teacher"?"block":"none"; window.scrollTo({top:0,behavior:"smooth"}); }
-  if(dl){ const x=STAFF[dl.dataset.stdel]; confirmBox("Remove this staff member?",`${x.name} (${x.email}) will no longer be able to change results.`,"Remove",async()=>{ try{ await deleteDoc(doc(db,"staff",x.email)); toast("Removed"); }catch(err){ toast("Couldn't remove: "+errMsg(err)); } }); }
+  if(dl){ const x=STAFF[dl.dataset.stdel]; confirmBox("Remove this staff member?",`${x.name} (${x.email}) will no longer be able to change results.`,"Remove",async()=>{ try{ if(x.role==="principal"&&ME.role!=="admin") return toast("⛔ Only the admin can remove the principal"); await pubSet("staff",x.email,{__delete:true},`Staff: remove ${x.name}`); toast("Removed"); }catch(err){ toast("Couldn't remove: "+errMsg(err)); } }); }
 });
-$("#delSample").onclick=()=>{ const ids=Object.keys(RECORDS).filter(id=>RECORDS[id].sample), sids=Object.keys(STAFF).filter(id=>STAFF[id].sample); if(!ids.length&&!sids.length) return toast("There is no sample data");
+const asOffice=async(id,label)=>{ try{ await pubSet("action",id,{},label); toast("sent"); }catch(err){ toast("Couldn't send: "+errMsg(err)); } };
+$("#delSample").onclick=()=>{ if(!isFull()) return asOffice("delSample","Delete all sample (dummy) data"); const ids=Object.keys(RECORDS).filter(id=>RECORDS[id].sample), sids=Object.keys(STAFF).filter(id=>STAFF[id].sample); if(!ids.length&&!sids.length) return toast("There is no sample data");
   confirmBox("Delete sample data?",`This deletes ${ids.length} dummy results and ${sids.length} dummy teachers. Real results and real staff are not touched.`,"Delete",async()=>{ try{
     const rk=(await Promise.all(ids.map(id=>reportKey(RECORDS[id]._raw||RECORDS[id])))).filter(Boolean);
     let extra=[]; try{ const [lv,sb,tt]=await Promise.all([getDocs(collection(db,"leaves")),getDocs(collection(db,"subs")),getDocs(collection(db,"timetable"))]);
@@ -1640,7 +1645,7 @@ $("#delSample").onclick=()=>{ const ids=Object.keys(RECORDS).filter(id=>RECORDS[
     for(let i=0;i<ops.length;i+=100){ const b=writeBatch(db); ops.slice(i,i+100).forEach(([c,id])=>b.delete(doc(db,c,id))); await b.commit(); }
     toast(`Deleted ${ids.length} sample results and ${sids.length} sample teachers`); }catch(err){ toast("Couldn't delete: "+errMsg(err)); } }); };
 
-$("#delOld").onclick=()=>{ const ids=Object.keys(RECORDS).filter(id=>!(RECORDS[id]._raw||{}).cls);
+$("#delOld").onclick=()=>{ if(!isFull()) return asOffice("delOld","Remove results saved by older versions of the site"); const ids=Object.keys(RECORDS).filter(id=>!(RECORDS[id]._raw||{}).cls);
   if(!ids.length) return toast("Nothing to remove: all results are in the current format ✓");
   confirmBox("Remove older data?",`${ids.length} results were saved by an older version of the site (before the security update), including any non-sample ones. They will be deleted. Download a backup first if you need them.`,"Delete",async()=>{ try{
     for(let i=0;i<ids.length;i+=200){ const b=writeBatch(db); ids.slice(i,i+200).forEach(id=>b.delete(doc(db,"results",id))); await b.commit(); toast(`Removing… ${Math.min(i+200,ids.length)} of ${ids.length}`); }
@@ -1754,23 +1759,28 @@ function renderTT(){
 let DRAFTS={}, unsubDR=null;
 /* the coordinator keeps working on her own draft of the duty until the principal approves it */
 const DV=()=>(ME&&!isFull()&&DRAFTS["duties__"+TT_YEAR()])?DRAFTS["duties__"+TT_YEAR()].data:DUTY;
-const DRAFT_LABEL={timetable:"Timetable",calendar:"School calendar and exam dates",duties:"Exam invigilation duty",subs:"Substitute plan",config:"Public disclosure page"};
-async function pubSet(col,id,data){ if(isFull()){ await setDoc(doc(db,col,id),data); return true; }
-  const key=col+"__"+id, label=(DRAFT_LABEL[col]||col)+(col==="subs"?" for "+fmtD(id).replace(/<[^>]*>/g,""):"");
+const DRAFT_LABEL={staff:"Staff list",staffHR:"Contract",import:"Data import",action:"Data clean-up",timetable:"Timetable",calendar:"School calendar and exam dates",duties:"Exam invigilation duty",subs:"Substitute plan",config:"Public disclosure page"};
+async function pubSet(col,id,data,lab){ if(isFull()){ if(data&&data.__delete) await deleteDoc(doc(db,col,id)); else await setDoc(doc(db,col,id),data); return true; }
+  const key=col+"__"+id, label=lab||((DRAFT_LABEL[col]||col)+(col==="subs"?" for "+fmtD(id).replace(/<[^>]*>/g,""):""));
   await setDoc(doc(db,"drafts",key),{col,id,data,label,by:ME.email,at:new Date().toISOString()}); DRAFTS[key]={col,id,data,label,by:ME.email,at:new Date().toISOString()};
   window._draftMsg=`📨 Sent to the principal for approval: ${label}. It goes live when she approves it.`; return false; }
-function startDrafts(){ if(!db||!isOffice()||unsubDR) return; unsubDR=onSnapshot(collection(db,"drafts"),snap=>{ const n={}; snap.forEach(d=>n[d.id]=d.data()); DRAFTS=n; if(location.hash==="#timetable") renderTT(); if(location.hash==="#school") renderPub(); if(location.hash==="#dashboard"&&typeof renderDash==="function") renderDash(); },()=>{}); }
+function startDrafts(){ if(!db||!isOffice()||unsubDR) return; unsubDR=onSnapshot(collection(db,"drafts"),snap=>{ const n={}; snap.forEach(d=>n[d.id]=d.data()); DRAFTS=n; if(location.hash==="#timetable") renderTT(); if(location.hash==="#school") renderPub(); const aa=$("#admApprovals"); if(aa) aa.innerHTML=approvalsHTML(); if(location.hash==="#dashboard"&&typeof renderDash==="function") renderDash(); },()=>{}); }
 function stopDrafts(){ if(unsubDR){unsubDR();unsubDR=null;} DRAFTS={}; }
-function approvalsHTML(){ if(!ME||!isOffice()) return ""; const L=Object.entries(DRAFTS).sort((a,b)=>String(a[1].at).localeCompare(String(b[1].at))); if(!L.length) return "";
+function approvalsHTML(){ if(!ME||!isOffice()) return ""; const L=Object.entries(DRAFTS).filter(([,d])=>d.col!=="import"||d.data.part===0).sort((a,b)=>String(a[1].at).localeCompare(String(b[1].at))); if(!L.length) return "";
   const P=isFull();
   return `<div class="card" style="box-shadow:none;background:#fff8ec;border:2px solid #ffd79a;margin:0 0 14px"><h4 style="margin:0 0 8px">${P?"📥 Waiting for your approval":"⏳ Sent to the principal, waiting for approval"} (${L.length})</h4>
    ${L.map(([k,d])=>`<div class="dcard" style="cursor:default;flex-wrap:wrap;gap:8px;margin-bottom:6px"><span style="flex:1;min-width:200px"><b>${esc(d.label)}</b><small>Prepared by ${esc(tName(d.by))} · ${esc(new Date(d.at).toLocaleString("en-IN",{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"}))}${d.col==="subs"?` · ${(d.data.plan||[]).length} periods covered`:""}${d.col==="duties"?` · ${Object.keys(d.data).filter(x=>d.data[x]&&d.data[x].dates).join(", ")}`:""}</small></span>
      ${P?`<button class="btn pri sm" data-drok="${esc(k)}">✅ Approve and publish</button><button class="btn sec sm" data-drno="${esc(k)}">↩ Send back</button>`:`<button class="btn sec sm" data-drno="${esc(k)}">Withdraw</button>`}</div>`).join("")}
    ${P?`<p class="hint" style="margin:4px 0 0">Approving replaces what teachers (or the public) see now with this version.</p>`:""}</div>`; }
 document.addEventListener("click",async e=>{ const b=e.target.closest("[data-drok],[data-drno]"); if(!b) return; const k=b.dataset.drok||b.dataset.drno, d=DRAFTS[k]; if(!d) return;
-  try{ if(b.dataset.drok){ if(!isFull()) return; let data=d.data; if(d.col==="duties") data=Object.fromEntries(Object.entries(data).map(([x,v])=>[x,v&&v.dates?{...v,published:true}:v]));
+  try{ if(b.dataset.drok){ if(!isFull()) return; let data=d.data;
+      if(d.col==="action"){ await deleteDoc(doc(db,"drafts",k)); $(d.id==="delOld"?"#delOld":"#delSample").click(); return; }
+      if(d.col==="import"){ const parts=Object.entries(DRAFTS).filter(([,x])=>x.col==="import"&&x.data.batch===d.data.batch).sort((a,b)=>a[1].data.part-b[1].data.part);
+        if(parts.length<d.data.parts) return toast("Part of the file is still uploading. Please try again in a moment.");
+        const text=parts.map(([,x])=>x.data.chunk).join(""); for(const [kk] of parts) await deleteDoc(doc(db,"drafts",kk)); await runImport(text); return; }
+      if(data&&data.__delete){ await deleteDoc(doc(db,d.col,d.id)); await deleteDoc(doc(db,"drafts",k)); toast(`✅ Done: ${d.label}`); return; } if(d.col==="duties") data=Object.fromEntries(Object.entries(data).map(([x,v])=>[x,v&&v.dates?{...v,published:true}:v]));
       await setDoc(doc(db,d.col,d.id),{...data,approvedBy:ME.email,approvedAt:new Date().toISOString()}); await deleteDoc(doc(db,"drafts",k)); toast(`✅ Published: ${d.label}`); }
-    else { await deleteDoc(doc(db,"drafts",k)); toast(isFull()?"Sent back to the coordinator":"Withdrawn"); } }catch(err){ toast("Couldn't do that: "+errMsg(err)); } });
+    else { const ks=d.col==="import"?Object.keys(DRAFTS).filter(x=>DRAFTS[x].col==="import"&&DRAFTS[x].data.batch===d.data.batch):[k]; for(const kk of ks) await deleteDoc(doc(db,"drafts",kk)); toast(isFull()?"Sent back to the coordinator":"Withdrawn"); } }catch(err){ toast("Couldn't do that: "+errMsg(err)); } });
 /* ---------- Coordinator relief: who acts as coordinator while she is on leave ---------- */
 function reliefPick(l){ const grid=TT&&TT.grid, busy=grid?teacherSlots(grid):{};
   const away=new Set(Object.values(LEAVES).filter(x=>x.status==="Approved"&&x.from<=(l.to||l.from)&&(x.to||x.from)>=l.from).map(x=>x.email));
@@ -2237,7 +2247,7 @@ function dirHTML(){ const q=(DASH.q||"").toLowerCase().trim();
   const list=Object.values(STAFF).filter(x=>x.role!=="admin").sort((a,b)=>String(a.name).localeCompare(String(b.name)))
     .filter(x=>!q||[x.name,x.email,...(x.subjects||[]),...(x.classes||[]),...(x.classTeacher||[]),(HR[x.email]||{}).contract].join(" ").toLowerCase().includes(q));
   return list.map(x=>`<button class="dcard" data-prof="${esc(x.email)}">${tAvatar(x,48)}<span><b>${esc(x.name)}</b><small>${esc(x.role==="principal"?"Principal":(x.subjects||[]).join(", ")||"Teacher")}${(x.classTeacher||[]).length?` · CT ${esc(x.classTeacher.join(", "))}`:""}</small><br>${contractTag(x.email)}</span></button>`).join("")||'<div class="empty">No teacher matches that search.</div>'; }
-function openProfile(em){ const x=STAFF[em]; if(!x) return; const h=HR[em]||{}; const T=(DASH.TD&&DASH.TD.teachers||[]).find(t=>t.em===em); const yh=x.joined?yearsSince(x.joined):null;
+function openProfile(em){ const x=STAFF[em]; if(!x) return; const h=HR[em]||{}; const T=isFull()?(DASH.TD&&DASH.TD.teachers||[]).find(t=>t.em===em):null; /* teachers' analysis: principal and admin only */ const yh=x.joined?yearsSince(x.joined):null;
   $("#tpBody").innerHTML=`<div class="tp-head">${tAvatar(x,96)}<div><h3 style="margin:0">${esc(x.name)}</h3><div class="hint">${esc(x.role==="principal"?"Principal":"Teacher")} · ${esc(x.email)}</div><div style="margin-top:6px">${contractTag(em)}</div></div></div>
    <div class="tp-grid"><span>Qualification</span><div>${esc(x.qualification||"–")}</div>
    <span>Total experience</span><div>${x.experience!=null&&x.experience!==""?esc(x.experience)+" years":"–"}</div>
@@ -2254,12 +2264,12 @@ function openProfile(em){ const x=STAFF[em]; if(!x) return; const h=HR[em]||{}; 
    <label class="f" style="grid-column:span 2">Notes<input class="in" id="hrNotes" maxlength="300" value="${esc(h.notes||"")}" placeholder="e.g. Re-tender approved by management"></label></div>
    <p class="hint" style="margin:6px 0 0">Only the principal and admin can see this section. Reminders show on the dashboard 60 days before each date.</p>`;
   $("#tpSave").dataset.em=em; $("#tpModal").classList.add("on"); }
-document.addEventListener("click",e=>{ const b=e.target.closest("[data-prof]"); if(b&&isFull()){ e.preventDefault(); e.stopPropagation(); openProfile(b.dataset.prof); } },true);
+document.addEventListener("click",e=>{ const b=e.target.closest("[data-prof]"); if(b&&isOffice()&&(isFull()||(STAFF[b.dataset.prof]||{}).role==="teacher")){ e.preventDefault(); e.stopPropagation(); openProfile(b.dataset.prof); } },true);
 $("#tpClose").onclick=()=>$("#tpModal").classList.remove("on");
-$("#tpSave").onclick=async()=>{ const em=$("#tpSave").dataset.em; if(!isFull()) return toast("⛔ Only the principal or admin can change this");
-  const d={contract:$("#hrType").value,contractStart:$("#hrStart").value,contractEnd:$("#hrEnd").value,termination:$("#hrTerm").value,notes:$("#hrNotes").value.trim().slice(0,300),updatedAt:new Date().toISOString(),updatedBy:ME.email,sample:!!(STAFF[em]&&STAFF[em].sample)};
+$("#tpSave").onclick=async()=>{ const em=$("#tpSave").dataset.em; if(!isOffice()) return toast("⛔ Only the principal, coordinator or admin can change this");
+  const d={contract:$("#hrType").value,contractStart:$("#hrStart").value,contractEnd:$("#hrEnd").value,termination:$("#hrTerm").value,notes:$("#hrNotes").value.trim().slice(0,300),role:(STAFF[em]&&STAFF[em].role)||"teacher",updatedAt:new Date().toISOString(),updatedBy:ME.email,sample:!!(STAFF[em]&&STAFF[em].sample)};
   if(d.contractStart&&d.contractEnd&&d.contractEnd<d.contractStart) return toast("Renewal date can't be before the contract start");
-  try{ await setDoc(doc(db,"staffHR",em),d); toast("Saved ✓"); $("#tpModal").classList.remove("on"); }catch(err){ toast("Couldn't save: "+errMsg(err)); } };
+  try{ await pubSet("staffHR",em,d,`Contract: ${tName(em)} (${d.contract||"–"}${d.contractEnd?", renewal "+d.contractEnd:""}${d.termination?", termination "+d.termination:""})`); toast("Saved ✓"); $("#tpModal").classList.remove("on"); }catch(err){ toast("Couldn't save: "+errMsg(err)); } };
 document.addEventListener("input",e=>{ if(e.target.id==="dirQ"){ DASH.q=e.target.value; $("#dirGrid").innerHTML=dirHTML(); } });
 
 /* ---------- Principal dashboard ---------- */
@@ -2462,21 +2472,29 @@ $("#setupBanner").classList.toggle("on",!configured);
 /* ---------- Backup & import ---------- */
 $("#exportBtn").onclick=()=>{const data=Object.values(RECORDS).map(r=>({...(r._raw||r),id:r.id})); const blob=new Blob([JSON.stringify({results:data,staff:Object.values(STAFF)})],{type:"application/json"}); writeConfig("backup",{at:new Date().toISOString(),count:data.length}).then(()=>{BACKUP={at:new Date().toISOString()};renderStaff();}).catch(()=>{}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="saps-results-backup-"+new Date().toISOString().slice(0,10)+".json"; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); toast(`Backup of ${data.length} results downloaded`);};
 $("#importBtn").onclick=()=>$("#importIn").click();
-$("#importIn").onchange=async e=>{const f=e.target.files[0]; e.target.value=""; if(!f) return;
-  let list, staff=[], hr=[]; try{ const j=JSON.parse(await f.text()); if(Array.isArray(j)) list=j; else if(j&&Array.isArray(j.results)){ list=j.results; staff=Array.isArray(j.staff)?j.staff:[]; hr=Array.isArray(j.hr)?j.hr:[]; } else throw 0; }catch(_){ return toast("That file isn't a results file"); }
+$("#importIn").onchange=async e=>{const f=e.target.files[0]; e.target.value=""; if(!f) return; const text=await f.text();
+  if(isFull()) return runImport(text);
+  /* coordinator: the file is sent to the principal in parts; it is imported when she approves */
+  let j; try{ j=JSON.parse(text); }catch(_){ return toast("That file isn't a results file"); }
+  const cnt=k=>Array.isArray(j[k])?j[k].length:0, sum=Array.isArray(j)?`${j.length} results`:["results","staff","students","attendance","leaves"].filter(k=>cnt(k)).map(k=>`${cnt(k)} ${k}`).join(", ");
+  const batch=Date.now().toString(36), N=Math.ceil(text.length/300000);
+  try{ for(let i=0;i<N;i++) await setDoc(doc(db,"drafts","import__"+batch+"_"+i),{col:"import",id:batch+"_"+i,data:{batch,part:i,parts:N,chunk:text.slice(i*300000,(i+1)*300000)},label:`Data import: ${f.name.slice(0,60)} (${sum})`,by:ME.email,at:new Date().toISOString()});
+    toast(`📨 Sent to the principal for approval: ${f.name} (${sum}). It is imported when she approves it.`); }catch(err){ toast("Couldn't send: "+errMsg(err)); } };
+async function runImport(text){
+  let list, staff=[], hr=[]; try{ const j=JSON.parse(text); if(Array.isArray(j)) list=j; else if(j&&Array.isArray(j.results)){ list=j.results; staff=Array.isArray(j.staff)?j.staff:[]; hr=Array.isArray(j.hr)?j.hr:[]; } else throw 0; }catch(_){ return toast("That file isn't a results file"); }
   list=list.filter(r=>r&&r.name&&r.roll&&r.std&&r.div&&r.term&&r.year);
   staff=staff.filter(x=>x&&x.email&&x.role); 
-  hr=hr.filter(x=>x&&x.email); let leaves=[]; try{ const j2=JSON.parse(await f.text()); leaves=Array.isArray(j2.leaves)?j2.leaves.filter(x=>x&&x.email&&x.from):[]; }catch(_){}
+  hr=hr.filter(x=>x&&x.email); let leaves=[]; try{ const j2=JSON.parse(text); leaves=Array.isArray(j2.leaves)?j2.leaves.filter(x=>x&&x.email&&x.from):[]; }catch(_){}
   if(leaves.length){ try{ const b=writeBatch(db); leaves.slice(0,300).forEach(x=>{ const em=String(x.email).toLowerCase(); b.set(doc(db,"leaves",("imp-"+em+"-"+x.from).replace(/[^A-Za-z0-9_\-]/g,"-")),{...x,email:em}); }); await b.commit(); if(!list.length&&!staff.length&&!hr.length) return toast(`Imported ${leaves.length} leave records ✓`); }catch(err){ return toast("Import of leave failed: "+errMsg(err)); } }
-  let extras=[]; try{ const j3=JSON.parse(await f.text()); [["students","students"],["notes","studentNotes"],["attendance","attendance"],["staffAtt","staffAtt"],["tcs","tcs"]].forEach(([k,c])=>(Array.isArray(j3[k])?j3[k]:[]).forEach(x=>{ if(x&&x.id){ const {id,...b}=x; extras.push([c,String(id),b]); } })); }catch(_){}
+  let extras=[]; try{ const j3=JSON.parse(text); [["students","students"],["notes","studentNotes"],["attendance","attendance"],["staffAtt","staffAtt"],["tcs","tcs"]].forEach(([k,c])=>(Array.isArray(j3[k])?j3[k]:[]).forEach(x=>{ if(x&&x.id){ const {id,...b}=x; extras.push([c,String(id),b]); } })); }catch(_){}
   if(extras.length){ try{ for(let i=0;i<extras.length;i+=100){ const b=writeBatch(db); extras.slice(i,i+100).forEach(([c,id,d])=>b.set(doc(db,c,id),d)); await b.commit(); } toast(`Imported ${extras.length} attendance, student and notes records ✓`); if(!list.length&&!staff.length&&!hr.length) return; }catch(err){ return toast("Import of attendance/notes failed: "+errMsg(err)); } }
   if(!list.length&&!staff.length&&!hr.length&&!leaves.length) return toast("No results found in that file");
-  if(hr.length){ try{ const b=writeBatch(db); hr.slice(0,400).forEach(x=>{ const {email,...h}=x; b.set(doc(db,"staffHR",String(email).toLowerCase()),h); }); await b.commit(); if(!list.length&&!staff.length) return toast(`Imported contract details for ${hr.length} staff ✓`); }catch(err){ return toast("Import of contract details failed: "+errMsg(err)); } }
+  if(hr.length){ try{ const b=writeBatch(db); hr.slice(0,400).forEach(x=>{ const {email,...h}=x; const em2=String(email).toLowerCase(); b.set(doc(db,"staffHR",em2),{role:(staff.find(y=>String(y.email).toLowerCase()===em2)||STAFF[em2]||{}).role||"teacher",...h}); }); await b.commit(); if(!list.length&&!staff.length) return toast(`Imported contract details for ${hr.length} staff ✓`); }catch(err){ return toast("Import of contract details failed: "+errMsg(err)); } }
   if(staff.length){ try{ for(let i=0;i<staff.length;i+=100){ const b=writeBatch(db); staff.slice(i,i+100).forEach(x=>{ const em=String(x.email).toLowerCase(); b.set(doc(db,"staff",em),{...x,email:em}); }); await b.commit(); } }catch(err){ return toast("Import of staff failed: "+errMsg(err)); } }
   toast(`Importing ${list.length} results… please wait`); let skipped=0;
   const norm=r=>{ const {_raw,subjects:subs,...rest}=r; const o=rest.marks?{...rest}:{...rest,subjectList:(subs||[]).map(x=>x.name),marks:Object.fromEntries((subs||[]).map(x=>[x.name,{...markOf(x),by:null}]))}; o.cls=o.std+"-"+o.div; o.id=idFor(o); return o; };
   try{ for(let i=0;i<list.length;i+=100){ const b=writeBatch(db); for(const r of list.slice(i,i+100)){ const rec=norm(r); const {id:_i,...body}=rec; const ex=RECORDS[rec.id]&&RECORDS[rec.id]._raw; if(ex&&ex.cls&&ex.updatedAt===body.updatedAt&&JSON.stringify(ex.marks)===JSON.stringify(body.marks)){ skipped++; continue; } b.set(doc(db,"results",rec.id),body); const k=await reportKey(body); if(k) b.set(doc(db,"reports",k),publicCopy(body)); } await b.commit(); toast(`Importing… ${Math.min(i+100,list.length)} of ${list.length}`); }
-    toast(`Imported ${list.length-skipped} results`+(skipped?` (${skipped} were already saved)`:"")+(staff.length?` and ${staff.length} staff`:"")+" ✓"); }catch(err){ toast("Import failed: "+errMsg(err)); }};
+    toast(`Imported ${list.length-skipped} results`+(skipped?` (${skipped} were already saved)`:"")+(staff.length?` and ${staff.length} staff`:"")+" ✓"); }catch(err){ toast("Import failed: "+errMsg(err)); }}
 renderHome();
 
 const capName=v=>v.trim().replace(/\s+/g," ").split(" ").map(w=>(w===w.toLowerCase()||w===w.toUpperCase())?w.toLowerCase().replace(/(^|[.\-'’])(\p{L})/gu,(m,a,b)=>a+b.toUpperCase()):w).join(" ");
