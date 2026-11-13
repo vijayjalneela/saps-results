@@ -461,6 +461,7 @@ table.pt.duty td{font-size:13px;padding:6px 6px}
     <div class="brand" id="brandName">Shivneri Army Public School<small>Results Portal · Aundh Mil. Station, Pune</small></div>
     <nav class="tabs">
       <a href="#home" data-v="home">Home</a>
+      <a href="#school" data-v="pub">📋 Disclosure</a>
       <a href="#teacher" data-v="teacher" class="staff-only" id="navEntry">Results entry</a>
       <a href="#dashboard" data-v="dashboard" class="pr-only">Dashboard</a>
       <a href="#analysis" data-v="analysis" class="staff-only">Analysis</a>
@@ -520,6 +521,7 @@ table.pt.duty td{font-size:13px;padding:6px 6px}
       <a class="door p" href="#results"><div class="ic">🎓</div><h3>Parents login</h3><p>See your child's report card and results across all exams.</p><span class="go">Check a result →</span></a>
     </div>
   </div>
+  <a class="card" href="#school" style="display:flex;gap:14px;align-items:center;margin-top:18px;text-decoration:none;color:inherit;background:#fff8ec;border:2px solid #ffd79a"><span style="font-size:34px">📋</span><span><b style="font-size:18px">Mandatory Public Disclosure (CBSE)</b><br><span class="hint">Affiliation, documents, staff, infrastructure, fees, committees and TC check · <span style="text-decoration:underline">Privacy notice</span> in the footer</span></span></a>
   <div class="card" id="homeCal" style="display:none;margin-top:18px"></div>
   <div class="card staff-only" id="homeStats" style="display:block;margin-top:18px"></div>
 </section>
@@ -703,6 +705,8 @@ table.pt.duty td{font-size:13px;padding:6px 6px}
   <div class="card" id="dashLock"><div class="unauth" style="margin:0"><b class="t">⛔ Unauthorised access</b>The dashboard is only for the principal. Please sign in with the Principal login.</div></div>
 </section>
 
+<section class="view" id="v-pub"><div class="card" id="pubBody"></div></section>
+
 <section class="view" id="v-students"><div class="card" id="stuBody"></div></section>
 
 <section class="view" id="v-timetable"><div class="card" id="ttBody"></div></section>
@@ -788,6 +792,7 @@ table.pt.duty td{font-size:13px;padding:6px 6px}
       <label class="f" style="grid-column:span 1">Student name<input class="in" id="qName" required placeholder="e.g. Riya Sharma" autocomplete="off"></label>
       <label class="f" style="grid-column:1/-1">Date of birth<input class="in" id="qDob" type="date" required></label>
       <button class="btn pri" type="submit" style="grid-column:1/-1;justify-content:center">🔍 Show report card</button>
+      <p class="hint" style="grid-column:1/-1;margin:0;text-align:center">For the parent or guardian only. See how we protect your child's data: <a href="#privacy">Privacy notice</a>.</p>
     </form>
   </div>
   <div id="rcOut"></div>
@@ -882,7 +887,7 @@ const isAB = v=>/^\s*ab\s*$/i.test(String(v??""));
 /* a mark box is fine if empty, a number from 0 to max, or AB (absent) */
 const markBad = (v,max)=>{ if(v==null||String(v).trim()==="") return false; if(isAB(v)) return false; const n=num(v); return n==null||n<0||n>max; };
 const r1 = n=>Math.round(n*10)/10;
-function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("on");clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove("on"),2600)}
+function toast(m){ if(window._draftMsg){ m=window._draftMsg; window._draftMsg=null; } const t=$("#toast");t.textContent=m;t.classList.add("on");clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove("on"),2600)}
 const safeImg=u=>/^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+\/=]+$/.test(String(u||""))?u:"";
 const normName=n=>String(n||"").toLowerCase().replace(/[^\p{L}\p{M}\p{N}]+/gu," ").trim();
 function idFor(r){return [r.year,r.term,r.std,r.div,r.roll,normName(r.name).replace(/ /g,"-")].join("_").replace(/[^A-Za-z0-9_\-]/g,"-")}
@@ -903,7 +908,7 @@ function errMsg(err){ const c=(err&&err.code)||String(err); if(c.includes("permi
 async function reportKey(r){ if(!r||!r.dob||!crypto.subtle) return null;
   const t=[r.year,r.term,r.std,r.div,String(r.roll),normName(r.name),String(r.dob).trim()].join("|");
   const h=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(t)); return [...new Uint8Array(h)].map(b=>b.toString(16).padStart(2,"0")).join(""); }
-function publicCopy(store){ const o=JSON.parse(JSON.stringify(store)); delete o.updatedBy; delete o._raw; delete o.id; delete o.rank; delete o.unit; delete o.phone; Object.values(o.marks||{}).forEach(m=>{ if(m) delete m.by; }); o.cls=o.std+"-"+o.div; return o; }
+function publicCopy(store){ const o=JSON.parse(JSON.stringify(store)); delete o.updatedBy; delete o._raw; delete o.id; delete o.rank; delete o.unit; delete o.phone; { const c=(typeof STUDOCS!=="undefined"&&STUDOCS[sidOf(store)]||{}).consent; if(!(c&&c.photo)) delete o.photo; } Object.values(o.marks||{}).forEach(m=>{ if(m) delete m.by; }); o.cls=o.std+"-"+o.div; return o; }
 async function saveRecord(id,store){
   const before=RECORDS[id]; const oldK=before?await reportKey(before._raw||before):null, newK=await reportKey(store);
   await setDoc(doc(db,"results",id),store);
@@ -967,10 +972,10 @@ if(db){
 function route(){
   if(window._actionMode){ document.querySelectorAll(".view").forEach(s=>s.classList.toggle("on",s.id==="v-action")); return; }
   const v=(location.hash||"#home").slice(1);
-  const name=["home","teacher","principal","coordinator","adminlogin","results","admin","analysis","dashboard","timetable","students"].includes(v)?v:"home"; if(name==="students"){ if(!ME){ location.hash="teacher"; return; } startTT(); setTimeout(renderStu,0); } if(name==="timetable"){ if(!ME){ location.hash="teacher"; return; } startTT(); setTimeout(renderTT,0); } if(name==="dashboard") setTimeout(()=>renderDash(),0); if(name==="analysis") setTimeout(renderAnalysis,0);
+  const name=["home","teacher","principal","coordinator","adminlogin","results","admin","analysis","dashboard","timetable","students","school","privacy"].includes(v)?v:"home"; if(name==="school"||name==="privacy") setTimeout(renderPub,0); if(name==="students"){ if(!ME){ location.hash="teacher"; return; } startTT(); setTimeout(renderStu,0); } if(name==="timetable"){ if(!ME){ location.hash="teacher"; return; } startTT(); setTimeout(renderTT,0); } if(name==="dashboard") setTimeout(()=>renderDash(),0); if(name==="analysis") setTimeout(renderAnalysis,0);
   if(name==="teacher"||name==="principal"||name==="coordinator"||name==="adminlogin") setLoginMode(name==="adminlogin"?"admin":name);
   if(name==="adminlogin"&&ME&&ME.role==="admin"){ location.hash="admin"; return; }
-  const view=(name==="principal"||name==="coordinator"||name==="adminlogin")?"teacher":name;
+  const view=(name==="principal"||name==="coordinator"||name==="adminlogin")?"teacher":(name==="school"||name==="privacy")?"pub":name;
   document.querySelectorAll(".view").forEach(s=>s.classList.toggle("on",s.id==="v-"+view));
   document.querySelectorAll("nav.tabs a").forEach(a=>a.classList.toggle("on",a.dataset.v===view));
   window.scrollTo(0,0);
@@ -1448,7 +1453,7 @@ function renderRoleBar(){
   else if(ME.role==="principal") t=`<span class="rb">Principal</span> You can add, change and delete all results.`;
   else { const subj=(ME.subjects||[]).join(", ")||"no subjects yet", cl=(ME.classes||[]).join(", ")||"no classes yet";
     const per=(ME.classes||[]).map(c=>`<b>${esc(teachesIn(ME,c).join(", ")||"–")}</b> in <b>${esc(c)}</b>`).join("; ");
-    t=(ME.office?`<span class="rb">${ME.coordinator?"Coordinator":"Acting coordinator"}</span> You manage students, attendance, leave, timetable and exams, and can add or correct all results${ME.acting?` (acting until ${fmtD(ME.acting.to)})`:""}. `:"")+`<span class="rb">Teacher</span> You can change ${per||"no marks yet"}.`+((ME.classTeacher||[]).length?` As class teacher of <b>${esc(ME.classTeacher.join(", "))}</b> you can also add students and edit details, attendance and remarks.`:"")+` Everything else is view-only (🔒).`; }
+    t=(ME.office?`<span class="rb">${ME.coordinator?"Coordinator":"Acting coordinator"}</span> You run students, attendance and records, and prepare the timetable, calendar, leave, substitutes, exam duty and the disclosure page; the principal approves them before they go live. You can also add or correct results${ME.acting?` (acting until ${fmtD(ME.acting.to)})`:""}. `:"")+`<span class="rb">Teacher</span> You can change ${per||"no marks yet"}.`+((ME.classTeacher||[]).length?` As class teacher of <b>${esc(ME.classTeacher.join(", "))}</b> you can also add students and edit details, attendance and remarks.`:"")+` Everything else is view-only (🔒).`; }
   const scope=ME.role==="teacher"&&!ME.office?(LOAD.all?` <span class="hint">Showing all classes, ${esc(LOAD.year||"")}.</span> <button class="btn sec sm" data-loadall="0">Show only my classes</button>`:` <span class="hint">Showing your classes, ${esc(LOAD.year||"")}.</span> <button class="btn sec sm" data-loadall="1">Show all classes</button>`):"";
   $("#roleBar").innerHTML=`<span>👋 ${esc(ME.name)}</span> ${t}${scope} <a href="guide.html" class="hint" style="font-weight:800">📖 How to use</a>`;
 }
@@ -1540,7 +1545,7 @@ async function loadMe(u){
   window._freshLogin=false;
   ME={email:em,name:(sd&&sd.name)||(admin?"Admin":em),role,subjects:(sd&&sd.subjects)||[],classes:(sd&&sd.classes)||[],classTeacher:(sd&&sd.classTeacher)||[],teaches:(sd&&sd.teaches)||{},coordinator:!!(sd&&sd.coordinator),office,acting};
   document.body.classList.toggle("admin",admin); document.body.classList.add("staff"); document.body.classList.toggle("principal",admin||((sd&&sd.role)==="principal")); document.body.classList.toggle("office",admin||role==="principal"||office);
-  canWrite=true; { const c0=(ME.classTeacher||[])[0]||(ME.classes||[])[0]; if(ME.role==="teacher"&&c0){ const [cs,cd]=c0.split("-"); $("#aStd").value=cs; $("#aDiv").value=cd; $("#fStd").value=cs; $("#fDiv").value=cd; } } setUnlocked(true); startTeacherData(); startStaffData();
+  canWrite=true; { const c0=(ME.classTeacher||[])[0]||(ME.classes||[])[0]; if(ME.role==="teacher"&&c0){ const [cs,cd]=c0.split("-"); $("#aStd").value=cs; $("#aDiv").value=cd; $("#fStd").value=cs; $("#fDiv").value=cd; } } setUnlocked(true); startTeacherData(); startStaffData(); startStu();
   renderRoleBar(); renderMarks(); renderStats(); toast(`Welcome, ${ME.name}`);
   $("#navEntry").href=role==="principal"?"#principal":loginAs==="coordinator"?"#coordinator":"#teacher";
   if(office&&(location.hash==="#coordinator"||location.hash==="#teacher"&&acting)) location.hash="students";
@@ -1661,14 +1666,14 @@ function examOn(date){ for(const e of (calData().exams||[])) for(const r of (e.s
 function leaveDays(from,to){ return workingDays(from,to||from,ttSet().days,calData().holidays).length; }
 function leavesOn(date){ return Object.values(LEAVES).filter(l=>l.status==="Approved"&&l.from<=date&&date<=(l.to||l.from)); }
 let ACTING=null, unsubACT=null;
-function startTT(){ if(!db||!ME) return;
+function startTT(){ if(!db||!ME) return; startDrafts();
   if(!unsubACT) unsubACT=onSnapshot(doc(db,"office","acting"),d=>{ ACTING=d.exists()?d.data():null; if(location.hash==="#timetable") renderTT(); },()=>{});
   if(!unsubTT) unsubTT=onSnapshot(doc(db,"timetable",TT_YEAR()),d=>{ TT=d.exists()?d.data():null; if(location.hash==="#timetable") renderTT(); },()=>{});
   if(!unsubDUTY) unsubDUTY=onSnapshot(doc(db,"duties",TT_YEAR()),d=>{ DUTY=d.exists()?d.data():null; if(location.hash==="#timetable"&&ttS.tab==="exam"&&!dutyDraft) renderTT(); },()=>{});
   if(!unsubCAL) unsubCAL=onSnapshot(doc(db,"calendar",TT_YEAR()),d=>{ CAL=d.exists()?d.data():null; if(location.hash==="#timetable"&&!calDraft) renderTT(); },()=>{});
   if(!unsubLV){ const q=isOffice()?collection(db,"leaves"):query(collection(db,"leaves"),where("email","==",ME.email));
     unsubLV=onSnapshot(q,snap=>{ const n={}; snap.forEach(d=>n[d.id]={...d.data(),id:d.id}); LEAVES=n; if(location.hash==="#timetable") renderTT(); },()=>{}); } }
-function stopTT(){ if(unsubACT){unsubACT();unsubACT=null;} ACTING=null; if(unsubDUTY){unsubDUTY();unsubDUTY=null;} DUTY=null; dutyDraft=null; ttS.tab=""; ttS.teacher=""; ttS.cls="I-A"; ttS.setup=null; if(unsubCAL){unsubCAL();unsubCAL=null;} calDraft=null; if(unsubTT){unsubTT();unsubTT=null;} if(unsubLV){unsubLV();unsubLV=null;} TT=null; LEAVES={}; SUBDOC=null; SUBPLAN=null; }
+function stopTT(){ stopDrafts(); if(unsubACT){unsubACT();unsubACT=null;} ACTING=null; if(unsubDUTY){unsubDUTY();unsubDUTY=null;} DUTY=null; dutyDraft=null; ttS.tab=""; ttS.teacher=""; ttS.cls="I-A"; ttS.setup=null; if(unsubCAL){unsubCAL();unsubCAL=null;} calDraft=null; if(unsubTT){unsubTT();unsubTT=null;} if(unsubLV){unsubLV();unsubLV=null;} TT=null; LEAVES={}; SUBDOC=null; SUBPLAN=null; }
 
 function ttTable(set,cell){ // cell(dayIdx,periodIdx) -> html
   const cols=set.periods;
@@ -1724,7 +1729,7 @@ function renderTT(){
   }
   else if(ttS.tab==="leave"){
     const tl=teachersList(); const L=Object.values(LEAVES).sort((a,b)=>String(b.from).localeCompare(String(a.from)));
-    const st=x=>`<span class="ctag ${x==="Approved"?"perm":x==="Rejected"?"none":"temp"}">${esc(x)}</span>`;
+    const st=x=>`<span class="ctag ${x==="Approved"?"perm":x==="Rejected"?"none":"temp"}">${esc(x==="Recommended"?"Recommended · awaiting principal":x)}</span>`;
     body=`<div class="card" style="background:#f8f6ff;box-shadow:none;margin:0 0 14px"><h4 style="margin:0 0 8px">${full?"➕ Add or plan a leave":"🙋 Apply for leave"}</h4><div class="grid g3">
       ${full?`<label class="f">Teacher<select class="in" id="lvWho">${tl.map(t=>`<option value="${esc(t.email)}">${esc(t.name)}</option>`).join("")}</select></label>`:""}
       <label class="f">From<input class="in" type="date" id="lvFrom" value="${esc(todayISO())}"></label><label class="f">To<input class="in" type="date" id="lvTo" value="${esc(todayISO())}"></label>
@@ -1733,15 +1738,39 @@ function renderTT(){
       <div class="row" style="justify-content:flex-start"><button class="btn pri" id="lvAdd">${full?"✓ Save as approved":"📨 Send request"}</button></div></div>
       <h4 style="margin:0 0 8px">${full?"All leave":"My leave"}</h4>
       ${L.length?`<div class="tbl-wrap"><table class="pt"><thead><tr>${full?"<th style='text-align:left'>Teacher</th>":""}<th>From</th><th>To</th><th>School days</th><th>Type</th><th>Status</th><th></th></tr></thead><tbody>${L.map(l=>`<tr>${full?`<td style="text-align:left"><b>${esc(tName(l.email))}</b>${l.reason?`<br><span class="hint">${esc(l.reason)}</span>`:""}</td>`:""}<td>${fmtD(l.from)}</td><td>${fmtD(l.to||l.from)}</td><td>${leaveDays(l.from,l.to)}</td><td>${esc(l.type||"")}</td><td>${st(l.status)}</td>
-        <td style="white-space:nowrap">${full&&l.status==="Requested"?`<button class="btn sec sm" data-lv="ok" data-id="${esc(l.id)}">Approve</button> <button class="btn sec sm" data-lv="no" data-id="${esc(l.id)}">Reject</button>`:""}${full||l.status==="Requested"?` <button class="btn sec sm" data-lv="del" data-id="${esc(l.id)}">🗑</button>`:""}</td></tr>`).join("")}</tbody></table></div>`:'<div class="empty">No leave recorded.</div>'}`;
+        <td style="white-space:nowrap">${isFull()&&(l.status==="Requested"||l.status==="Recommended")?`<button class="btn sec sm" data-lv="ok" data-id="${esc(l.id)}">Approve</button> <button class="btn sec sm" data-lv="no" data-id="${esc(l.id)}">Reject</button>`:full&&!isFull()&&l.status==="Requested"?`<button class="btn sec sm" data-lv="ok" data-id="${esc(l.id)}">👍 Recommend</button>`:""}${isFull()||l.status==="Requested"||(full&&l.status==="Recommended")?` <button class="btn sec sm" data-lv="del" data-id="${esc(l.id)}">🗑</button>`:""}</td></tr>`).join("")}</tbody></table></div>`:'<div class="empty">No leave recorded.</div>'}`;
   }
   if(ttS.tab==="leave"&&full) body+=reliefHTML();
   else if(ttS.tab==="setup"&&full){ body=wizardHTML()+`<details style="margin-top:14px"${ttS.adv?" open":""}><summary style="cursor:pointer;font-weight:800;font-size:16px" data-adv="1">⚙️ Change the rules (periods a week, timings, days, fixed periods)</summary><div style="margin-top:10px">${setupHTML()}</div></details>`; }
   else if(ttS.tab==="cal"){ body=calHTML(full); }
   else if(ttS.tab==="exam"){ body=examHTML(full); }
-  box.innerHTML=`<div class="title-row"><h2>🗓 Timetable & calendar</h2><span class="hint">${esc(TT_YEAR())}</span></div>${head}${body}`;
+  box.innerHTML=`<div class="title-row"><h2>🗓 Timetable & calendar</h2><span class="hint">${esc(TT_YEAR())}</span></div>${approvalsHTML()}${head}${body}`;
 }
 
+
+/* ---------- Approvals: the coordinator prepares, the principal publishes ----------
+   Anything teachers or the public will see (timetable, calendar, exam duty, substitutes, the disclosure page)
+   is saved by the coordinator as a draft in "drafts"; the principal approves it and only then it goes live. */
+let DRAFTS={}, unsubDR=null;
+/* the coordinator keeps working on her own draft of the duty until the principal approves it */
+const DV=()=>(ME&&!isFull()&&DRAFTS["duties__"+TT_YEAR()])?DRAFTS["duties__"+TT_YEAR()].data:DUTY;
+const DRAFT_LABEL={timetable:"Timetable",calendar:"School calendar and exam dates",duties:"Exam invigilation duty",subs:"Substitute plan",config:"Public disclosure page"};
+async function pubSet(col,id,data){ if(isFull()){ await setDoc(doc(db,col,id),data); return true; }
+  const key=col+"__"+id, label=(DRAFT_LABEL[col]||col)+(col==="subs"?" for "+fmtD(id).replace(/<[^>]*>/g,""):"");
+  await setDoc(doc(db,"drafts",key),{col,id,data,label,by:ME.email,at:new Date().toISOString()}); DRAFTS[key]={col,id,data,label,by:ME.email,at:new Date().toISOString()};
+  window._draftMsg=`📨 Sent to the principal for approval: ${label}. It goes live when she approves it.`; return false; }
+function startDrafts(){ if(!db||!isOffice()||unsubDR) return; unsubDR=onSnapshot(collection(db,"drafts"),snap=>{ const n={}; snap.forEach(d=>n[d.id]=d.data()); DRAFTS=n; if(location.hash==="#timetable") renderTT(); if(location.hash==="#school") renderPub(); if(location.hash==="#dashboard"&&typeof renderDash==="function") renderDash(); },()=>{}); }
+function stopDrafts(){ if(unsubDR){unsubDR();unsubDR=null;} DRAFTS={}; }
+function approvalsHTML(){ if(!ME||!isOffice()) return ""; const L=Object.entries(DRAFTS).sort((a,b)=>String(a[1].at).localeCompare(String(b[1].at))); if(!L.length) return "";
+  const P=isFull();
+  return `<div class="card" style="box-shadow:none;background:#fff8ec;border:2px solid #ffd79a;margin:0 0 14px"><h4 style="margin:0 0 8px">${P?"📥 Waiting for your approval":"⏳ Sent to the principal, waiting for approval"} (${L.length})</h4>
+   ${L.map(([k,d])=>`<div class="dcard" style="cursor:default;flex-wrap:wrap;gap:8px;margin-bottom:6px"><span style="flex:1;min-width:200px"><b>${esc(d.label)}</b><small>Prepared by ${esc(tName(d.by))} · ${esc(new Date(d.at).toLocaleString("en-IN",{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"}))}${d.col==="subs"?` · ${(d.data.plan||[]).length} periods covered`:""}${d.col==="duties"?` · ${Object.keys(d.data).filter(x=>d.data[x]&&d.data[x].dates).join(", ")}`:""}</small></span>
+     ${P?`<button class="btn pri sm" data-drok="${esc(k)}">✅ Approve and publish</button><button class="btn sec sm" data-drno="${esc(k)}">↩ Send back</button>`:`<button class="btn sec sm" data-drno="${esc(k)}">Withdraw</button>`}</div>`).join("")}
+   ${P?`<p class="hint" style="margin:4px 0 0">Approving replaces what teachers (or the public) see now with this version.</p>`:""}</div>`; }
+document.addEventListener("click",async e=>{ const b=e.target.closest("[data-drok],[data-drno]"); if(!b) return; const k=b.dataset.drok||b.dataset.drno, d=DRAFTS[k]; if(!d) return;
+  try{ if(b.dataset.drok){ if(!isFull()) return; let data=d.data; if(d.col==="duties") data=Object.fromEntries(Object.entries(data).map(([x,v])=>[x,v&&v.dates?{...v,published:true}:v]));
+      await setDoc(doc(db,d.col,d.id),{...data,approvedBy:ME.email,approvedAt:new Date().toISOString()}); await deleteDoc(doc(db,"drafts",k)); toast(`✅ Published: ${d.label}`); }
+    else { await deleteDoc(doc(db,"drafts",k)); toast(isFull()?"Sent back to the coordinator":"Withdrawn"); } }catch(err){ toast("Couldn't do that: "+errMsg(err)); } });
 /* ---------- Coordinator relief: who acts as coordinator while she is on leave ---------- */
 function reliefPick(l){ const grid=TT&&TT.grid, busy=grid?teacherSlots(grid):{};
   const away=new Set(Object.values(LEAVES).filter(x=>x.status==="Approved"&&x.from<=(l.to||l.from)&&(x.to||x.from)>=l.from).map(x=>x.email));
@@ -1751,7 +1780,7 @@ function reliefHTML(){ const t0=todayISO(), coords=Object.values(STAFF).filter(x
   const L=Object.values(LEAVES).filter(l=>l.status==="Approved"&&coords.some(c=>c.email===l.email)&&(l.to||l.from)>=t0).sort((a,b)=>a.from.localeCompare(b.from));
   const cur=ACTING&&tms(ACTING.until)>Date.now()?ACTING:null;
   let h=`<div class="card" style="box-shadow:none;background:#fff8ec;margin-top:14px"><h4 style="margin:0 0 4px">🗂️ Coordinator relief</h4><p class="hint" style="margin:0 0 10px">When the coordinator is on leave, pick a teacher to act for her. The acting coordinator gets the coordinator's powers only for those dates (it switches off by itself). Her own periods are covered by the substitute plan as usual.</p>`;
-  if(cur) h+=`<div class="banner" style="margin:0 0 10px">✅ <b>${esc(tName(cur.email))}</b> is acting coordinator from ${fmtD(cur.from)} to ${fmtD(cur.to)}.${isFull()?` <button class="btn sec sm" data-act="end">End now</button>`:""}</div>`;
+  if(cur) h+=`<div class="banner on" style="margin:0 0 10px">✅ <b>${esc(tName(cur.email))}</b> is acting coordinator from ${fmtD(cur.from)} to ${fmtD(cur.to)}.${isFull()?` <button class="btn sec sm" data-act="end">End now</button>`:""}</div>`;
   if(!L.length) h+=`<p class="hint" style="margin:0">No upcoming leave for ${esc(coords.map(c=>c.name).join(", "))}.</p>`;
   L.forEach(l=>{ const pk=reliefPick(l), best=pk[0], set=cur&&cur.from===l.from&&cur.to===(l.to||l.from);
     h+=`<div class="dcard" style="cursor:default;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:8px"><span style="flex:1;min-width:220px"><b>${esc(tName(l.email))}</b> on leave ${fmtD(l.from)} – ${fmtD(l.to||l.from)}<small>${best?`Suggested: <b>${esc(best.t.name)}</b> (lightest load: ${best.per} periods a week${best.ex?`, ${best.ex} years' experience`:""}, not on leave then)`:"Nobody is free on those dates."}</small></span>
@@ -1792,9 +1821,9 @@ async function setupAll(what){ const out=$("#wzOut"); if(out) out.innerHTML='<di
   try{
     if(what!=="tt"){ const c=JSON.parse(JSON.stringify(calData())); if(!(c.holidays||[]).length){ c.holidays=SUGGESTED_HOLIDAYS.filter(h=>h.from>=c.start&&h.from<=c.end).map(h=>({...h})); msg.push(`loaded ${c.holidays.length} calendar entries`); }
       c.exams=planExams({start:c.start,end:c.end,days:set.days,holidays:c.holidays,subjects:examSubjects(set),gap:true}); msg.push("spaced the 4 exams");
-      await setDoc(doc(db,"calendar",TT_YEAR()),{...c,updatedAt:new Date().toISOString(),updatedBy:ME.email}); calDraft=null; }
+      await pubSet("calendar",TT_YEAR(),{...c,updatedAt:new Date().toISOString(),updatedBy:ME.email}); calDraft=null; }
     if(what!=="ex"){ if(!teachersList().length){ toast("Add teachers on the Admin page first"); } else { const {best,P}=makeTT(set);
-      await setDoc(doc(db,"timetable",TT_YEAR()),{settings:set,grid:best.grid,generatedAt:new Date().toISOString(),by:ME.email,sample:teachersList().some(t=>t.sample)});
+      await pubSet("timetable",TT_YEAR(),{settings:set,grid:best.grid,generatedAt:new Date().toISOString(),by:ME.email,sample:teachersList().some(t=>t.sample)});
       msg.push(`made the timetable: ${P.lessons.length-best.unplaced.length} of ${P.lessons.length} periods placed, ${clashes(best.grid).length} clashes`);
       if(P.over.length) msg.push("⚠️ "+P.over.map(o=>`${o.name} has more periods than a week holds`).join("; ")); } }
     toast("Done ✓"); SUBPLAN=null; renderHomeCal(); renderTT(); const o2=$("#wzOut"); if(o2) o2.innerHTML=`<div class="bulk-res" style="background:#eafaf4">✓ ${msg.map(esc).join(" · ")}.</div>`;
@@ -1819,7 +1848,7 @@ async function renderSubs(){
    ${SUBPLAN.plan.length?`<div class="tbl-wrap"><table class="pt"><thead><tr><th>Period</th><th>Class</th><th>Subject</th><th>Teacher on leave</th><th>Substitute</th><th style="text-align:left">Why</th></tr></thead><tbody>${SUBPLAN.plan.map((p,i)=>`<tr><td>P${p.p}</td><td><b>${esc(p.c)}</b></td><td>${esc(p.s)}</td><td>${esc(tName(p.absent))}</td><td><select class="in" data-subi="${i}" style="min-width:180px">${optFor(p)}</select></td><td style="text-align:left;font-size:13px">${esc(p.why||"")}</td></tr>`).join("")}</tbody></table></div>`:(absentL.length?'<div class="empty">No periods need a substitute. 👍</div>':"")}
    ${SUBPLAN.acting.length?`<h4 style="margin:14px 0 6px">🧑‍🏫 Acting class teachers (attendance, notes to parents)</h4><ul class="alist hi">${SUBPLAN.acting.map(a=>`<li><b>${esc(a.c)}</b>: ${esc(tName(a.sub)||"nobody free")} <span class="hint">instead of ${esc(tName(a.absent))}</span></li>`).join("")}</ul>`:""}
    ${Object.keys(load).length?`<p class="hint" style="margin:10px 0 0">Extra periods: ${Object.entries(load).sort((a,b)=>b[1]-a[1]).map(([e,n])=>`${esc(tName(e))} ${n}`).join(" · ")}</p>`:""}
-   ${SUBPLAN.plan.length||SUBPLAN.acting.length?`<div class="row" style="justify-content:flex-start"><button class="btn pri" id="subPub">📢 Publish to teachers</button><button class="btn sec" id="subRe">🔄 Pick again</button><button class="btn sec" id="subPrint">🖨 Print</button></div>`:""}`;
+   ${SUBPLAN.plan.length||SUBPLAN.acting.length?`<div class="row" style="justify-content:flex-start"><button class="btn pri" id="subPub">${isFull()?"📢 Publish to teachers":"📨 Send to the principal"}</button><button class="btn sec" id="subRe">🔄 Pick again</button><button class="btn sec" id="subPrint">🖨 Print</button></div>`:""}`;
 }
 
 /* ----- auto-schedule settings ----- */
@@ -1875,7 +1904,7 @@ function examHTML(full){
   const C=calData(), ex=C.exams||[];
   if(!ex.length) return `<div class="empty">Exam dates aren't planned yet.${full?" Open <b>✨ Set up</b> and press one button.":""}</div>`;
   if(!ttS.exam||!ex.some(x=>x.key===ttS.exam)){ const t=todayISO(); ttS.exam=(ex.find(x=>x.to>=t)||ex[ex.length-1]).key; }
-  const e=ex.find(x=>x.key===ttS.exam), D=(dutyDraft&&dutyDraft[e.key])||(DUTY&&DUTY[e.key])||null, classes=allClasses();
+  const e=ex.find(x=>x.key===ttS.exam), D=(dutyDraft&&dutyDraft[e.key])||(DV()&&DV()[e.key])||null, classes=allClasses();
   const groups=Object.keys(e.sheet[0]||{}).filter(k=>k!=="date");
   const pick=`<div class="apick">${ex.map(x=>`<button class="chip ${x.key===e.key?"on":""}" data-exam="${esc(x.key)}">${esc(EXLONG[x.key]||x.label)} · ${fmtD(x.from).replace(/ \d{4}$/,"")}</button>`).join("")}</div>`;
   const sheet=`<div class="tbl-wrap"><table class="pt"><thead><tr><th>Date</th><th>Day</th>${groups.map(g=>`<th>Classes ${esc(g)}</th>`).join("")}<th>Time</th></tr></thead><tbody>${e.sheet.map(r=>`<tr><td><b>${fmtD(r.date)}</b></td><td>${esc(dayName(r.date))}</td>${groups.map(g=>`<td>${esc(r[g]||"–")}</td>`).join("")}<td>${esc(examTime(e,D))}</td></tr>`).join("")}</tbody></table></div>`;
@@ -1893,7 +1922,7 @@ function examHTML(full){
    <div class="card" style="box-shadow:none;background:#fbfaff;margin:8px 0"><h3 style="margin:0 0 4px">📝 ${esc(EXLONG[e.key]||e.label)} · date sheet</h3><p class="hint" style="margin:0 0 8px">${fmtD(e.from)} – ${fmtD(e.to)} · reporting time 15 minutes before the paper</p>${sheet}
    ${full?`<label class="f" style="max-width:260px;margin-top:10px">Exam time<input class="in" id="exTime" value="${esc(examTime(e,D))}"></label>`:""}</div>
    ${full||D&&D.published?`<div class="card" style="box-shadow:none;background:#fbfaff;margin:8px 0"><h3 style="margin:0 0 4px">🧑‍🏫 Invigilation duty</h3><p class="hint" style="margin:0 0 8px">One teacher per class for each paper. Nobody invigilates their own subject or their own class, and teachers on leave are left out. The coordinator is kept as the reserve.${D&&D.published?' <span class="done">✓ Published to teachers</span>':""}</p>${duty}</div>`:""}
-   <div class="row" style="justify-content:flex-start">${full?`<button class="btn pri" id="dutyGen">⚡ ${D?"Assign again":"Assign invigilators"}</button>${D?`<button class="btn sec" id="dutyPub">${D.published?"✏️ Edit duty":"📢 Publish to teachers"}</button>`:""}`:""}<button class="btn sec" id="examPrint">🖨 Print / Save PDF</button><button class="btn sec" id="examPrintAll">🖨 All four exams on one page</button></div>`;
+   <div class="row" style="justify-content:flex-start">${full?`<button class="btn pri" id="dutyGen">⚡ ${D?"Assign again":"Assign invigilators"}</button>${D&&isFull()?`<button class="btn sec" id="dutyPub">${D.published?"✏️ Edit duty":"📢 Publish to teachers"}</button>`:""}`:""}<button class="btn sec" id="examPrint">🖨 Print / Save PDF</button><button class="btn sec" id="examPrintAll">🖨 All four exams on one page</button></div>`;
 }
 function examPrintHTML(){ const C=calData(), e=(C.exams||[]).find(x=>x.key===ttS.exam); if(!e) return ""; const D=(DUTY&&DUTY[e.key])||(dutyDraft&&dutyDraft[e.key])||null, classes=allClasses(), groups=Object.keys(e.sheet[0]||{}).filter(k=>k!=="date");
   const head=`<div style="display:flex;gap:14px;align-items:center;border-bottom:3px solid #1f1d3a;padding-bottom:8px;margin-bottom:12px"><img src="${LOGO}" style="width:60px;height:60px"><div><h2 style="margin:0">${esc(SCHOOL.name)}</h2><div>${esc(SCHOOL.addr)}</div></div></div>`;
@@ -1962,8 +1991,8 @@ document.addEventListener("click",async e=>{
       ${ex.map(e=>`<h3 style="margin:14px 0 6px">${esc(EXLONG[e.key]||e.label)} · ${fmtD(e.from)} – ${fmtD(e.to)} · ${esc(examTime(e,DUTY&&DUTY[e.key]))}</h3><table class="pt" style="width:100%;font-size:14px"><thead><tr><th>Date</th><th>Day</th>${g.map(x=>`<th>Classes ${esc(x)}</th>`).join("")}</tr></thead><tbody>${e.sheet.map(r=>`<tr><td><b>${fmtD(r.date)}</b></td><td>${esc(dayName(r.date))}</td>${g.map(x=>`<td>${esc(r[x]||"–")}</td>`).join("")}</tr>`).join("")}</tbody></table>`).join("")}
       <p style="margin-top:30px;text-align:right"><b>Principal</b></p></div>`); return; }
   if(e.target.id==="dutyGen"){ const ex=(calData().exams||[]).find(x=>x.key===ttS.exam); if(!ex) return; const d=assignDuty(ex); d.time=($("#exTime")&&$("#exTime").value)||examTime(ex,null); d.published=false;
-    try{ await setDoc(doc(db,"duties",TT_YEAR()),{...(DUTY||{}),[ex.key]:d,sample:teachersList().some(t=>t.sample),updatedAt:new Date().toISOString()}); toast("Invigilators assigned ✓ Check them, then publish"); }catch(err){ toast("Couldn't save: "+errMsg(err)); } return; }
-  if(e.target.id==="dutyPub"){ const k=ttS.exam, cur=DUTY&&DUTY[k]; if(!cur) return; try{ await setDoc(doc(db,"duties",TT_YEAR()),{...DUTY,[k]:{...cur,published:!cur.published,time:($("#exTime")&&$("#exTime").value)||cur.time}}); toast(cur.published?"You can change the duty now":"Published ✓ Teachers see it under Exams"); }catch(err){ toast("Couldn't save: "+errMsg(err)); } return; }
+    try{ await pubSet("duties",TT_YEAR(),{...(DV()||{}),[ex.key]:d,sample:teachersList().some(t=>t.sample),updatedAt:new Date().toISOString()}); toast("Invigilators assigned ✓ Check them, then publish"); }catch(err){ toast("Couldn't save: "+errMsg(err)); } return; }
+  if(e.target.id==="dutyPub"){ const k=ttS.exam, cur=DUTY&&DUTY[k]; if(!cur) return; try{ await pubSet("duties",TT_YEAR(),{...DUTY,[k]:{...cur,published:!cur.published,time:($("#exTime")&&$("#exTime").value)||cur.time}}); toast(cur.published?"You can change the duty now":"Published ✓ Teachers see it under Exams"); }catch(err){ toast("Couldn't save: "+errMsg(err)); } return; }
   if(e.target.id==="wzAll"){ setupAll("all"); return; } if(e.target.id==="wzTT"){ setupAll("tt"); return; } if(e.target.id==="wzEx"){ setupAll("ex"); return; }
   const set=ttSet();
   // class grid swap
@@ -1977,17 +2006,17 @@ document.addEventListener("click",async e=>{
     if(c1||c2){ const x=c1||c2, who=c1?A.t:B.t; toast(`⛔ ${tName(who)} is already teaching ${x[0]} at that time`); ttS.swap=null; renderTT(); return; }
     row[a]=B; row[b]=A; ttS.draft=g; ttS.swap=null; renderTT(); return; }
   if(e.target.id==="ttUndo"){ ttS.draft=null; renderTT(); return; }
-  if(e.target.id==="ttSaveSwap"){ try{ await setDoc(doc(db,"timetable",TT_YEAR()),{...TT,grid:ttS.draft,updatedAt:new Date().toISOString(),updatedBy:ME.email}); ttS.draft=null; toast("Timetable saved ✓"); }catch(err){ toast("Couldn't save: "+errMsg(err)); } return; }
+  if(e.target.id==="ttSaveSwap"){ try{ await pubSet("timetable",TT_YEAR(),{...TT,grid:ttS.draft,updatedAt:new Date().toISOString(),updatedBy:ME.email}); ttS.draft=null; toast("Timetable saved ✓"); }catch(err){ toast("Couldn't save: "+errMsg(err)); } return; }
   if(e.target.id==="ttPrint"){ printCards(`<div class="rc" style="padding:12px"><h2 style="margin:0 0 8px">Shivneri Army Public School · Timetable ${esc(TT_YEAR())}</h2><h3 style="margin:0 0 10px">${ttS.tab==="class"?"Class "+esc(ttS.cls):esc(tName(ttS.teacher))}</h3>${$("#ttBody .tbl-wrap").outerHTML}</div>`); return; }
   // leave
   if(e.target.id==="lvAdd"){ const from=$("#lvFrom").value, to=$("#lvTo").value||from; if(!from) return toast("Choose the dates"); if(to<from) return toast("'To' can't be before 'From'");
-    const who=isOffice()?$("#lvWho").value:ME.email; const d={email:who,from,to,type:$("#lvType").value,reason:$("#lvWhy").value.trim().slice(0,200),status:isOffice()?"Approved":"Requested",createdBy:ME.email,createdAt:new Date().toISOString(),sample:!!(STAFF[who]&&STAFF[who].sample)};
-    try{ await setDoc(doc(collection(db,"leaves")),d); toast(isOffice()?"Leave saved ✓":"Request sent to the principal ✓"); SUBPLAN=null; }catch(err){ toast("Couldn't save: "+errMsg(err)); } return; }
+    const who=isOffice()?$("#lvWho").value:ME.email; const d={email:who,from,to,type:$("#lvType").value,reason:$("#lvWhy").value.trim().slice(0,200),status:isFull()?"Approved":isOffice()?"Recommended":"Requested",createdBy:ME.email,createdAt:new Date().toISOString(),sample:!!(STAFF[who]&&STAFF[who].sample)};
+    try{ await setDoc(doc(collection(db,"leaves")),d); toast(isFull()?"Leave saved ✓":isOffice()?"Sent to the principal for approval ✓":"Request sent to the principal ✓"); SUBPLAN=null; }catch(err){ toast("Couldn't save: "+errMsg(err)); } return; }
   const lb=e.target.closest("[data-lv]"); if(lb){ const id=lb.dataset.id, l=LEAVES[id]; if(!l) return;
-    try{ if(lb.dataset.lv==="del") await deleteDoc(doc(db,"leaves",id)); else { const {id:_x,...rest}=l; await setDoc(doc(db,"leaves",id),{...rest,status:lb.dataset.lv==="ok"?"Approved":"Rejected",decidedBy:ME.email,decidedAt:new Date().toISOString()}); } SUBPLAN=null; toast("Done ✓"); }catch(err){ toast("Couldn't change: "+errMsg(err)); } return; }
+    try{ if(lb.dataset.lv==="del") await deleteDoc(doc(db,"leaves",id)); else { const {id:_x,...rest}=l; await setDoc(doc(db,"leaves",id),{...rest,status:lb.dataset.lv==="ok"?(isFull()?"Approved":"Recommended"):"Rejected",decidedBy:ME.email,decidedAt:new Date().toISOString()}); } SUBPLAN=null; toast("Done ✓"); }catch(err){ toast("Couldn't change: "+errMsg(err)); } return; }
   // substitutes
   if(e.target.id==="subRe"){ const di=dayIdxOf(ttS.date,set); const absent=new Set(leavesOn(ttS.date).map(l=>l.email)); SUBPLAN={date:ttS.date,...substitutePlan({grid:TT.grid,dayIdx:di,absent,staff:Object.values(STAFF),ctOf:ctOfCls}),saved:false}; renderSubs(); return; }
-  if(e.target.id==="subPub"){ try{ const smp=SUBPLAN.plan.some(p=>STAFF[p.absent]&&STAFF[p.absent].sample); await setDoc(doc(db,"subs",ttS.date),{date:ttS.date,plan:SUBPLAN.plan.map(({options,...p})=>p),acting:SUBPLAN.acting,publishedBy:ME.email,at:new Date().toISOString(),sample:smp}); SUBPLAN.saved=true; toast("Published ✓ Teachers see it in Timetable → Substitutes"); renderSubs(); }catch(err){ toast("Couldn't publish: "+errMsg(err)); } return; }
+  if(e.target.id==="subPub"){ try{ const smp=SUBPLAN.plan.some(p=>STAFF[p.absent]&&STAFF[p.absent].sample); await pubSet("subs",ttS.date,{date:ttS.date,plan:SUBPLAN.plan.map(({options,...p})=>p),acting:SUBPLAN.acting,publishedBy:ME.email,at:new Date().toISOString(),sample:smp}); SUBPLAN.saved=true; toast("Published ✓ Teachers see it in Timetable → Substitutes"); renderSubs(); }catch(err){ toast("Couldn't publish: "+errMsg(err)); } return; }
   if(e.target.id==="subPrint"){ printCards(`<div class="rc" style="padding:12px"><h2 style="margin:0 0 8px">Substitute plan · ${esc(fmtD(ttS.date))}</h2>${$("#subOut").innerHTML.replace(/<select[\s\S]*?<\/select>/g,m=>{ const s=(m.match(/<option value="([^"]*)" selected>([^<]*)/)||[])[2]; return "<b>"+(s||"—")+"</b>"; }).replace(/<div class="row"[\s\S]*$/,"")}</div>`); return; }
   // calendar
   if(e.target.id==="hAdd"){ const f=$("#hFrom").value, t=$("#hTo").value||f, n=$("#hName").value.trim(); if(!f||!n) return toast("Enter the date and a name"); if(t<f) return toast("'To' can't be before 'From'");
@@ -1999,7 +2028,7 @@ document.addEventListener("click",async e=>{
     if((st.stds||[]).some(x=>STDS.indexOf(x)>4)) groups["VI–VIII"]=["English","Mathematics","Hindi","Science","Social Science"].filter(x=>x in st.perWeek.mid);
     c.exams=planExams({start:c.start,end:c.end,days:st.days,holidays:c.holidays||[],subjects:groups,gap:$("#exGap").checked}); toast("Exams spaced out. Check the dates, then Save."); renderTT(); return; }
   if(e.target.id==="calUndo"){ calDraft=null; renderTT(); return; }
-  if(e.target.id==="calSave"){ try{ await setDoc(doc(db,"calendar",TT_YEAR()),{...calDraft,updatedAt:new Date().toISOString(),updatedBy:ME.email}); calDraft=null; toast("Calendar saved ✓"); SUBPLAN=null; renderHomeCal(); renderTT(); }catch(err){ toast("Couldn't save: "+errMsg(err)); } return; }
+  if(e.target.id==="calSave"){ try{ await pubSet("calendar",TT_YEAR(),{...calDraft,updatedAt:new Date().toISOString(),updatedBy:ME.email}); calDraft=null; toast("Calendar saved ✓"); SUBPLAN=null; renderHomeCal(); renderTT(); }catch(err){ toast("Couldn't save: "+errMsg(err)); } return; }
   if(e.target.id==="calPrint"){ printCards(`<div class="rc" style="padding:14px"><h2 style="margin:0 0 8px">Shivneri Army Public School · School calendar ${esc(TT_YEAR())}</h2>${$("#ttBody").innerHTML.replace(/<div class="apick"[\s\S]*?<\/div>/,"").replace(/<button[\s\S]*?<\/button>/g,"")}</div>`); return; }
   // setup
   const day=e.target.closest("[data-day]"); if(day){ const s=ttS.setup, d=day.dataset.day; s.days=s.days.includes(d)?s.days.filter(x=>x!==d):DAYNAMES.slice(1).concat("Sun").filter(x=>x===d||s.days.includes(x)); renderTT(); return; }
@@ -2008,9 +2037,9 @@ document.addEventListener("click",async e=>{
   if(e.target.id==="fxAdd"){ const l=$("#fxLabel").value.trim(); if(!l) return toast("Type a name, e.g. Assembly"); (ttS.setup.fixed=ttS.setup.fixed||[]).push({day:$("#fxDay").value,p:+$("#fxP").value,label:l,who:$("#fxWho").value}); renderTT(); return; }
   const pd=e.target.closest("[data-pwdel]"); if(pd){ const [g,s]=pd.dataset.pwdel.split("|"); delete ttS.setup.perWeek[g][s]; renderTT(); return; }
   if(e.target.id==="ttGen"){ if(!ttS.setup.days.length) return toast("Choose at least one working day"); $("#ttGenOut").innerHTML='<div class="bulk-res">Working it out…</div>'; setTimeout(runGenerate,30); return; }
-  if(e.target.id==="ttSaveSet"){ try{ await setDoc(doc(db,"timetable",TT_YEAR()),{...(TT||{}),settings:ttS.setup,updatedAt:new Date().toISOString(),updatedBy:ME.email}); toast("Settings saved ✓"); }catch(err){ toast("Couldn't save: "+errMsg(err)); } return; }
+  if(e.target.id==="ttSaveSet"){ try{ await pubSet("timetable",TT_YEAR(),{...(TT||{}),settings:ttS.setup,updatedAt:new Date().toISOString(),updatedBy:ME.email}); toast("Settings saved ✓"); }catch(err){ toast("Couldn't save: "+errMsg(err)); } return; }
   if(e.target.id==="ttGenSave"&&GEN){ const smp=teachersList().some(t=>t.sample);
-    try{ await setDoc(doc(db,"timetable",TT_YEAR()),{settings:ttS.setup,grid:GEN.grid,generatedAt:new Date().toISOString(),by:ME.email,sample:smp}); GEN=null; ttS.tab="class"; toast("Timetable saved and published ✓"); renderTT(); }catch(err){ toast("Couldn't save: "+errMsg(err)); } return; }
+    try{ await pubSet("timetable",TT_YEAR(),{settings:ttS.setup,grid:GEN.grid,generatedAt:new Date().toISOString(),by:ME.email,sample:smp}); GEN=null; ttS.tab="class"; toast("Timetable saved and published ✓"); renderTT(); }catch(err){ toast("Couldn't save: "+errMsg(err)); } return; }
 });
 document.addEventListener("change",e=>{
   const v=$("#v-timetable"); if(!v||!v.contains(e.target)) return; const id=e.target.id;
@@ -2018,10 +2047,10 @@ document.addEventListener("change",e=>{
   else if(id==="ttTeacher"){ ttS.teacher=e.target.value; renderTT(); }
   else if(id==="ttDate"){ ttS.date=e.target.value; SUBPLAN=null; renderTT(); }
   else if(id==="ttPer"){ ttS.per=e.target.value; renderTT(); }
-  else if(e.target.dataset.duty){ const [date,c]=e.target.dataset.duty.split("|"), k=ttS.exam, cur=JSON.parse(JSON.stringify(DUTY[k])); const v=e.target.value;
+  else if(e.target.dataset.duty){ const [date,c]=e.target.dataset.duty.split("|"), k=ttS.exam, cur=JSON.parse(JSON.stringify(DV()[k])); const v=e.target.value;
     if(v&&Object.entries(cur.dates[date]||{}).some(([cc,em])=>cc!==c&&!cc.startsWith("_")&&em===v)){ toast(`${tName(v)} already has a room on that day`); renderTT(); return; }
-    cur.dates[date][c]=v; setDoc(doc(db,"duties",TT_YEAR()),{...DUTY,[k]:cur}).then(()=>toast("Changed ✓")).catch(err=>toast("Couldn't save: "+errMsg(err))); }
-  else if(id==="exTime"){ const k=ttS.exam; if(DUTY&&DUTY[k]) setDoc(doc(db,"duties",TT_YEAR()),{...DUTY,[k]:{...DUTY[k],time:e.target.value}}).catch(()=>{}); }
+    cur.dates[date][c]=v; pubSet("duties",TT_YEAR(),{...DV(),[k]:cur}).then(()=>toast("Changed ✓")).catch(err=>toast("Couldn't save: "+errMsg(err))); }
+  else if(id==="exTime"){ const k=ttS.exam; if(DV()&&DV()[k]) pubSet("duties",TT_YEAR(),{...DV(),[k]:{...DV()[k],time:e.target.value}}).catch(()=>{}); }
   else if(id==="calStart"||id==="calEnd"){ calTouch()[id==="calStart"?"start":"end"]=e.target.value; renderTT(); }
   else if(e.target.dataset.exd){ const [ei,ri]=e.target.dataset.exd.split("|").map(Number); const c=calTouch(), ex=c.exams[ei]; ex.sheet[ri].date=e.target.value; ex.sheet.sort((a,b)=>a.date.localeCompare(b.date)); ex.from=ex.sheet[0].date; ex.to=ex.sheet[ex.sheet.length-1].date; renderTT(); }
   else if(e.target.dataset.subi!=null){ const p=SUBPLAN.plan[+e.target.dataset.subi]; p.sub=e.target.value; p.why=p.sub?"chosen by the principal":"no substitute"; SUBPLAN.saved=false; renderSubs(); }
@@ -2236,7 +2265,7 @@ document.addEventListener("input",e=>{ if(e.target.id==="dirQ"){ DASH.q=e.target
 /* ---------- Principal dashboard ---------- */
 let DASH={exam:null,picked:false};
 function renderDash(){
-  const ok=isFull(); $("#dashLock").style.display=ok?"none":"block"; if(!ok) return;
+  const ok=isFull(); $("#dashLock").style.display=ok?"none":"block"; if(!ok) return; startDrafts();
   const y=YEARS[0], all=Object.values(RECORDS).filter(r=>r.year===y);
   const have=EXAMS.filter(t=>all.some(r=>r.term===t));
   if(!DASH.picked||!have.includes(DASH.exam)) DASH.exam=have[have.length-1]||"Term I";
@@ -2244,7 +2273,7 @@ function renderDash(){
   const hr=new Date().getHours(), greet=hr<12?"Good morning":hr<17?"Good afternoon":"Good evening";
   const head=`<div class="dash-head"><div><h2>${greet}, ${esc(ME.name)} 👋</h2><p>Principal dashboard · ${esc(y)} · ${new Date().toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long"})}</p></div>
     <div class="apick" style="margin:0">${EXAMS.map(x=>`<button class="chip ${x===t?"on":""}" data-dex="${esc(x)}" ${have.includes(x)?"":"disabled"}>${esc(lab(x))}</button>`).join("")}</div></div>`;
-  if(!recs.length){ $("#dashBody").innerHTML=head+`<div class="empty">No results for ${esc(y)} yet. Once teachers enter marks, highlights appear here.</div>`; return; }
+  if(!recs.length){ $("#dashBody").innerHTML=approvalsHTML()+head+`<div class="empty">No results for ${esc(y)} yet. Once teachers enter marks, highlights appear here.</div>`; return; }
   const key=r=>[r.std,r.div,r.roll,normName(r.name)].join("|");
   const prevMap={}; prev.forEach(r=>prevMap[key(r)]=pctOf(r));
   const vals=recs.map(pctOf).filter(v=>v!=null), sAvg=avg(vals), pAvg=avg(prev.map(pctOf).filter(v=>v!=null));
@@ -2300,7 +2329,7 @@ function renderDash(){
   const rems=staffReminders(60);
   const remBox=`<h3 style="margin:22px 0 8px">⏰ Contract reminders <span class="hint" style="font-weight:700">· next 60 days</span></h3>${rems.length?rems.map(r=>`<div class="rem ${r.n<0?"over":"soon"}" data-prof="${esc(r.em)}">${tAvatar(STAFF[r.em],36)}<div><b>${esc(r.name)}</b> <span class="hint">${esc(r.contract||"")}</span><br><span style="font-size:14px">${esc(r.what)}: ${fmtD(r.d)}</span></div><span class="when">${remWhen(r.n)}</span></div>`).join(""):'<div class="empty" style="background:#f0fbf7">No contract renewals or terminations in the next 60 days. 👍</div>'}`;
   const dirBox=`<h3 style="margin:22px 0 4px">🔎 Find a teacher</h3><input class="in" id="dirQ" placeholder="Search by name, subject, class or contract type…" value="${esc(DASH.q||"")}" style="max-width:420px"><div class="dir-grid" id="dirGrid">${dirHTML()}</div>`;
-  $("#dashBody").innerHTML=head+kpis+remBox+spot+charts+dirBox+`<div class="two"><div><h4 style="margin:0 0 8px">⚠️ Needs your attention</h4><ul class="alist att">${att.map(x=>`<li>${x}</li>`).join("")||`<li style="background:#f0fbf7;border-left-color:#14c3a2">Nothing urgent. 👍</li>`}</ul></div>
+  $("#dashBody").innerHTML=approvalsHTML()+head+kpis+remBox+spot+charts+dirBox+`<div class="two"><div><h4 style="margin:0 0 8px">⚠️ Needs your attention</h4><ul class="alist att">${att.map(x=>`<li>${x}</li>`).join("")||`<li style="background:#f0fbf7;border-left-color:#14c3a2">Nothing urgent. 👍</li>`}</ul></div>
     <div><h4 style="margin:0 0 8px">🌟 Highlights</h4><ul class="alist hi">${hi.map(x=>`<li>${x}</li>`).join("")}</ul></div></div>
     <details class="mstat" ${pendN?"open":""} style="margin-top:18px"><summary>📋 Classes and marks entry status · ${esc(lab(t))} ${pendN?`<span class="pend">${pendN} pending</span>`:`<span class="done">✓ all entered</span>`}</summary>${status}<p class="hint" style="margin:6px 0 0">Click a class to open its full analysis.</p></details>
     <div class="qlinks" style="margin-top:14px"><a class="btn sec" href="#analysis" data-goana="teachers">👩‍🏫 Teacher comparison</a><a class="btn sec" href="#analysis" data-goana="school">🏆 School toppers and support list</a><a class="btn sec" href="#analysis" data-goana="overview">📊 Class analysis</a><a class="btn sec" data-gohome="1" href="#home">🏫 School summary</a></div>`;
@@ -2439,7 +2468,7 @@ $("#importIn").onchange=async e=>{const f=e.target.files[0]; e.target.value=""; 
   staff=staff.filter(x=>x&&x.email&&x.role); 
   hr=hr.filter(x=>x&&x.email); let leaves=[]; try{ const j2=JSON.parse(await f.text()); leaves=Array.isArray(j2.leaves)?j2.leaves.filter(x=>x&&x.email&&x.from):[]; }catch(_){}
   if(leaves.length){ try{ const b=writeBatch(db); leaves.slice(0,300).forEach(x=>{ const em=String(x.email).toLowerCase(); b.set(doc(db,"leaves",("imp-"+em+"-"+x.from).replace(/[^A-Za-z0-9_\-]/g,"-")),{...x,email:em}); }); await b.commit(); if(!list.length&&!staff.length&&!hr.length) return toast(`Imported ${leaves.length} leave records ✓`); }catch(err){ return toast("Import of leave failed: "+errMsg(err)); } }
-  let extras=[]; try{ const j3=JSON.parse(await f.text()); [["students","students"],["notes","studentNotes"],["attendance","attendance"],["staffAtt","staffAtt"]].forEach(([k,c])=>(Array.isArray(j3[k])?j3[k]:[]).forEach(x=>{ if(x&&x.id){ const {id,...b}=x; extras.push([c,String(id),b]); } })); }catch(_){}
+  let extras=[]; try{ const j3=JSON.parse(await f.text()); [["students","students"],["notes","studentNotes"],["attendance","attendance"],["staffAtt","staffAtt"],["tcs","tcs"]].forEach(([k,c])=>(Array.isArray(j3[k])?j3[k]:[]).forEach(x=>{ if(x&&x.id){ const {id,...b}=x; extras.push([c,String(id),b]); } })); }catch(_){}
   if(extras.length){ try{ for(let i=0;i<extras.length;i+=100){ const b=writeBatch(db); extras.slice(i,i+100).forEach(([c,id,d])=>b.set(doc(db,c,id),d)); await b.commit(); } toast(`Imported ${extras.length} attendance, student and notes records ✓`); if(!list.length&&!staff.length&&!hr.length) return; }catch(err){ return toast("Import of attendance/notes failed: "+errMsg(err)); } }
   if(!list.length&&!staff.length&&!hr.length&&!leaves.length) return toast("No results found in that file");
   if(hr.length){ try{ const b=writeBatch(db); hr.slice(0,400).forEach(x=>{ const {email,...h}=x; b.set(doc(db,"staffHR",String(email).toLowerCase()),h); }); await b.commit(); if(!list.length&&!staff.length) return toast(`Imported contract details for ${hr.length} staff ✓`); }catch(err){ return toast("Import of contract details failed: "+errMsg(err)); } }
@@ -2493,14 +2522,15 @@ function findHTML(){ const opts=ALLCLS.filter(c=>classLoaded(c));
   return `<div class="apick" style="align-items:flex-end">
     <label class="f" style="flex:2;min-width:220px">Search<input class="in" id="stuQ" placeholder="Name, roll, admission no. or parent's name" value="${esc(stu.q)}"></label>
     <label class="f">Class<select class="in" id="stuCls"><option value="">All classes</option>${opts.map(c=>`<option ${c===stu.cls?"selected":""}>${c}</option>`).join("")}</select></label>
-    <label class="f">Status<select class="in" id="stuSt">${[["active","Studying"],["left","Left the school"],["all","All"]].map(([v,l])=>`<option value="${v}" ${v===stu.status?"selected":""}>${l}</option>`).join("")}</select></label>
+    <label class="f">Status<select class="in" id="stuSt">${[["active","Studying"],["nocon","Studying, no consent form yet"],["left","Left the school"],["all","All"]].map(([v,l])=>`<option value="${v}" ${v===stu.status?"selected":""}>${l}</option>`).join("")}</select></label>
     ${(isOffice()||(ME.classTeacher||[]).length)?`<button class="btn pri" data-stuadd="1">➕ Add a new student</button>`:""}</div>
     ${ME.role==="teacher"&&!ME.office&&!LOAD.all?`<p class="hint">Showing students of your classes. <button class="btn sec sm" data-loadall="1">Show all classes</button></p>`:""}
     <div id="stuList"></div>`; }
 function renderStuList(){ const out=$("#stuList"); if(!out) return; const q=normName(stu.q);
-  const L=allStudents().filter(s=>(!stu.cls||s.cls===stu.cls)&&(stu.status==="all"||(stu.status==="left")===s.left)
+  const all=allStudents(), noCon=all.filter(s=>!s.left&&!(s.doc.consent&&s.doc.consent.given)).length;
+  const L=all.filter(s=>(!stu.cls||s.cls===stu.cls)&&(stu.status==="all"||(stu.status==="nocon"?(!s.left&&!(s.doc.consent&&s.doc.consent.given)):(stu.status==="left")===s.left))
     &&(!q||[s.name,s.r.father,s.r.mother,s.r.adm].some(x=>normName(x).includes(q))||String(s.roll)===stu.q.trim()));
-  out.innerHTML=`<p class="hint" style="margin:6px 0">${L.length} student${L.length===1?"":"s"}</p>`+(L.length?`<div class="dir-grid">${L.slice(0,300).map(s=>`<div class="dcard" data-sid="${esc(s.sid)}">${avatar(s.r,44)}<span><b>${esc(s.name)}</b>${s.left?' <span class="ctag none">Left</span>':""}<small>${esc(s.cls)} · Roll ${esc(s.roll)}${s.r.father?` · ${esc(s.r.father)}`:""}</small></span></div>`).join("")}</div>`:`<div class="empty">No student found.${Object.keys(RECORDS).length?"":" Results for this year are still loading, or none are saved yet."}</div>`); }
+  out.innerHTML=(noCon&&stu.status!=="nocon"?`<div class="banner on warn" style="margin:6px 0">🔒 ${noCon} student${noCon===1?" has":"s have"} no parent consent recorded yet (needed under the data protection law). <a href="#students" data-nocon="1">Show them</a></div>`:"")+`<p class="hint" style="margin:6px 0">${L.length} student${L.length===1?"":"s"}</p>`+(L.length?`<div class="dir-grid">${L.slice(0,300).map(s=>`<div class="dcard" data-sid="${esc(s.sid)}">${avatar(s.r,44)}<span><b>${esc(s.name)}</b>${s.left?' <span class="ctag none">Left</span>':""}<small>${esc(s.cls)} · Roll ${esc(s.roll)}${s.r.father?` · ${esc(s.r.father)}`:""}</small></span></div>`).join("")}</div>`:`<div class="empty">No student found.${Object.keys(RECORDS).length?"":" Results for this year are still loading, or none are saved yet."}</div>`); }
 
 function profileHTML(){ const s=allStudents().find(x=>x.sid===stu.sel); if(!s){ stu.sel=null; return findHTML(); }
   const r=s.r, d=s.doc, off=isOffice(), ct=canCT(s.cls);
@@ -2520,6 +2550,7 @@ function profileHTML(){ const s=allStudents().find(x=>x.sid===stu.sel); if(!s){ 
      <p class="hint" style="margin:8px 0 0">🔒 For security, only the category is kept: Officer / JCO / OR for serving parents. Exact rank and unit are not recorded.</p></div>
    <div class="card" style="box-shadow:none;margin:0"><h4 style="margin:0 0 6px">✅ Attendance (${esc(stuY())})</h4><div id="stuAtt" class="hint">Loading…</div></div>
   </div>
+  ${consentHTML(s)}
   <div class="card" style="box-shadow:none;margin:14px 0 0"><h4 style="margin:0 0 6px">📝 Results</h4><div class="tbl-wrap"><table class="pt"><thead><tr><th>Exam</th><th>Overall</th><th>Grade</th><th></th></tr></thead><tbody>${exams}</tbody></table></div></div>
   <div class="card" style="box-shadow:none;margin:14px 0 0;background:#fff8f8"><h4 style="margin:0 0 6px">🩺 Health & ⚖️ discipline <span class="hint" style="font-weight:600">(staff only, never shown to parents)</span></h4><div id="stuNotes" class="hint">${canSeeNotes(s.cls)?"Loading…":"Only the teachers of this class, the coordinator and the principal can see these notes."}</div></div>
   ${off?`<div class="card" style="box-shadow:none;margin:14px 0 0;background:#f8f6ff"><h4 style="margin:0 0 8px">🛠 Office actions</h4>
@@ -2533,6 +2564,31 @@ function profileHTML(){ const s=allStudents().find(x=>x.sid===stu.sel); if(!s){ 
       <label class="f">TC no. (optional)<input class="in" id="lfTc" maxlength="30"></label></div>
     <div class="row" style="justify-content:flex-start"><button class="btn warn" data-stuleft="1">🚪 Mark as left the school</button></div>`}</div>`:""}
   ${hist.length?`<div class="card" style="box-shadow:none;margin:14px 0 0"><h4 style="margin:0 0 6px">🕘 History</h4>${hist.map(h=>`<div class="hint" style="padding:3px 0">${fmtD(h.on)} · ${esc(h.what)}</div>`).join("")}</div>`:""}`; }
+function consentHTML(s){ const c=s.doc.consent||{}, ed=canCT(s.cls);
+  return `<div class="card" style="box-shadow:none;margin:14px 0 0;background:${c.given?"#f2fcf8":"#fff8ec"}"><h4 style="margin:0 0 6px">🔒 Parent's consent and data</h4>
+   <p style="margin:0 0 8px">${c.given?`✅ Consent given by the <b>${esc(c.by||"parent")}</b> on ${fmtD(c.on)} (${esc(c.how||"signed form")}). Photo on report card: <b>${c.photo?"yes":"no"}</b>.`:"⚠️ No consent form recorded yet. Until then the photo is not shown on the parents' report card."}</p>
+   ${ed?`<div class="grid g4"><label class="f">Given by<select class="in" id="cnBy">${["Father","Mother","Guardian"].map(x=>`<option ${c.by===x?"selected":""}>${x}</option>`).join("")}</select></label><label class="f">Date<input class="in" type="date" id="cnOn" value="${esc(c.on||todayISO())}"></label>
+     <label class="f">How<select class="in" id="cnHow">${["Signed paper form","Signed at admission","Email from registered parent"].map(x=>`<option ${c.how===x?"selected":""}>${x}</option>`).join("")}</select></label><label class="f">Photo on report card<select class="in" id="cnPhoto"><option value="no">No</option><option value="yes" ${c.photo?"selected":""}>Yes</option></select></label></div>
+   <div class="row" style="justify-content:flex-start"><button class="btn pri sm" data-cnsave="1">💾 Record consent</button>${c.given?`<button class="btn warn sm" data-cnwd="1">Consent withdrawn</button>`:""}<button class="btn sec sm" data-cnprint="1">🖨 Print consent form</button><button class="btn sec sm" data-studl="1">⬇ Download this child's data</button></div>`:""}
+   ${isOffice()&&s.left?`<div class="row" style="justify-content:flex-start"><button class="btn warn sm" data-sterase="1">🗑 Erase all online data of this child</button><span class="hint">For children who have left (or on a parent's request). Keep the paper records the law requires.</span></div>`:""}</div>`; }
+async function rewriteReports(s){ const b=writeBatch(db); for(const r of s.recs){ const raw=r._raw||r, k=await reportKey(raw); if(k) b.set(doc(db,"reports",k),publicCopy(raw)); } await b.commit(); }
+function printConsent(s){ const g=D_().general, w=window.open("","_blank"); if(!w) return toast("Please allow pop-ups to print the form");
+  w.document.write(`<!DOCTYPE html><html><head><title>Consent form · ${esc(s.name)}</title><style>body{font-family:Georgia,serif;max-width:720px;margin:30px auto;line-height:1.55;color:#111}h1{font-size:20px;text-align:center}h2{font-size:15px;margin:18px 0 4px}.ln{border-bottom:1px solid #000;display:inline-block;min-width:220px}td{padding:4px 8px;vertical-align:top}.box{display:inline-block;width:14px;height:14px;border:1px solid #000;margin-right:6px;vertical-align:-2px}</style></head><body>
+   <h1>${esc(g.name)}<br><small>Parent's consent for keeping a child's data on the school website</small></h1>
+   <table><tr><td>Student</td><td><b>${esc(s.name)}</b></td><td>Class / roll</td><td><b>${esc(s.cls)} / ${esc(s.roll)}</b></td></tr><tr><td>Admission no.</td><td>${esc(s.r.adm||"")}</td><td>Date of birth</td><td>${s.r.dob?fmtD(s.r.dob):""}</td></tr></table>
+   <h2>What the school keeps</h2><p>Name, class, roll no., admission no., date of birth, gender, marks, attendance, height and weight, remarks, parents' names and category (Officer / JCO / OR only for serving parents), and, if I agree, a photo and a phone number. Health and discipline notes are seen only by the child's teachers, the coordinator and the principal.</p>
+   <h2>Why</h2><p>Only to run the school: report cards, attendance, safety and contacting parents. Not for advertising, not sold or shared outside the school except where the law requires.</p>
+   <h2>My choices</h2><p><span class="box"></span>I agree that the school may keep my child's data on its website as described above.<br><span class="box"></span>I agree that my child's photo may appear on the report card.<br>I know I can see, correct or erase this data, or withdraw consent, by writing to ${esc(g.dpoName)} (${esc(g.dpoEmail)}).</p>
+   <p style="margin-top:40px">Name of parent / guardian: <span class="ln"></span> &nbsp; Relation: <span class="ln" style="min-width:120px"></span></p><p>Signature: <span class="ln"></span> &nbsp; Date: <span class="ln" style="min-width:120px"></span></p>
+   <p style="margin-top:30px;font-size:12px">For office use: recorded on the website by <span class="ln" style="min-width:160px"></span> on <span class="ln" style="min-width:100px"></span></p><script>print()<\/script></body></html>`); w.document.close(); }
+async function eraseStu(s){ const b=writeBatch(db); let n=0;
+  for(const r of s.recs){ const k=await reportKey(r._raw||r); b.delete(doc(db,"results",r.id)); if(k) b.delete(doc(db,"reports",k)); n++; }
+  b.delete(doc(db,"studentNotes",s.sid)); b.delete(doc(db,"students",s.sid));
+  for(const g of segments(s)){ const L=await getDocs(query(collection(db,"attendance"),where("year","==",stuY()),where("cls","==",g.cls))); L.forEach(d=>{ const x=d.data(); let ch=false; Object.values(x.days||{}).forEach(v=>{ if((v.absent||[]).includes(s.sid)){ v.absent=v.absent.filter(k=>k!==s.sid); ch=true; } }); if(ch) b.set(doc(db,"attendance",d.id),x); }); }
+  await b.commit(); ATTC={}; delete NOTES[s.sid]; return n; }
+function downloadStu(s){ const n=NOTES[s.sid]||null; const data={exported:new Date().toISOString(),school:D_().general.name,student:{name:s.name,class:s.cls,roll:s.roll,adm:s.r.adm,dob:s.r.dob,gender:s.r.gender,father:s.r.father,mother:s.r.mother,category:s.r.category,service:s.r.branch,rankGroup:s.r.rankGroup},register:{status:s.doc.status||"active",phone:s.doc.phone||"",consent:s.doc.consent||null,history:s.doc.history||[]},
+    results:s.recs.map(r=>{ const {_raw,subjects,id,updatedBy,photo,...x}=r; return {...x,marks:Object.fromEntries(Object.entries(x.marks||{}).map(([k,v])=>{ const {by,...m}=v||{}; return [k,m]; }))}; }),notes:n?{medical:n.medical,discipline:(n.discipline||[]).map(({by,...d})=>d)}:null};
+  const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,1)],{type:"application/json"})); a.download=`${s.name.replace(/\s+/g,"_")}_${s.cls}_data.json`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); }
 function nextRoll(cls){ const used=allStudents().filter(x=>x.cls===cls).map(x=>x.roll); return used.length?Math.max(...used)+1:1; }
 
 /* attendance helpers */
@@ -2547,7 +2603,7 @@ async function attOf(s){ let days=0, abs=[]; const leftOn=s.left&&s.doc.leftOn||
   return {days,abs:abs.sort()}; }
 async function fillProfileAsync(){ const s=allStudents().find(x=>x.sid===stu.sel); if(!s) return;
   try{ const a=await attOf(s), el=$("#stuAtt"); if(el&&stu.sel===s.sid){ const p=a.days?r1((a.days-a.abs.length)/a.days*100):null;
-    el.innerHTML=a.days?`<div style="font-size:30px;font-weight:900;color:${p>=90?"#0b7a64":p>=75?"#a55a00":"#b3164f"}">${p}%</div><div>Present <b>${a.days-a.abs.length}</b> of <b>${a.days}</b> school days marked.</div>${a.abs.length?`<div style="margin-top:6px">Absent on: ${a.abs.slice(-12).map(x=>fmtD(x).replace(/ \d{4}$/,"")).join(", ")}${a.abs.length>12?" …":""}</div>`:""}${p<75?`<div class="banner warn" style="margin-top:8px">⚠️ Below 75%. Please speak to the parents.</div>`:""}`:"No attendance has been marked yet."; } }
+    el.innerHTML=a.days?`<div style="font-size:30px;font-weight:900;color:${p>=90?"#0b7a64":p>=75?"#a55a00":"#b3164f"}">${p}%</div><div>Present <b>${a.days-a.abs.length}</b> of <b>${a.days}</b> school days marked.</div>${a.abs.length?`<div style="margin-top:6px">Absent on: ${a.abs.slice(-12).map(x=>fmtD(x).replace(/ \d{4}$/,"")).join(", ")}${a.abs.length>12?" …":""}</div>`:""}${p<75?`<div class="banner on warn" style="margin-top:8px">⚠️ Below 75%. Please speak to the parents.</div>`:""}`:"No attendance has been marked yet."; } }
   catch(err){ const el=$("#stuAtt"); if(el) el.textContent="Couldn't load attendance: "+errMsg(err); }
   if(!canSeeNotes(s.cls)) return;
   let n=NOTES[s.sid]; if(n===undefined){ try{ const d=await getDoc(doc(db,"studentNotes",s.sid)); n=d.exists()?d.data():null; }catch(_){ n=null; } NOTES[s.sid]=n; }
@@ -2579,7 +2635,7 @@ function attHTML(){ if(!stu.date) stu.date=todayISO(); const mine=[...new Set([.
   return `<div class="apick" style="align-items:flex-end"><label class="f">Date<input class="in" type="date" id="atDate" value="${esc(stu.date)}" max="${esc(todayISO())}"></label>
     <label class="f">Class<select class="in" id="atCls">${opts.map(c=>`<option ${c===stu.acls?"selected":""}>${c}</option>`).join("")}</select></label>
     <span class="hint">${ed?"Tap a name to mark absent. Everyone else is present.":"View only: the class teacher marks attendance."}</span></div>
-    ${cm?`<div class="banner warn">${cm} ${ed?"You can still mark it if the school was open.":""}</div>`:""}<div id="atOut" class="hint">Loading…</div>`; }
+    ${cm?`<div class="banner on warn">${cm} ${ed?"You can still mark it if the school was open.":""}</div>`:""}<div id="atOut" class="hint">Loading…</div>`; }
 async function fillAtt(){ const out=$("#atOut"); if(!out) return; const cls=stu.acls, key=attKey(cls,monthOf(stu.date));
   try{ if(!(key in ATTM)){ const d=await getDoc(doc(db,"attendance",key)); ATTM[key]=d.exists()?d.data():null; } }catch(err){ out.textContent="Couldn't load: "+errMsg(err); return; }
   const M=ATTM[key], day=M&&M.days&&M.days[stu.date], marked=!!day;
@@ -2596,7 +2652,7 @@ async function fillAtt(){ const out=$("#atOut"); if(!out) return; const cls=stu.
 
 /* ---- staff attendance (principal / coordinator) ---- */
 function staffAttHTML(){ if(!stu.sdate) stu.sdate=todayISO(); const cm=closedMsg(stu.sdate);
-  return `<div class="apick" style="align-items:flex-end"><label class="f">Date<input class="in" type="date" id="saDate" value="${esc(stu.sdate)}" max="${esc(todayISO())}"></label><span class="hint">Tap a name to switch: Present → Absent → Late. Approved leave is filled in automatically.</span></div>${cm?`<div class="banner warn">${cm}</div>`:""}<div id="saOut" class="hint">Loading…</div>`; }
+  return `<div class="apick" style="align-items:flex-end"><label class="f">Date<input class="in" type="date" id="saDate" value="${esc(stu.sdate)}" max="${esc(todayISO())}"></label><span class="hint">Tap a name to switch: Present → Absent → Late. Approved leave is filled in automatically.</span></div>${cm?`<div class="banner on warn">${cm}</div>`:""}<div id="saOut" class="hint">Loading…</div>`; }
 async function fillStaffAtt(){ const out=$("#saOut"); if(!out) return; const m=monthOf(stu.sdate), key=`${YEARS[0]}_${m}`;
   try{ if(!(key in SATTM)){ const d=await getDoc(doc(db,"staffAtt",key)); SATTM[key]=d.exists()?d.data():null; } }catch(err){ out.textContent="Couldn't load: "+errMsg(err); return; }
   const M=SATTM[key], day=M&&M.days&&M.days[stu.sdate], onLv=new Set(leavesOn(stu.sdate).map(l=>l.email));
@@ -2617,11 +2673,18 @@ document.addEventListener("change",e=>{ const id=e.target.id;
   else if(id==="atDate"||id==="atCls"){ if(id==="atDate") stu.date=e.target.value||todayISO(); else stu.acls=e.target.value; renderStu(); }
   else if(id==="saDate"){ stu.sdate=e.target.value||todayISO(); renderStu(); }
   else if(id==="trDiv"){ const s=allStudents().find(x=>x.sid===stu.sel); if(s) $("#trRoll").value=nextRoll(s.std+"-"+e.target.value); } });
-document.addEventListener("click",async e=>{ const t=e.target.closest("[data-stab],[data-sid],[data-stuback],[data-stucard],[data-stuadd],[data-stuphone],[data-stutr],[data-stuleft],[data-sturead],[data-ntmed],[data-ntadd],[data-ntdel],[data-atk],[data-atall],[data-atsave],[data-sak],[data-sasave]"); if(!t||!$("#stuBody")||!$("#stuBody").contains(t)) return;
+document.addEventListener("click",async e=>{ const t=e.target.closest("[data-cnsave],[data-cnwd],[data-cnprint],[data-studl],[data-sterase],[data-nocon],[data-stab],[data-sid],[data-stuback],[data-stucard],[data-stuadd],[data-stuphone],[data-stutr],[data-stuleft],[data-sturead],[data-ntmed],[data-ntadd],[data-ntdel],[data-atk],[data-atall],[data-atsave],[data-sak],[data-sasave]"); if(!t||!$("#stuBody")||!$("#stuBody").contains(t)) return;
   const D=t.dataset, s=stu.sel?allStudents().find(x=>x.sid===stu.sel):null;
   if(D.stab){ stu.tab=D.stab; stu.sel=null; renderStu(); return; }
   if(D.sid){ stu.sel=D.sid; renderStu(); window.scrollTo(0,0); return; }
   if(D.stuback){ stu.sel=null; renderStu(); return; }
+  if(D.nocon){ e.preventDefault(); stu.status="nocon"; renderStu(); return; }
+  if(D.cnprint&&s){ printConsent(s); return; }
+  if(D.studl&&s){ downloadStu(s); return; }
+  if(D.sterase&&s){ confirmBox("Erase this child's data?",`This permanently deletes ${s.name}'s results, report cards, notes and attendance marks from the website. It cannot be undone. Download the data first if the school needs a copy.`,"Erase",async()=>{ try{ const n=await eraseStu(s); stu.sel=null; toast(`Erased ${n} results and all notes ✓`); }catch(err){ toast("Couldn't erase: "+errMsg(err)); } }); return; }
+  if((D.cnsave||D.cnwd)&&s){ try{ const consent=D.cnwd?{given:false,withdrawnOn:todayISO(),photo:false}:{given:true,by:$("#cnBy").value,on:$("#cnOn").value||todayISO(),how:$("#cnHow").value,photo:$("#cnPhoto").value==="yes",recordedBy:ME.email};
+      await setDoc(doc(db,"students",s.sid),stuDoc(s,{consent,history:[...(s.doc.history||[]),{on:todayISO(),what:D.cnwd?"Parent withdrew consent":"Consent recorded ("+consent.by+")",by:ME.email}]}));
+      STUDOCS[s.sid]={...(STUDOCS[s.sid]||{}),consent}; await rewriteReports({...s,doc:STUDOCS[s.sid]}); toast(D.cnwd?"Consent withdrawn: photo removed from the parents' report card":"Consent recorded ✓"); }catch(err){ toast("Couldn't save: "+errMsg(err)); } return; }
   if(D.stucard){ const r=RECORDS[D.stucard]; if(r){ $("#pvOut").innerHTML=reportCard(r); $("#pvModal").classList.add("on"); } return; }
   if(D.stuadd){ const c=stu.cls||(ME.classTeacher||[])[0]||"I-A"; const [a,b]=c.split("-"); location.hash=(ME.role==="principal"||ME.role==="admin")?"principal":"teacher"; setTimeout(()=>{ $("#fStd").value=a; $("#fStd").dispatchEvent(new Event("change",{bubbles:true})); $("#fDiv").value=b; $("#fDiv").dispatchEvent(new Event("change",{bubbles:true})); clearForm(true); $("#fStd").value=a; syncDiv("#fStd","#fDiv"); $("#fDiv").value=b; $("#fRoll").value=nextRoll(c); $("#fName").focus(); toast(`New student for ${c}: fill in the details and save`); },60); return; }
   try{
@@ -2629,8 +2692,8 @@ document.addEventListener("click",async e=>{ const t=e.target.closest("[data-sta
     if(D.stutr&&s){ const div=$("#trDiv").value, roll=+$("#trRoll").value; if(!(roll>=1)) return toast("Please type the new roll no.");
       confirmBox("Transfer section?",`Move ${s.name} from ${s.cls} to ${s.std}-${div} with roll no. ${roll}? All ${s.recs.length} results of ${stuY()} move too.`,"Transfer",async()=>{ try{ await transferStu(s,div,roll); stu.sel=s.sid; toast(`✅ ${s.name} is now in ${s.std}-${div}, roll ${roll}`); }catch(err){ toast(err.code&&err.code.startsWith("Roll")?err.code:"Couldn't transfer: "+errMsg(err)); } }); return; }
     if(D.stuleft&&s){ const on=$("#lfDate").value||todayISO(), why=$("#lfWhy").value, tc=$("#lfTc").value.trim();
-      confirmBox("Mark as left?",`${s.name} (${s.cls}) will be marked as left the school on ${on}. Results stay saved, and you can re-admit later.`,"Mark as left",async()=>{ try{ await setDoc(doc(db,"students",s.sid),stuDoc(s,{status:"left",leftOn:on,leftReason:why,tc,history:[...(s.doc.history||[]),{on,what:"Left the school: "+why+(tc?" (TC "+tc+")":""),by:ME.email}]})); toast("Marked as left ✓"); }catch(err){ toast("Couldn't save: "+errMsg(err)); } }); return; }
-    if(D.sturead&&s){ await setDoc(doc(db,"students",s.sid),stuDoc(s,{status:"active",leftOn:"",leftReason:"",tc:"",history:[...(s.doc.history||[]),{on:todayISO(),what:"Re-admitted",by:ME.email}]})); toast("Re-admitted ✓"); return; }
+      confirmBox("Mark as left?",`${s.name} (${s.cls}) will be marked as left the school on ${on}. Results stay saved, and you can re-admit later.`,"Mark as left",async()=>{ try{ if(tc) await setDoc(doc(db,"tcs",await tcKey(tc,s.name)),{tc:tc.toUpperCase(),name:s.name,cls:s.cls,issued:on}); await setDoc(doc(db,"students",s.sid),stuDoc(s,{status:"left",leftOn:on,leftReason:why,tc,history:[...(s.doc.history||[]),{on,what:"Left the school: "+why+(tc?" (TC "+tc+")":""),by:ME.email}]})); toast("Marked as left ✓"); }catch(err){ toast("Couldn't save: "+errMsg(err)); } }); return; }
+    if(D.sturead&&s){ if(s.doc.tc) await deleteDoc(doc(db,"tcs",await tcKey(s.doc.tc,s.name))).catch(()=>{}); await setDoc(doc(db,"students",s.sid),stuDoc(s,{status:"active",leftOn:"",leftReason:"",tc:"",history:[...(s.doc.history||[]),{on:todayISO(),what:"Re-admitted",by:ME.email}]})); toast("Re-admitted ✓"); return; }
     if(D.ntmed&&s){ await saveNotes(s,{medical:$("#ntMed").value.trim().slice(0,600)}); toast("Health note saved ✓"); return; }
     if(D.ntadd&&s){ const text=$("#ntText").value.trim(); if(!text) return toast("Please write what happened"); const cur=(NOTES[s.sid]&&NOTES[s.sid].discipline)||[];
       await saveNotes(s,{discipline:[...cur,{date:$("#ntDate").value||todayISO(),text:text.slice(0,200),action:$("#ntAct").value.trim().slice(0,200),by:ME.email}].sort((a,b)=>a.date.localeCompare(b.date))}); toast("Added to the log ✓"); return; }
@@ -2646,6 +2709,90 @@ document.addEventListener("click",async e=>{ const t=e.target.closest("[data-sta
       await setDoc(doc(db,"staffAtt",key),{year:YEARS[0],month:m,days:{[stu.sdate]:day}},{merge:true});
       SATTM[key]={...(SATTM[key]||{}),days:{...((SATTM[key]&&SATTM[key].days)||{}),[stu.sdate]:day}}; fillStaffAtt(); toast("✅ Staff attendance saved"); return; }
   }catch(err){ toast("Couldn't save: "+errMsg(err)); } });
+
+/* ================= PUBLIC SCHOOL PAGES: CBSE Mandatory Public Disclosure, committees, fees, TC check, privacy ================= */
+const DISC_DOCS=[["affiliation","Affiliation / upgradation letter and recent extension of affiliation"],["society","Societies / Trust / Company registration and renewal certificate"],["noc","No Objection Certificate (NOC) issued by the State Government / UT"],["rte","Recognition certificate under the RTE Act, 2009, and its renewal"],["building","Building safety certificate as per the National Building Code"],["fire","Fire safety certificate issued by the competent authority"],["deo","DEO certificate submitted by the school for affiliation / upgradation / extension, or self-certification by the school"],["water","Water, health and sanitation certificates"]];
+const DISC_ACAD=[["fees","Fee structure of the school"],["calendar","Annual academic calendar"],["smc","List of School Management Committee (SMC)"],["pta","List of Parents Teachers Association (PTA) members"],["board","Last three years' result of the Board examination (not applicable: classes I to V)"]];
+const DISC_INFRA=[["area","Total campus area of the school (sq m)"],["rooms","Number and size of classrooms (sq m)"],["labs","Number and size of laboratories, incl. computer labs (sq m)"],["internet","Internet facility (Y/N)"],["girlsT","Number of girls' toilets"],["boysT","Number of boys' toilets"],["video","Link of YouTube video of the inspection of school covering the infrastructure"]];
+const DEF_COMMITTEES=[{name:"Grievance Redressal Committee (public, staff, parents, students)",members:"Principal (Chairperson) · Coordinator · Two senior teachers · Parent member (sample)",contact:"grievance@school.sample · 020-27400042"},
+  {name:"Internal Complaints Committee (sexual harassment at workplace, POSH Act 2013)",members:"Senior woman teacher (Presiding officer) · Two staff members · External member from an NGO (sample)",contact:"icc@school.sample"},
+  {name:"Committee under the POCSO Act, 2012 (child protection)",members:"Principal · Counsellor · Woman teacher · Parent member (sample)",contact:"pocso@school.sample · Childline 1098"},
+  {name:"Anti-bullying Committee",members:"Coordinator · PT teacher · Two class teachers (sample)",contact:"coordinator@school.sample"},
+  {name:"School Management Committee (SMC)",members:"Station Commander (Chairman) · Principal (Secretary) · Teacher and parent representatives (sample)",contact:"Through the school office"}];
+const DEF_DISC={sample:true,
+  general:{name:"Shivneri Army Public School",affNo:"11XXXXX (sample)",schoolCode:"XXXXX (sample)",address:"Aundh Military Station, Pune 411027",principal:"Mrs Anjali Mehra (sample)",principalQual:"M.A., M.Ed. (sample)",email:"office@school.sample",phone:"020-27400042",
+    dpoName:"Principal (sample)",dpoEmail:"privacy@school.sample",officialSite:""},
+  docs:{}, acad:{},
+  staff:{principal:"1",total:"15",pgt:"0",tgt:"0",prt:"15",sections:"12",ratio:"1 : 1.25",special:"Mrs ... (trained in special education) (sample)",counsellor:"Mrs ... (counsellor and wellness teacher) (sample)",teachers:""},
+  infra:{area:"8000 (sample)",rooms:"12 rooms, 45 sq m each (sample)",labs:"1 computer lab, 50 sq m (sample)",internet:"Yes",girlsT:"8 (sample)",boysT:"8 (sample)",video:""},
+  committees:DEF_COMMITTEES, fees:"I to II | 2,100 a month | Annual charges 3,000 (sample)\nIII to V | 2,300 a month | Annual charges 3,000 (sample)", feeNote:"Wards of serving and retired defence personnel: fees as per AWES rules (sample)."};
+let DISC=null, discEdit=false;
+if(db) onSnapshot(doc(db,"config","disclosure"),d=>{ DISC=d.exists()?d.data():null; if(["#school","#privacy"].includes(location.hash)) renderPub(); renderFooter(); },()=>{});
+const D_=()=>{ const d=DISC||{}; return {...DEF_DISC,...d,general:{...DEF_DISC.general,...(d.general||{})},staff:{...DEF_DISC.staff,...(d.staff||{})},infra:{...DEF_DISC.infra,...(d.infra||{})},docs:{...(d.docs||{})},acad:{...(d.acad||{})},committees:d.committees||DEF_COMMITTEES}; };
+const safeUrl=u=>/^https:\/\/[^\s"'<>]+$/i.test(String(u||"").trim())?String(u).trim():"";
+function renderFooter(){ const f=document.querySelector("footer"); if(!f) return; const g=D_().general;
+  f.innerHTML=`${esc(g.name)} · ${esc(g.address)} · Tel ${esc(g.phone)} · <a href="#school" style="color:inherit;font-weight:800">📋 Mandatory Public Disclosure</a> · <a href="#privacy" style="color:inherit;font-weight:800">🔒 Privacy</a> · <a href="guide.html" style="color:inherit;font-weight:800">📖 How to use</a>`; }
+function teachersPublic(){ const d=D_(); if(d.staff.teachers) return d.staff.teachers.split("\n").map(l=>l.split("|").map(x=>x.trim())).filter(x=>x[0]);
+  return []; }
+function renderPub(){ const box=$("#pubBody"); if(!box) return; const h=location.hash;
+  if(h==="#privacy"){ box.innerHTML=privacyHTML(); return; }
+  box.innerHTML=approvalsHTML()+(discEdit&&isOffice()?discEditHTML():discHTML()); }
+function discHTML(){ const d=D_(), g=d.general, s=d.staff, lnk=(u,t)=>safeUrl(u)?`<a href="${esc(safeUrl(u))}" target="_blank" rel="noopener">${t||"View"} ↗</a>`:'<span class="hint">To be uploaded</span>';
+  const tbl=(rows)=>`<div class="tbl-wrap"><table class="pt"><tbody>${rows.map(([k,v],i)=>`<tr><td style="width:40px">${i+1}</td><td style="text-align:left">${esc(k)}</td><td style="text-align:left"><b>${v}</b></td></tr>`).join("")}</tbody></table></div>`;
+  const T=teachersPublic(), fees=String(d.fees||"").split("\n").map(l=>l.split("|").map(x=>x.trim())).filter(x=>x[0]);
+  return `<div class="title-row"><h2>📋 Mandatory Public Disclosure</h2>${isOffice()?`<button class="btn sec" data-discedit="1">✏️ Edit</button>`:""}</div>
+   <p class="hint">As required by the CBSE Affiliation Bye-Laws (Appendix IX).${d.sample?" <b>The figures below are sample placeholders for the demo.</b>":""}</p>
+   <h3>A. General information</h3>${tbl([["Name of the school",esc(g.name)],["Affiliation no.",esc(g.affNo)],["School code",esc(g.schoolCode)],["Complete address with PIN code",esc(g.address)],["Principal's name and qualification",esc(g.principal)+" · "+esc(g.principalQual)],["School email ID",esc(g.email)],["Contact details",esc(g.phone)]])}
+   <h3>B. Documents and information</h3>${tbl(DISC_DOCS.map(([k,l])=>[l,lnk(d.docs[k])]))}
+   <p class="hint">The documents are self-attested by the Chairman / Manager / Secretary and the Principal.</p>
+   <h3>C. Result and academics</h3>${tbl(DISC_ACAD.map(([k,l])=>[l,k==="fees"&&!safeUrl(d.acad.fees)?'<a href="#fees" data-goto="fees">See below</a>':k==="calendar"&&!safeUrl(d.acad.calendar)?'<a href="#home">On the Home page</a>':k==="board"?'<span class="hint">Not applicable</span>':lnk(d.acad[k])]))}
+   <h3>D. Staff (teaching)</h3>${tbl([["Principal",esc(s.principal)],["Total no. of teachers",esc(s.total)],["PGT",esc(s.pgt)],["TGT",esc(s.tgt)],["PRT",esc(s.prt)],["Teachers–section ratio",esc(s.ratio)],["Details of special educator",esc(s.special)],["Details of counsellor and wellness teacher",esc(s.counsellor)]])}
+   <h4>Teachers and their qualifications</h4>${T.length?`<div class="tbl-wrap"><table class="pt"><thead><tr><th>#</th><th>Name</th><th>Qualification</th><th>Designation</th></tr></thead><tbody>${T.map((x,i)=>`<tr><td>${i+1}</td><td style="text-align:left"><b>${esc(x[0])}</b></td><td>${esc(x[1]||"")}</td><td>${esc(x[2]||"")}</td></tr>`).join("")}</tbody></table></div>`:'<p class="hint">The principal adds this list (Edit → "Fill from the staff list").</p>'}
+   <h3>E. School infrastructure</h3>${tbl(DISC_INFRA.map(([k,l])=>[l,k==="video"?lnk(d.infra.video,"Watch"):esc(d.infra[k]||"–")]))}
+   <h3 id="fees">Fee structure</h3>${fees.length?`<div class="tbl-wrap"><table class="pt"><thead><tr><th>Classes</th><th>Tuition fee</th><th>Other charges</th></tr></thead><tbody>${fees.map(x=>`<tr><td><b>${esc(x[0])}</b></td><td>${esc(x[1]||"")}</td><td>${esc(x[2]||"")}</td></tr>`).join("")}</tbody></table></div>`:""}${d.feeNote?`<p class="hint">${esc(d.feeNote)}</p>`:""}
+   <h3>Committees (safety, grievances, POCSO, POSH)</h3><div class="tbl-wrap"><table class="pt"><thead><tr><th>Committee</th><th>Members</th><th>Contact</th></tr></thead><tbody>${d.committees.map(c=>`<tr><td style="text-align:left"><b>${esc(c.name)}</b></td><td style="text-align:left">${esc(c.members)}</td><td style="text-align:left">${esc(c.contact)}</td></tr>`).join("")}</tbody></table></div>
+   <h3>Transfer certificate (TC) check</h3><p class="hint">Enter the TC no. and the student's name exactly as on the certificate to check that it was issued by this school.</p>
+   <form id="tcForm" class="apick" style="align-items:flex-end"><label class="f">TC no.<input class="in" id="tcNo" required maxlength="30"></label><label class="f">Student name<input class="in" id="tcName" required maxlength="80"></label><button class="btn pri">🔍 Check</button></form><div id="tcOut"></div>`; }
+function discEditHTML(){ const d=D_(), g=d.general, s=d.staff, inp=(p,v,ph)=>`<input class="in" data-dk="${p}" value="${esc(v||"")}" placeholder="${esc(ph||"")}">`;
+  const L=(lab,p,v,ph)=>`<label class="f">${esc(lab)}${inp(p,v,ph)}</label>`;
+  return `<div class="title-row"><h2>✏️ Edit public disclosure</h2><span><button class="btn sec" data-discedit="0">Cancel</button> <button class="btn pri" data-discsave="1">💾 Save</button></span></div>
+   <p class="hint">Documents must be links starting with https:// (for example a Google Drive file shared as "Anyone with the link"). Everything here is public.</p>
+   <h3>A. General</h3><div class="grid g2">${L("Name of the school","general.name",g.name)}${L("Affiliation no.","general.affNo",g.affNo)}${L("School code","general.schoolCode",g.schoolCode)}${L("Address with PIN","general.address",g.address)}${L("Principal's name","general.principal",g.principal)}${L("Principal's qualification","general.principalQual",g.principalQual)}${L("School email","general.email",g.email)}${L("Phone","general.phone",g.phone)}</div>
+   <h3>Privacy contact (shown on the Privacy page)</h3><div class="grid g2">${L("Name / designation","general.dpoName",g.dpoName)}${L("Email","general.dpoEmail",g.dpoEmail)}</div>
+   <h3>B. Documents (links)</h3><div class="grid g2">${DISC_DOCS.map(([k,l])=>L(l,"docs."+k,d.docs[k],"https://")).join("")}</div>
+   <h3>C. Academics (links)</h3><div class="grid g2">${DISC_ACAD.filter(x=>x[0]!=="board").map(([k,l])=>L(l+(k==="fees"||k==="calendar"?" (optional: shown on this site already)":""),"acad."+k,d.acad[k],"https://")).join("")}</div>
+   <h3>D. Staff</h3><div class="grid g4">${[["Principal","principal"],["Total teachers","total"],["PGT","pgt"],["TGT","tgt"],["PRT","prt"],["Sections","sections"],["Teachers–section ratio","ratio"]].map(([l,k])=>L(l,"staff."+k,s[k])).join("")}</div><div class="grid g2">${L("Special educator","staff.special",s.special)}${L("Counsellor and wellness teacher","staff.counsellor",s.counsellor)}</div>
+   <label class="f">Teachers: one per line as <b>Name | Qualification | Designation</b><textarea class="in" data-dk="staff.teachers" style="min-height:140px">${esc(s.teachers||"")}</textarea></label><button class="btn sec sm" data-discfill="1">⬇ Fill from the staff list</button>
+   <h3>E. Infrastructure</h3><div class="grid g2">${DISC_INFRA.map(([k,l])=>L(l,"infra."+k,d.infra[k],k==="video"?"https://":"")).join("")}</div>
+   <h3>Fees</h3><label class="f">One line per group as <b>Classes | Tuition fee | Other charges</b><textarea class="in" data-dk="fees" style="min-height:80px">${esc(d.fees||"")}</textarea></label>${L("Note under the fee table","feeNote",d.feeNote)}
+   <h3>Committees</h3>${d.committees.map((c,i)=>`<div class="grid g3">${L("Committee","com."+i+".name",c.name)}${L("Members","com."+i+".members",c.members)}${L("Contact","com."+i+".contact",c.contact)}</div>`).join("")}
+   <div class="row"><button class="btn pri" data-discsave="1">💾 Save</button></div>`; }
+function privacyHTML(){ const g=D_().general;
+  return `<div class="title-row"><h2>🔒 Privacy notice</h2></div><p class="hint">How ${esc(g.name)} handles children's and parents' personal data on this website, under the Digital Personal Data Protection Act, 2023 and its Rules.</p>
+  <h3>What we keep</h3><ul><li><b>Student:</b> name, class, section, roll no., admission no., date of birth, gender, photo (only with a parent's consent), marks, grades, attendance, height and weight, teachers' remarks.</li><li><b>Parents:</b> names, category (serving, retired, civilian) and, for serving parents, only Officer / JCO / OR. We do <b>not</b> keep rank, unit or address. A phone number is kept only if you give it.</li><li><b>Health and discipline notes:</b> only what is needed to keep your child safe at school.</li></ul>
+  <h3>Why</h3><p>Only to run the school: report cards, attendance, safety and contacting you. Never for advertising. Nothing is sold or shared with anyone outside the school, except where the law requires it (for example CBSE or the authorities).</p>
+  <h3>Your consent</h3><p>The school asks a parent to sign a consent form at admission before the child's data is kept on this website. The photo appears on the report card only if you agree to it on that form. You can withdraw consent at any time by writing to the contact below.</p>
+  <h3>Who can see it</h3><ul><li><b>You:</b> your child's report card, only with the class, roll no., name <b>and</b> date of birth.</li><li><b>Teachers:</b> marks of the classes they teach. Health and discipline notes are seen only by the teachers of that class, the coordinator and the principal, and never appear on the report card.</li><li>Staff sign in with a password, and every school account is checked before it can open anything.</li></ul>
+  <h3>How long</h3><p>Records are kept while your child studies here. After a child leaves, the online records are erased within one year, unless the law requires the school to keep them longer.</p>
+  <h3>Your rights</h3><p>You can ask to see, correct or erase your child's data, withdraw consent, or raise a complaint. The school replies within 30 days.</p>
+  <div class="card" style="box-shadow:none;background:#f8f6ff"><b>Privacy contact:</b> ${esc(g.dpoName)} · <a href="mailto:${esc(g.dpoEmail)}">${esc(g.dpoEmail)}</a> · ${esc(g.phone)}<br><span class="hint">If you are not satisfied, you can complain to the Data Protection Board of India.</span></div>`; }
+document.addEventListener("click",async e=>{ const t=e.target.closest("[data-discedit],[data-discsave],[data-discfill]"); if(!t) return;
+  if(t.dataset.discedit){ discEdit=t.dataset.discedit==="1"; renderPub(); window.scrollTo(0,0); return; }
+  if(t.dataset.discfill){ const L=Object.values(STAFF).filter(x=>x.role==="teacher").sort((a,b)=>String(a.name).localeCompare(String(b.name))).map(x=>`${x.name} | ${x.qualification||""} | ${x.coordinator?"Coordinator, PRT":"PRT"}${(x.classTeacher||[]).length?" (class teacher "+x.classTeacher.join(", ")+")":""}`); const ta=document.querySelector('[data-dk="staff.teachers"]'); if(ta) ta.value=L.join("\n"); return; }
+  if(t.dataset.discsave){ if(!isOffice()) return toast("⛔ Only the principal or coordinator can change this"); const d=JSON.parse(JSON.stringify(D_())); let bad="";
+    document.querySelectorAll("[data-dk]").forEach(el=>{ const v=el.value.trim().slice(0,el.tagName==="TEXTAREA"?6000:400), p=el.dataset.dk.split(".");
+      if((p[0]==="docs"||p[0]==="acad"||p[1]==="video")&&v&&!safeUrl(v)) bad=bad||el.closest("label").firstChild.textContent;
+      if(p[0]==="com"){ d.committees[+p[1]][p[2]]=v; } else if(p.length===1) d[p[0]]=v; else d[p[0]][p[1]]=v; });
+    if(bad) return toast("Links must start with https:// ("+bad.slice(0,40)+")");
+    d.sample=false; d.updatedAt=new Date().toISOString(); d.updatedBy=ME.email;
+    try{ await pubSet("config","disclosure",d); discEdit=false; toast("Disclosure saved ✓"); }catch(err){ toast("Couldn't save: "+errMsg(err)); } } });
+/* TC check: the school publishes only a hash-keyed record, so nobody can browse a list of children who left. */
+async function tcKey(no,name){ const h=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(String(no).trim().toUpperCase()+"|"+normName(name))); return [...new Uint8Array(h)].map(b=>b.toString(16).padStart(2,"0")).join(""); }
+document.addEventListener("submit",async e=>{ if(e.target.id!=="tcForm") return; e.preventDefault(); const out=$("#tcOut");
+  try{ const d=await getDoc(doc(db,"tcs",await tcKey($("#tcNo").value,$("#tcName").value)));
+    out.innerHTML=d.exists()?`<div class="banner on" style="background:#eafaf4">✅ Genuine. TC <b>${esc(d.data().tc)}</b> was issued to <b>${esc(d.data().name)}</b> (class ${esc(d.data().cls)}) on ${fmtD(d.data().issued)}.</div>`:`<div class="banner on warn">No TC with that number and name. Check the spelling, or contact the school office.</div>`; }
+  catch(err){ out.innerHTML=`<div class="banner on warn">Couldn't check: ${esc(errMsg(err))}</div>`; } });
+renderFooter();
 
 /* init */
 renderStSubj(); renderCP(); resetSubjects(); resetNS(); renderClassList(); renderStats(); route(); showGate("gSignin");

@@ -90,35 +90,48 @@ service cloud.firestore {
     // ---- Timetable (one document per year): all staff can see it, principal/admin change it ----
     match /timetable/{year} {
       allow read: if anyStaff();
-      allow write: if isOffice();
+      allow write: if isPrincipal();
     }
 
     // ---- Leave: a teacher can request leave for herself and see only her own;
     //      the principal/admin see all, approve or reject. ----
     match /leaves/{id} {
+      // The coordinator can only recommend; the principal approves or rejects.
       allow read: if isOffice() || (isStaffMember() && resource.data.email == myEmail());
-      allow create: if isOffice()
+      allow create: if isPrincipal()
+        || (isCoord() && request.resource.data.status == 'Recommended')
         || (isStaffMember() && request.resource.data.email == myEmail() && request.resource.data.status == 'Requested');
-      allow update: if isOffice();
-      allow delete: if isOffice() || (isStaffMember() && resource.data.email == myEmail() && resource.data.status == 'Requested');
+      allow update: if isPrincipal()
+        || (isCoord() && resource.data.status == 'Requested' && request.resource.data.status == 'Recommended');
+      allow delete: if isPrincipal() || (isCoord() && resource.data.status in ['Requested', 'Recommended'])
+        || (isStaffMember() && resource.data.email == myEmail() && resource.data.status == 'Requested');
     }
 
     // ---- School calendar (holidays, vacations, exam dates): everyone can see it ----
     match /calendar/{year} {
       allow read: if true;
-      allow write: if isOffice();
+      allow write: if isPrincipal();
     }
 
     // ---- Exam invigilation duty (one document per year): staff see it, principal/admin assign it ----
     match /duties/{year} {
       allow read: if anyStaff();
-      allow write: if isOffice();
+      allow write: if isPrincipal();
     }
 
     // ---- Substitute plans (one document per date): published by the principal, seen by staff ----
     match /subs/{date} {
       allow read: if anyStaff();
-      allow write: if isOffice();
+      allow write: if isPrincipal();
+    }
+
+    // ---- Drafts: the coordinator prepares the timetable, calendar, exam duty, substitutes and the
+    //      disclosure page here; only the principal / admin publishes them (writes the real document). ----
+    match /drafts/{key} {
+      allow read: if isOffice();
+      allow create, update: if isCoord() && request.resource.data.col in ['timetable', 'calendar', 'duties', 'subs', 'config']
+        && key == request.resource.data.col + '__' + request.resource.data.id;
+      allow delete: if isOffice();
     }
 
     // ---- Acting coordinator (only the principal / admin chooses) ----
@@ -134,7 +147,7 @@ service cloud.firestore {
       allow create: if okStu(request.resource.data) && (isOffice()
         || (isClassTeacherOf(request.resource.data) && request.resource.data.get('status', 'active') == 'active'));
       allow update: if okStu(request.resource.data) && (isOffice()
-        || (isClassTeacherOf(resource.data) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['phone', 'updatedAt', 'updatedBy'])));
+        || (isClassTeacherOf(resource.data) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['phone', 'consent', 'history', 'updatedAt', 'updatedBy'])));
       allow delete: if isOffice();
     }
 
@@ -153,6 +166,15 @@ service cloud.firestore {
       allow create, update: if okStu(request.resource.data)
         && id == request.resource.data.year + '_' + cls(request.resource.data) + '_' + request.resource.data.month
         && (isOffice() || isClassTeacherOf(request.resource.data));
+      allow delete: if isOffice();
+    }
+
+    // ---- TC check: public can only open one record by its hash (TC no. + name); no browsing ----
+    match /tcs/{key} {
+      allow get: if true;
+      allow list: if false;
+      allow create, update: if isOffice() && request.resource.data.keys().hasOnly(['tc', 'name', 'cls', 'issued', 'sample'])
+        && request.resource.data.tc is string && request.resource.data.name is string;
       allow delete: if isOffice();
     }
 
