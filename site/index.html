@@ -1781,7 +1781,8 @@ function renderStaff(){
     <td style="white-space:nowrap">${x.role==="principal"&&ME&&ME.role!=="admin"?"":`<button class="btn sec sm" data-sted="${esc(x.email)}">Edit</button> <button class="btn warn sm" data-stdel="${esc(x.email)}">Remove</button>`} ${x.role==="teacher"||(x.role==="principal"&&ME&&isFull())?`<button class="btn sec sm" data-prof="${esc(x.email)}">📄 Contract</button>`:""}</td></tr>`).join(""):`<tr><td colspan="7" class="empty">No staff yet. Add the principal and teachers above.</td></tr>`;
   const all=Object.values(RECORDS); $("#dataInfo").textContent=`${all.length} results saved, of which ${all.filter(r=>r.sample).length} are sample (dummy) marks. ${Object.values(STAFF).filter(x=>x.sample).length} sample staff.`;
   const bd=BACKUP&&BACKUP.at?Math.floor((Date.now()-new Date(BACKUP.at))/864e5):null;
-  $("#bkInfo").innerHTML=bd==null?`<span class="pend">⚠️ No backup downloaded yet.</span> Download one now and keep it safe (e.g. Google Drive).`:bd>30?`<span class="pend">⚠️ Last backup was ${bd} days ago.</span> Please download a new one, and always after each exam's marks are entered.`:`<span class="done">✓ Last backup ${bd===0?"today":bd+" day"+(bd>1?"s":"")+" ago"}.</span> Download a new one after each exam's marks are entered.`;
+  const bdt=BACKUP&&BACKUP.at?new Date(BACKUP.at).toLocaleString("en-IN",{day:"numeric",month:"short",year:"numeric",hour:"numeric",minute:"2-digit",hour12:true}):"", bwho=BACKUP&&BACKUP.by?` by ${esc(staffName(BACKUP.by))}`:"";
+  $("#bkInfo").innerHTML=bd==null?`<span class="pend">⚠️ No backup downloaded yet.</span> Download one now and keep it safe (e.g. Google Drive).`:bd>30?`<span class="pend">⚠️ Last backup: ${bdt}${bwho} (${bd} days ago).</span> Please download a new one, and always after each exam's marks are entered.`:`<span class="done">✓ Last backup: ${bdt}${bwho} (${bd===0?"today":bd+" day"+(bd>1?"s":"")+" ago"}).</span> Download a new one after each exam's marks are entered.`;
 }
 $("#stList").addEventListener("click",e=>{
   const ed=e.target.closest("[data-sted]"), dl=e.target.closest("[data-stdel]");
@@ -2633,7 +2634,7 @@ $("#bigOut").addEventListener("click",e=>{ if(e.target.id==="anaBack") $("#bigOu
 $("#setupBanner").classList.toggle("on",!configured);
 
 /* ---------- Backup & import ---------- */
-$("#exportBtn").onclick=()=>{const data=Object.values(RECORDS).map(r=>({...(r._raw||r),id:r.id})); const blob=new Blob([JSON.stringify({results:data,staff:Object.values(STAFF)})],{type:"application/json"}); writeConfig("backup",{at:new Date().toISOString(),count:data.length}).then(()=>{BACKUP={at:new Date().toISOString()};renderStaff();}).catch(()=>{}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="saps-results-backup-"+new Date().toISOString().slice(0,10)+".json"; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); toast(`Backup of ${data.length} results downloaded`);};
+$("#exportBtn").onclick=()=>{const data=Object.values(RECORDS).map(r=>({...(r._raw||r),id:r.id})); const blob=new Blob([JSON.stringify({results:data,staff:Object.values(STAFF)})],{type:"application/json"}); (()=>{ const bk={at:new Date().toISOString(),count:data.length,by:ME.email}; BACKUP=bk; renderStaff(); return writeConfig("backup",bk); })().catch(()=>{}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="saps-results-backup-"+new Date().toISOString().slice(0,10)+".json"; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); toast(`Backup of ${data.length} results downloaded`);};
 $("#importBtn").onclick=()=>$("#importIn").click();
 $("#importIn").onchange=async e=>{const f=e.target.files[0]; e.target.value=""; if(!f) return; const text=await f.text();
   if(isFull()) return runImport(text);
