@@ -1131,6 +1131,7 @@ function route(){
   if(window._actionMode){ document.querySelectorAll(".view").forEach(s=>s.classList.toggle("on",s.id==="v-action")); return; }
   const v=(location.hash||"#home").slice(1);
   if(v==="dashboard"){ location.hash="home"; return; }
+  if(v==="analysis"&&ME&&isOffice()&&!isFull()){ location.hash="home"; return; }
   if((v==="teacher"||v==="principal")&&ME&&isFull()){ location.hash="home"; return; }
   const name=["home","teacher","principal","coordinator","adminlogin","results","admin","analysis","dashboard","timetable","students","school","privacy","notices","achievements"].includes(v)?v:"home"; if((name==="teacher"||name==="coordinator")&&ME&&ME.coordinator&&!ME.acting){ location.hash="students"; return; } if(["school","privacy","notices","achievements"].includes(name)) setTimeout(renderPub,0); if(name==="students"){ if(!ME){ if(document.body.classList.contains("authwait")) return; location.hash="teacher"; return; } startTT(); setTimeout(renderStu,0); } if(name==="timetable"){ if(!ME){ location.hash="teacher"; return; } startTT(); setTimeout(renderTT,0); } if(name==="dashboard") setTimeout(()=>renderDash(),0); if(name==="analysis") setTimeout(renderAnalysis,0);
   if(name==="teacher"||name==="principal"||name==="coordinator"||name==="adminlogin") setLoginMode(name==="adminlogin"?"admin":name);
@@ -1555,7 +1556,7 @@ let SUM={year:null,exam:null};
 /* ---------- "Coming up for you": what matters to this person in the next days ---------- */
 let SUBS_HOME={}, homeT=0;
 window.addEventListener("hashchange",()=>{ if(["#home","","#"].includes(location.hash)) homeRefresh(); });
-function homeRefresh(){ if(homeT) return; homeT=setTimeout(()=>{ homeT=0; if(ME&&(location.hash==="#home"||location.hash===""||location.hash==="#")){ const b=$("#homeComing"); if(b) b.innerHTML=comingHTML(); const m=$("#homeMine"); if(m) m.innerHTML=mineHTML(); const ea=$("#homeEvAch"); if(ea) ea.innerHTML=eventsAchHTML(); } },300); }
+function homeRefresh(){ if(homeT) return; homeT=setTimeout(()=>{ homeT=0; if(ME&&(location.hash==="#home"||location.hash===""||location.hash==="#")){ const b=$("#homeComing"); if(b) b.innerHTML=comingHTML(); const m=$("#homeMine"); if(m) m.innerHTML=mineHTML(); const ea=$("#homeEvAch"); if(ea) ea.innerHTML=eventsAchHTML(); const se=$("#homeSeats"); if(se) se.innerHTML=seatsHTML(); } },300); }
 async function loadHomeSubs(){ const t=todayISO(), d2=new Date(t+"T00:00:00"); d2.setDate(d2.getDate()+1); const tm=d2.toISOString().slice(0,10);
   for(const d of [t,tm]){ if(d in SUBS_HOME) continue; SUBS_HOME[d]=null; try{ const x=await getDoc(doc(db,"subs",d)); SUBS_HOME[d]=x.exists()?x.data():null; }catch(_){} } homeRefresh(); }
 function comingHTML(){ if(!ME) return ""; const t=todayISO(), lim=(n)=>{ const x=new Date(t+"T00:00:00"); x.setDate(x.getDate()+n); return x.toISOString().slice(0,10); }, in14=lim(14), in21=lim(21), it=[], me=ME.email;
@@ -1584,7 +1585,7 @@ let SUBS_ALL=null, CTFEES={}, CTFEE_UNS={}, HOME_RECS=[];
 function eachDay(a,b){ const out=[], d=new Date(a+"T00:00:00"), e=new Date((b||a)+"T00:00:00"); while(d<=e){ out.push(d.toISOString().slice(0,10)); d.setDate(d.getDate()+1); } return out; }
 async function loadSubsAll(){ if(SUBS_ALL!==null||!db) return; SUBS_ALL={}; try{ const sn=await getDocs(query(collection(db,"subs"),where("date",">=",calData().start),where("date","<=",todayISO()))); sn.forEach(d=>SUBS_ALL[d.id]=d.data()); }catch(_){} homeRefresh(); }
 function loadCtFees(){ if(!db||!ME) return; (ME.classTeacher||[]).forEach(c=>{ if(CTFEE_UNS[c]) return;
-  CTFEE_UNS[c]=onSnapshot(query(collection(db,"fees"),where("year","==",stuY()),where("cls","==",c)),sn=>{ Object.keys(CTFEES).forEach(k=>{ if(CTFEES[k].cls===c) delete CTFEES[k]; }); sn.forEach(d=>{ const x=d.data(); CTFEES[x.sid]=x; }); homeRefresh(); if(location.hash==="#students"&&stu.tab==="fees") renderStu(); },()=>{}); }); }
+  CTFEE_UNS[c]=onSnapshot(query(collection(db,"fees"),where("year","==",stuY()),where("cls","==",c)),sn=>{ Object.keys(CTFEES).forEach(k=>{ if(CTFEES[k].cls===c) delete CTFEES[k]; }); sn.forEach(d=>{ const x=d.data(); CTFEES[x.sid]={...x,_k:d.id}; }); homeRefresh(); if(location.hash==="#students"&&stu.tab==="fees") renderStu(); },()=>{}); }); }
 function stopCtFees(){ Object.values(CTFEE_UNS).forEach(u=>u()); CTFEE_UNS={}; CTFEES={}; SUBS_ALL=null; }
 function feeState(f,q){ const P=FP(), y=stuY(), t=todayISO(), p=f&&f.q&&f.q[q]; if(p&&p.paid) return "paid"; if(qDate(y,q,P.quarters[q].start)>t) return "later"; return qDate(y,q,P.quarters[q].due)<t?"over":"due"; }
 function engageData(){ const me=ME.email, set=ttSet(), grid=TT&&TT.grid; if(!grid) return null; const C=calData(), t=todayISO();
@@ -1617,7 +1618,7 @@ function myClassHTML(){ const cts=ME.classTeacher||[]; if(!cts.length) return ""
     const paid=st.filter(x=>x==="paid").length, over=st.filter(x=>x==="over").length, due=st.filter(x=>x==="due").length;
     return `<div class="card" style="box-shadow:none;margin:0 0 14px;border-left:5px solid #ff9933"><h3 style="margin:0 0 6px">💳 Fees of my class ${esc(c)} · ${cq}</h3>
      <p style="margin:0">${S.length?`<b>${paid}</b> of ${S.length} paid${due?` · <b>${due}</b> due now`:""}${over?` · <b style="color:#a3330b">${over} overdue</b>`:""}`:"No students on the register yet."} <a href="#students" data-gofees="1">See every child →</a></p>
-     <p class="hint" style="margin:4px 0 0">View only. Payments are recorded by the office.</p></div>`; }).join(""); }
+     <p class="hint" style="margin:4px 0 0">You record payments in Students → Fees of my class.</p></div>`; }).join(""); }
 function achMineHTML(){ const cts=ME.classTeacher||[], nm=normName(ME.name);
   const mine=Object.values(ACHS||{}).filter(a=>normName(a.staff||"")===nm||cts.includes(a.cls)||(a.who&&(normName(a.who).includes(nm)||cts.some(c=>new RegExp("\\b"+c.replace("-","[- ]?")+"\\b","i").test(a.who))))).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
   const recs=HOME_RECS, tops=[]; myClasses().forEach(c=>teachesIn(ME,c).forEach(sub=>{ const L=recs.filter(r=>r.std+"-"+r.div===c).map(r=>{ const x=(r.subjects||[]).find(y=>y.name===sub), t=x?subjTotal(x,r):null; return t==null?null:{name:r.name,roll:r.roll,p:r1(t/outOf(r)*100)}; }).filter(Boolean).sort((a,b)=>b.p-a.p);
@@ -1658,11 +1659,11 @@ function mineHTML(){ if(!ME||ME.role!=="teacher"||ME.office) return ""; loadSubs
   if(HTAB==="ach") return achMineHTML();
   return `<p class="hint" style="margin:0 0 10px">Your subjects compared with the other subjects of the same class. Only you can see this.</p>`+myStatsHTML(HOME_RECS); }
 document.addEventListener("click",e=>{ const b=e.target.closest("[data-htab]"); if(!b) return; HTAB=b.dataset.htab; try{ sessionStorage.setItem("saps_htab",HTAB); }catch(_){} renderStats(); });
-function ctFeesHTML(){ loadCtFees(); const P=FP(), y=stuY(), cts=ME.classTeacher||[];
-  const tag={paid:'<span class="ctag perm">✓ Paid</span>',over:'<span class="ctag none" style="background:#ffe1d6;color:#a3330b">Overdue</span>',due:'<span class="ctag" style="background:#fff1d6;color:#8a5200">Due</span>',later:'<span class="hint">–</span>'};
-  return `<p class="hint">Fee status of your class, ${esc(y)}. View only: payments are recorded by the office. Amounts and receipts are not shown here.</p>`+cts.map(c=>{ const S=allStudents().filter(x=>x.cls===c&&!x.left&&!x.pending).sort((a,b)=>a.roll-b.roll);
-    return `<h3 style="margin:12px 0 6px">${esc(c)}</h3><div class="tbl-wrap"><table class="pt"><thead><tr><th>Roll</th><th>Student</th>${QS.map(q=>`<th>${q}<br><small>due ${fmtD(qDate(y,q,P.quarters[q].due))}</small></th>`).join("")}</tr></thead><tbody>
-     ${S.map(x=>`<tr><td>${esc(x.roll)}</td><td style="text-align:left"><b>${esc(x.name)}</b></td>${QS.map(q=>{ const st=feeState(CTFEES[x.sid],q), p=CTFEES[x.sid]&&CTFEES[x.sid].q&&CTFEES[x.sid].q[q]; return `<td>${tag[st]}${st==="paid"&&p.on?`<br><small class="hint">${fmtD(p.on)}</small>`:""}</td>`; }).join("")}</tr>`).join("")}</tbody></table></div>`; }).join(""); }
+function ctFeesHTML(){ loadCtFees(); const P=FP(), y=stuY(), cts=ME.classTeacher||[], t0=todayISO();
+  const btn=(x,q)=>{ const p=CTFEES[x.sid]&&CTFEES[x.sid].q&&CTFEES[x.sid].q[q], st=feeState(CTFEES[x.sid],q); return `<button class="btn sm ${p&&p.paid?"ok":"sec"}" data-ctfq="${q}" data-fsid="${esc(x.sid)}" style="${st==="over"?"background:#ffe1d6;color:#a3330b":""}" ${st==="later"&&!(p&&p.paid)?"disabled":""}>${p&&p.paid?"✓ "+esc(p.receipt||"Paid"):st==="over"?"Overdue":st==="due"?"Due":"–"}</button>${p&&p.paid?`<br><small class="hint">${fmtD(p.on)} · ${esc(p.mode||"")}</small>`:""}`; };
+  return `<div class="apick" style="align-items:flex-end"><label class="f">Payment mode for new entries<select class="in" id="ctFeeMode">${["UPI","Bank transfer","Cash","Cheque"].map(m=>`<option ${m===fee.mode?"selected":""}>${m}</option>`).join("")}</select></label><span class="hint">Tap <b>Due</b> or <b>Overdue</b> to record a payment (today's date, next receipt no.). Tap a paid one to undo a mistake. The coordinator and principal see the register.</span></div>`+cts.map(c=>{ const S=allStudents().filter(x=>x.cls===c&&!x.left&&!x.pending).sort((a,b)=>a.roll-b.roll);
+    return `<h3 style="margin:12px 0 6px">${esc(c)} · ₹ ${Number(P.amounts[c.split("-")[0]]||0).toLocaleString("en-IN")} a quarter</h3><div class="tbl-wrap"><table class="pt"><thead><tr><th>Roll</th><th>Student</th>${QS.map(q=>`<th>${q}<br><small>due ${fmtD(qDate(y,q,P.quarters[q].due))}</small></th>`).join("")}</tr></thead><tbody>
+     ${S.map(x=>`<tr><td>${esc(x.roll)}</td><td style="text-align:left"><b>${esc(x.name)}</b>${x.r.dob?"":' <span class="hint">(no DOB)</span>'}</td>${QS.map(q=>`<td>${btn(x,q)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`; }).join(""); }
 document.addEventListener("click",e=>{ if(e.target.closest("[data-gofees]")){ e.preventDefault(); stu.tab="fees"; stu.sel=null; if(location.hash==="#students") renderStu(); else location.hash="students"; } });
 /* Office (principal / coordinator): every achievement in the order it happened, and upcoming events and competitions, earliest first */
 function eventsAchHTML(){ if(!ME||!isOffice()) return ""; const t=todayISO();
@@ -1674,6 +1675,18 @@ function eventsAchHTML(){ if(!ME||!isOffice()) return ""; const t=todayISO();
   return `<div class="card" style="box-shadow:none;margin:0 0 14px;border-left:5px solid #c9a227"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px">
    <div><h3 style="margin:0 0 6px">🗓 Upcoming events and competitions</h3>${up.length?up.map(x=>row(fmtD(x.date).replace(/ \d{4}$/,""),x.icon,`<b>${esc(x.title)}</b>`,`${esc(x.kind)}${x.to&&x.to!==x.date?" · till "+fmtD(x.to):""}${x.duty?` · ${x.duty} staff duties`:""}`)).join(""):`<p class="hint">Nothing posted yet. Add events and competitions in Notices.</p>`}</div>
    <div><h3 style="margin:0 0 6px">🏆 Achievements this year (${A.length})</h3><div style="max-height:420px;overflow:auto">${A.length?A.map(a=>row(a.date?fmtD(a.date).replace(/ \d{4}$/,""):"–","🏅",`<b>${esc(a.title)}</b>`,`${esc(a.who||"")}${a.category?" · "+esc(a.category):""}`)).join(""):`<p class="hint">No achievements posted yet.</p>`}</div></div></div></div>`; }
+/* Coordinator: seats, admissions in progress and children leaving */
+const SEAT_CAP=40;
+function seatsHTML(){ if(!ME||!isOffice()) return ""; const A=allStudents(), t=todayISO(), d30=new Date(Date.now()-30*864e5).toISOString().slice(0,10);
+  const strength=c=>A.filter(x=>x.cls===c&&!x.left).length;
+  const pend=A.filter(x=>x.pending), leaving=Object.values(DRAFTS||{}).filter(d=>d.col==="removal"&&d.data.kind==="left"), left=A.filter(x=>x.left&&(x.doc.leftOn||"")>=d30);
+  const rows=STDS.map(sd=>{ const secs=secOf(sd).map(dv=>{ const c=sd+"-"+dv, n=strength(c); return {c,n,free:Math.max(0,SEAT_CAP-n)}; }); return {sd,secs,free:secs.reduce((a,x)=>a+x.free,0)}; });
+  const tot=rows.reduce((a,r)=>a+r.free,0);
+  return `<div class="card" style="box-shadow:none;margin:0 0 14px;border-left:5px solid #0b7a64"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px">
+   <div><h3 style="margin:0 0 6px">🪑 Seats available · ${tot} free <span class="hint" style="font-weight:600">(${SEAT_CAP} a section)</span></h3>
+    <div class="tbl-wrap"><table class="pt"><thead><tr><th>Class</th><th style="text-align:left">Sections (students / free)</th><th>Free</th></tr></thead><tbody>${rows.map(r=>`<tr><td><b>${esc(r.sd)}</b></td><td style="text-align:left">${r.secs.map(x=>`${esc(x.c.split("-")[1])}: ${x.n} / <b style="color:${x.free?"#0b7a64":"#b3164f"}">${x.free}</b>`).join(" · ")}</td><td><b>${r.free}</b></td></tr>`).join("")}</tbody></table></div></div>
+   <div><h3 style="margin:0 0 6px">🎒 Under admission (${pend.length})</h3>${pend.length?pend.map(x=>`<div style="padding:4px 0;border-bottom:1px dashed var(--line)"><b>${esc(x.name)}</b> → ${esc(x.cls)} <span class="hint">· waiting for the principal</span></div>`).join(""):`<p class="hint">None waiting.</p>`}
+    <h3 style="margin:14px 0 6px">🚪 Moving out (${leaving.length+left.length})</h3>${leaving.map(d=>`<div style="padding:4px 0;border-bottom:1px dashed var(--line)"><b>${esc(d.data.name)}</b> (${esc(d.data.std)}-${esc(d.data.div)}) <span class="hint">· leaving ${d.data.on?fmtD(d.data.on):""}: ${esc(d.data.leftWhy||"")} · waiting for the principal</span></div>`).join("")}${left.map(x=>`<div style="padding:4px 0;border-bottom:1px dashed var(--line)"><b>${esc(x.name)}</b> (${esc(x.cls)}) <span class="hint">· left ${fmtD(x.doc.leftOn)}: ${esc(x.doc.leftReason||"")}${x.doc.tc?" · TC "+esc(x.doc.tc):""}</span></div>`).join("")||(leaving.length?"":`<p class="hint">Nobody is leaving (last 30 days).</p>`)}</div></div></div>`; }
 /* Designation shown to everyone: Principal, Coordinator, Class teacher I-A, Special educator, Subject teacher */
 function desigOf(x){ if(!x) return ""; if(x.role==="admin") return "Admin"; if(x.role==="principal") return "Principal"; const ct=(x.classTeacher||[]);
   const parts=[]; if(x.coordinator) parts.push("Coordinator"); if(ct.length) parts.push("Class teacher "+ct.join(", ")); if(x.designation&&x.designation!=="PRT") parts.push(x.designation);
@@ -1709,7 +1722,7 @@ function renderStats(){
     <label class="f">Exam<select class="in" id="sumExam">${EXAMS.map(t=>`<option value="${esc(t)}" ${t===SUM.exam?"selected":""}>${esc(lab(t))}${examsWith.includes(t)?"":" (no results yet)"}</option>`).join("")}</select></label></div>`;
   HOME_RECS=recs;
   if(ME.role==="teacher"&&!ME.office){ const T=homeTabs(); box.innerHTML=welcome+`<div id="dashApprovals">${approvalsHTML()}</div><div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;margin:4px 0 10px"><div class="atabs" style="margin:0">${T.map(([k,l])=>`<button data-htab="${k}" class="${HTAB===k?"on":""}">${l}</button>`).join("")}</div>${picker}</div><div id="homeMine">${mineHTML()}</div>`; return; }
-  box.innerHTML=welcome+`<div id="dashApprovals">${approvalsHTML()}</div><div id="homeEvAch">${eventsAchHTML()}</div>`+`<div class="sec-h" style="justify-content:space-between;flex-wrap:wrap;gap:10px"><div style="display:flex;gap:10px;align-items:center"><div class="dot" style="background:var(--violet)">🏫</div><div><h3>School summary</h3><p>Only visible to staff. One exam at a time, so numbers are not mixed.</p></div></div>
+  box.innerHTML=welcome+`<div id="dashApprovals">${approvalsHTML()}</div><div id="homeSeats">${seatsHTML()}</div><div id="homeEvAch">${eventsAchHTML()}</div>`+`<div class="sec-h" style="justify-content:space-between;flex-wrap:wrap;gap:10px"><div style="display:flex;gap:10px;align-items:center"><div class="dot" style="background:var(--violet)">🏫</div><div><h3>School summary</h3><p>Only visible to staff. One exam at a time, so numbers are not mixed.</p></div></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap"><label class="f">Year<select class="in" id="sumYear">${YEARS.map(y=>`<option ${y===SUM.year?"selected":""}>${y}</option>`).join("")}</select></label>
     <label class="f">Exam<select class="in" id="sumExam">${EXAMS.map(t=>`<option value="${esc(t)}" ${t===SUM.exam?"selected":""}>${esc(lab(t))}${examsWith.includes(t)?"":" (no results yet)"}</option>`).join("")}</select></label></div></div>
    <div class="kpis">${kpi("Students",recs.length,"#f2edff","#5435c9")}${kpi("Classes with results",rows.length,"#ffeef4","#b3164f")}${kpi("School average",(avg(allV)??"–")+(allV.length?"%":""),"#e8f7ff","#0b6c99")}${kpi("A+ students",allV.filter(x=>x>=91).length,"#e9fbf5","#0b7a64")}${kpi("Below 50%",allV.filter(x=>x<50).length,"#fff6ea","#a55a00")}</div>
@@ -1717,7 +1730,7 @@ function renderStats(){
    :`<div class="empty">No ${esc(lab(SUM.exam))} results for ${esc(SUM.year)} yet.</div>`}`;
 }
 document.addEventListener("change",e=>{ if(e.target.id==="sumYear"){ SUM.year=e.target.value; SUM.picked=false; renderStats(); } if(e.target.id==="sumExam"){ SUM.exam=e.target.value; SUM.picked=true; renderStats(); } });
-document.addEventListener("click",e=>{ const tr=e.target.closest("[data-sumcls]"); if(!tr) return; const [st,dv]=tr.dataset.sumcls.split("-"); const fromDash=onHome()&&isFull(); $("#aYear").value=fromDash?YEARS[0]:SUM.year; $("#aStd").value=st; $("#aDiv").value=dv; aTab="exam"; aSel.exam=fromDash?DASH.exam:SUM.exam; location.hash="analysis"; });
+document.addEventListener("click",e=>{ const tr=e.target.closest("[data-sumcls]"); if(!tr) return; const [st,dv]=tr.dataset.sumcls.split("-"); if(isOffice()&&!isFull()){ stu.tab="find"; stu.sel=null; stu.q=""; stu.cls=st+"-"+dv; if(location.hash==="#students") renderStu(); else location.hash="students"; return; } const fromDash=onHome()&&isFull(); $("#aYear").value=fromDash?YEARS[0]:SUM.year; $("#aStd").value=st; $("#aDiv").value=dv; aTab="exam"; aSel.exam=fromDash?DASH.exam:SUM.exam; location.hash="analysis"; });
 
 const onHome=()=>["#home","","#"].includes(location.hash);
 function refreshAll(){ renderClassList(); renderStats(); if(onHome()&&isFull()&&typeof renderDash==="function") renderDash(); if(typeof renderStaff==="function") renderStaff(); if(location.hash==="#analysis"&&typeof renderAnalysis==="function") renderAnalysis(); if(location.hash==="#students"&&ME){ if(stu.tab==="find"&&!stu.sel) renderStuList(); else if(stu.tab!=="att") renderStu(); } }
@@ -1911,13 +1924,14 @@ async function loadMe(u){
   $("#navEntry").style.display=(sd&&sd.coordinator)||admin||role==="principal"?"none":"";
   /* once signed in, Home and Dashboard are one page */
   $("#navHome").textContent="📊 Dashboard";
+  document.querySelector('nav a[data-v="analysis"]').style.display=office&&!(admin||role==="principal")?"none":"";
   if(office&&(location.hash==="#coordinator"||location.hash==="#teacher"&&acting)) location.hash="students";
   if(admin&&LOGIN_MODE==="admin"&&location.hash==="#adminlogin") location.hash="admin";
   $("#navAdmin").textContent=admin?"Admin":"Office"; $("#admTitle").textContent=admin?"Admin":"Office: staff, contracts and data"; $("#admSub").textContent=admin?"Staff logins, subjects and classes, home page and data.":role==="principal"?"Your changes go live straight away. Changes made by the coordinator wait for your approval (see the Dashboard).":"Your changes are sent to the principal for approval before they go live.";
   if((role==="principal"||admin)&&(location.hash==="#principal"||location.hash===""||location.hash==="#teacher")) location.hash="home";
 }
 if(auth){
-  onAuthStateChanged(auth,u=>{ user=u; ME=null; canWrite=false; document.body.classList.remove("admin","staff","principal","office"); $("#navEntry").style.display=""; $("#navHome").textContent="Home";
+  onAuthStateChanged(auth,u=>{ user=u; ME=null; canWrite=false; document.body.classList.remove("admin","staff","principal","office"); $("#navEntry").style.display=""; $("#navHome").textContent="Home"; document.querySelector('nav a[data-v="analysis"]').style.display="";
     if(!u){ authDone(); if(!window._settingUp&&!$("#gSetup").hidden&&$("#gateErr").textContent){ stopTeacherData(); stopStaffData(); return; } showGate("gSignin"); stopTeacherData(); stopStaffData(); renderStats(); renderRoleBar(); return; }
     if(!u.emailVerified){ authDone(); if(window._settingUp) return;
       onList(u.email).then(ok=>{ if(!ok){ $("#uEmail").textContent=u.email; showGate("gUnreg"); return; }
@@ -3364,7 +3378,7 @@ function renderFlash(){ const tk=$("#homeTicker"); if(tk){ const items=[...upNot
 
 /* ---------- Notices page ---------- */
 let ntEdit=null, acEdit=null, ntDuties=[], acPhoto="";
-function noticesHTML(){ const off=!!ME&&isOffice(), U=upNotices(), P=Object.values(NOTICES).filter(n=>ntEnd(n)<todayISO()).sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,10);
+function noticesHTML(){ const off=!!ME&&isOffice()&&!isFull(), U=upNotices(), P=Object.values(NOTICES).filter(n=>ntEnd(n)<todayISO()).sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,10);
   const C=PCAL||CAL, ex=((C&&C.exams)||[]).filter(e=>(e.to||e.from)>=todayISO()).sort((a,b)=>a.from.localeCompare(b.from)).slice(0,4);
   const myDut=ME?Object.entries(EDUT).flatMap(([id,e])=>(e.duties||[]).filter(d=>d.email===ME.email).map(d=>({...d,ev:e,id}))).filter(x=>(x.ev.date||"")>=todayISO()):[];
   const card=n=>{ const du=(ME&&EDUT[n.id]&&EDUT[n.id].duties)||[];
@@ -3397,7 +3411,7 @@ function ntFormHTML(){ const n=ntEdit, T=Object.values(STAFF).filter(x=>x.role==
    <div class="row"><button class="btn sec" data-ntcancel="1">Cancel</button><button class="btn pri" data-ntsave="1">${isFull()?"💾 Publish":"📨 Send to the principal"}</button></div></div>`; }
 
 /* ---------- Achievements page ---------- */
-function achHTML(){ const off=!!ME&&isOffice(), L=achList();
+function achHTML(){ const off=!!ME&&isOffice()&&!isFull(), L=achList();
   return `<div class="title-row"><h2>🏆 Achievements</h2>${off?`<button class="btn pri" data-acnew="1">➕ Add an achievement</button>`:""}</div>
    <p class="hint">Proud moments of our students, teams and staff.${off?" Use a child's photo and full name only if the parent has agreed to it.":""}</p>
    ${off&&acEdit?acFormHTML():""}
@@ -3417,7 +3431,7 @@ function acFormHTML(){ const a=acEdit;
    <div class="row" style="justify-content:flex-start"><span id="acPrev">${acPhoto&&safeImg(acPhoto)?`<img src="${safeImg(acPhoto)}" style="height:60px;border-radius:8px">`:""}</span><button class="btn sec sm" data-acph="1">📷 Photo (optional)</button>${acPhoto?`<button class="btn sec sm" data-acphrm="1">Remove photo</button>`:""}<input type="file" id="acPhotoIn" accept="image/*" hidden></div>
    <div class="row"><button class="btn sec" data-accancel="1">Cancel</button><button class="btn pri" data-acsave="1">${isFull()?"💾 Publish":"📨 Send to the principal"}</button></div></div>`; }
 document.addEventListener("change",e=>{ if(e.target.id==="acPhotoIn"){ const f=e.target.files[0]; e.target.value=""; if(!f) return; shrinkImage(f,900,600,150000,d=>{ acPhoto=d; renderPub(); }); } });
-document.addEventListener("click",async e=>{ const t=e.target.closest("[data-ntnew],[data-nted],[data-ntrm],[data-ntcancel],[data-ntsave],[data-ndadd],[data-ndrm],[data-acnew],[data-aced],[data-acrm],[data-accancel],[data-acsave],[data-acph],[data-acphrm]"); if(!t||!ME||!isOffice()) return; const D=t.dataset;
+document.addEventListener("click",async e=>{ const t=e.target.closest("[data-ntnew],[data-nted],[data-ntrm],[data-ntcancel],[data-ntsave],[data-ndadd],[data-ndrm],[data-acnew],[data-aced],[data-acrm],[data-accancel],[data-acsave],[data-acph],[data-acphrm]"); if(!t||!ME||!isOffice()||isFull()) return; const D=t.dataset;
   const keepDut=()=>{ document.querySelectorAll("[data-ndt]").forEach(el=>{ ntDuties[+el.dataset.ndt].email=el.value; }); document.querySelectorAll("[data-ndk]").forEach(el=>{ ntDuties[+el.dataset.ndk].task=el.value; }); };
   const keepNt=()=>{ if(!$("#ntTitle")) return; keepDut(); Object.assign(ntEdit,{type:$("#ntType").value,title:$("#ntTitle").value,date:$("#ntDate").value,to:$("#ntTo").value,time:$("#ntTime").value,until:$("#ntUntil").value,text:$("#ntText").value,link:$("#ntLink").value,pinned:!!$("#ntPin").value}); };
   try{
@@ -3523,24 +3537,30 @@ function feesHTML(){ startFees(); const P=FP(), y=stuY(), cq=curQuarter(y), rem=
   return `${rem?`<div class="banner on warn" style="margin:0 0 12px">🔔 <b>Quarterly fee reminder:</b> ${rem.q} (${esc(rem.label)}) ${rem.late?"was due on":"is due by"} <b>${fmtD(rem.due)}</b>. ${unpaid.length} student${unpaid.length===1?"":"s"} still to pay. Parents see this on the Home page and in their fee panel. <button class="btn sec sm" data-feecopy="1">📋 Copy reminder list</button></div>`:""}
    <div class="grid g4" style="margin-bottom:12px">${dueQs.map(q=>{ const n=S.length-byQ(q).length; return `<div class="card" style="box-shadow:none;margin:0;padding:12px 14px"><div class="hint">${q} · ${esc(P.quarters[q].label)}</div><b style="font-size:22px">${n} / ${S.length}</b><div class="hint">paid${S.length-n?` · ${S.length-n} pending`:""}</div></div>`; }).join("")}</div>
    <div class="apick" style="align-items:flex-end"><label class="f">Class<select class="in" id="feeCls">${ALLCLS.map(c=>`<option ${c===fee.cls?"selected":""}>${c}</option>`).join("")}</select></label>
-    <label class="f">Payment mode for new entries<select class="in" id="feeMode">${["UPI","Bank transfer","Cash","Cheque"].map(m=>`<option ${m===fee.mode?"selected":""}>${m}</option>`).join("")}</select></label>
-    <span class="hint">Tap a quarter to record a payment (today's date, next receipt no.). Tap a paid one to see or undo it.</span>
+    <span class="hint">View only. Each class teacher records the payments of her class.</span>
     <button class="btn sec" data-feeplan="1">⚙️ Fee plan and payment details</button></div>
    ${fee.edit?feePlanHTML():""}
    <div class="tbl-wrap"><table class="pt"><thead><tr><th>Roll</th><th>Student</th>${QS.map(q=>`<th>${q}<br><small>${fmtD(qDate(y,q,P.quarters[q].due))}</small></th>`).join("")}</tr></thead><tbody>
    ${L.map(s=>`<tr><td>${esc(s.roll)}</td><td style="text-align:left"><b>${esc(s.name)}</b>${s.r.dob?"":' <span class="hint">(no DOB: parents cannot see fees)</span>'}</td>${QS.map(q=>{ const p=FEES[s.sid]&&FEES[s.sid].q&&FEES[s.sid].q[q], due=qDate(y,q,P.quarters[q].due), started=qDate(y,q,P.quarters[q].start)<=t;
-      return `<td><button class="btn sm ${p&&p.paid?"ok":"sec"}" data-feeq="${q}" data-fsid="${esc(s.sid)}" title="${p&&p.paid?esc(`Paid ${p.on} · ${p.mode} · ${p.receipt}`):""}" style="${!p&&started&&due<t?"background:#ffe1d6;color:#a3330b":""}">${p&&p.paid?"✓ "+esc(p.receipt||"Paid"):started?(due<t?"Overdue":"Due"):"–"}</button></td>`; }).join("")}</tr>`).join("")}</tbody></table></div>`; }
+      return `<td>${p&&p.paid?`<span class="ctag perm" title="${esc(`${p.mode||""} · by ${tName(p.by)||""}`)}">✓ ${esc(p.receipt||"Paid")}</span><br><small class="hint">${fmtD(p.on)}</small>`:started?(due<t?'<span class="ctag none" style="background:#ffe1d6;color:#a3330b">Overdue</span>':'<span class="ctag" style="background:#fff1d6;color:#8a5200">Due</span>'):'<span class="hint">–</span>'}</td>`; }).join("")}</tr>`).join("")}</tbody></table></div>`; }
 function feePlanHTML(){ const P=FP(); const L=(lab,id,v)=>`<label class="f">${lab}<input class="in" id="${id}" value="${esc(v)}"></label>`;
   return `<div class="card" style="box-shadow:none;background:#f8f6ff"><h4 style="margin:0 0 8px">⚙️ Fee plan ${esc(stuY())} ${isFull()?"":"(sent to the principal for approval)"}</h4>
    <div class="grid g4">${QS.map(q=>L(`${q} due date (MM-DD)`,"fpDue"+q,P.quarters[q].due)).join("")}${STDS.map(c=>L(`Class ${c}: fee per quarter (₹)`,"fpAmt"+c,P.amounts[c])).join("")}</div>
    <div class="grid g2">${L("Late fee","fpLate",P.lateFee)}${L("Bank","fpBank",P.pay.bank)}${L("Account name","fpAccName",P.pay.accName)}${L("Account no.","fpAcc",P.pay.acc)}${L("IFSC","fpIfsc",P.pay.ifsc)}${L("UPI ID","fpUpi",P.pay.upi)}${L("Fee counter timings","fpCounter",P.pay.counter)}${L("Note for parents","fpNote",P.pay.note)}</div>
    <div class="row"><button class="btn sec" data-feeplan="0">Cancel</button><button class="btn pri" data-fpsave="1">${isFull()?"💾 Save":"📨 Send to the principal"}</button></div></div>`; }
-async function writeFee(s,patch){ const k=await feeKey({...s.r,year:stuY(),std:s.std,div:s.div,roll:s.roll,name:s.name}); if(!k) throw {code:"This student has no date of birth on the register"};
-  const cur=FEES[s.sid]||{}; const d={year:stuY(),sid:s.sid,name:s.name,std:s.std,div:s.div,cls:s.cls,roll:s.roll,q:{...(cur.q||{}),...patch},updatedAt:new Date().toISOString(),updatedBy:ME.email};
+async function writeFee(s,patch,store){ store=store||FEES; const k=await feeKey({...s.r,year:stuY(),std:s.std,div:s.div,roll:s.roll,name:s.name}); if(!k) throw {code:"This student has no date of birth on the register"};
+  const cur=store[s.sid]||{}; const d={year:stuY(),sid:s.sid,name:s.name,std:s.std,div:s.div,cls:s.cls,roll:s.roll,q:{...(cur.q||{}),...patch},updatedAt:new Date().toISOString(),updatedBy:ME.email};
   await setDoc(doc(db,"fees",k),d); if(cur._k&&cur._k!==k) await deleteDoc(doc(db,"fees",cur._k)).catch(()=>{}); }
 function nextReceipt(){ let n=0; Object.values(FEES).forEach(f=>Object.values(f.q||{}).forEach(p=>{ const m=String(p.receipt||"").match(/(\d+)$/); if(m) n=Math.max(n,+m[1]); })); return `R/${stuY().slice(0,4)}/${String(n+1).padStart(4,"0")}`; }
+document.addEventListener("change",e=>{ if(e.target.id==="ctFeeMode") fee.mode=e.target.value; });
+document.addEventListener("click",async e=>{ const b=e.target.closest("[data-ctfq]"); if(!b||!ME||!(ME.classTeacher||[]).length) return;
+  const s=allStudents().find(x=>x.sid===b.dataset.fsid), q=b.dataset.ctfq; if(!s||!(ME.classTeacher||[]).includes(s.cls)) return; const p=CTFEES[s.sid]&&CTFEES[s.sid].q&&CTFEES[s.sid].q[q], amt=FP().amounts[s.std]||0;
+  if(p&&p.paid){ confirmBox("Undo this payment?",`${s.name}: ${q} paid on ${fmtD(p.on)} by ${p.mode}, receipt ${p.receipt}. Undo only if it was entered by mistake.`,"Undo",async()=>{ try{ await writeFee(s,{[q]:{paid:false}},CTFEES); toast("Payment removed"); }catch(err){ toast("Couldn't: "+(err.code||errMsg(err))); } }); return; }
+  let n=0; Object.values(CTFEES).filter(f=>f.cls===s.cls).forEach(f=>Object.values(f.q||{}).forEach(x=>{ const m=String(x.receipt||"").match(/(\d+)$/); if(m) n=Math.max(n,+m[1]); }));
+  const rc=`R/${stuY().slice(0,4)}/${s.cls}/${String(n+1).padStart(3,"0")}`;
+  confirmBox("Record this payment?",`${s.name} (${s.cls}, roll ${s.roll}): ${q} fee ₹ ${Number(amt).toLocaleString("en-IN")} received today by ${fee.mode}. Receipt ${rc}.`,"Record payment",async()=>{ try{ await writeFee(s,{[q]:{paid:true,on:todayISO(),mode:fee.mode,receipt:rc,amount:amt,by:ME.email}},CTFEES); toast(`✓ ${s.name}: ${q} paid · receipt ${rc}`); }catch(err){ toast("Couldn't save: "+(err.code||errMsg(err))); } }); });
 document.addEventListener("change",e=>{ if(e.target.id==="feeCls"){ fee.cls=e.target.value; renderStu(); } else if(e.target.id==="feeMode") fee.mode=e.target.value; });
-document.addEventListener("click",async e=>{ const b=e.target.closest("[data-feeq],[data-feeplan],[data-fpsave],[data-feecopy]"); if(!b||!ME||!isOffice()) return; const D=b.dataset;
+document.addEventListener("click",async e=>{ const b=e.target.closest("[data-feeplan],[data-fpsave],[data-feecopy]"); if(!b||!ME||!isOffice()) return; const D=b.dataset;
   try{
   if(D.feeplan){ fee.edit=D.feeplan==="1"; renderStu(); return; }
   if(D.fpsave){ const P=FP(), v=id=>$("#"+id).value.trim(); const d={quarters:Object.fromEntries(QS.map(q=>[q,{...P.quarters[q],due:v("fpDue"+q)}])),amounts:Object.fromEntries(STDS.map(c=>[c,num(v("fpAmt"+c))||0])),lateFee:v("fpLate"),
@@ -3550,9 +3570,6 @@ document.addEventListener("click",async e=>{ const b=e.target.closest("[data-fee
   if(D.feecopy){ const y=stuY(), q=curQuarter(y), P=FP(), L=allStudents().filter(s=>!s.left&&!s.pending&&!(FEES[s.sid]&&FEES[s.sid].q&&FEES[s.sid].q[q]&&FEES[s.sid].q[q].paid));
     const txt=`Dear parent, this is a gentle reminder that the school fee for ${q} (${P.quarters[q].label}) of ${y} is due by ${qDate(y,q,P.quarters[q].due)}. Please pay by UPI (${P.pay.upi}), bank transfer or at the fee counter. If already paid, please ignore. – ${D_().general.name}\n\n`+L.map(s=>`${s.cls} · ${s.roll} · ${s.name}${s.doc.phone?" · "+s.doc.phone:""}`).join("\n");
     try{ await navigator.clipboard.writeText(txt); toast(`📋 Copied the reminder and ${L.length} names; paste it into WhatsApp or SMS`); }catch(_){ toast("Couldn't copy here; please use a desktop browser"); } return; }
-  if(D.feeq){ const s=allStudents().find(x=>x.sid===D.fsid), q=D.feeq; if(!s) return; const p=FEES[s.sid]&&FEES[s.sid].q&&FEES[s.sid].q[q];
-    if(p&&p.paid){ confirmBox("Undo this payment?",`${s.name}: ${q} paid on ${p.on} by ${p.mode}, receipt ${p.receipt}. Undo only if it was entered by mistake.`,"Undo",async()=>{ try{ await writeFee(s,{[q]:{paid:false}}); toast("Payment removed"); }catch(err){ toast("Couldn't: "+(err.code||errMsg(err))); } }); return; }
-    const rc=nextReceipt(); await writeFee(s,{[q]:{paid:true,on:todayISO(),mode:fee.mode,receipt:rc,amount:FP().amounts[s.std]||0,by:ME.email}}); toast(`✓ ${s.name}: ${q} paid · receipt ${rc}`); return; }
   }catch(err){ toast("Couldn't save: "+(err.code||errMsg(err))); } });
 
 /* ---------- Stay signed in on refresh; sign out automatically after 3 minutes without activity ---------- */

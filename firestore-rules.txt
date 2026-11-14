@@ -237,7 +237,13 @@ service cloud.firestore {
       allow get: if true;
       // The class teacher may list (view) the fee status of her own class only.
       allow list: if isOffice() || (isTeacher() && resource.data.get('cls', '') in me().get('classTeacher', []));
-      allow create, update: if isOffice() && request.resource.data.year is string && request.resource.data.q is map;
+      // Payments are recorded by the class teacher of that class. The coordinator and principal only view them;
+      // the office may move a record (section transfer) but not change what is paid.
+      allow create: if request.resource.data.year is string && request.resource.data.q is map
+        && (isClassTeacherOf(request.resource.data) || isOffice());
+      allow update: if request.resource.data.year is string && request.resource.data.q is map
+        && ((isClassTeacherOf(resource.data) && isClassTeacherOf(request.resource.data))
+            || (isOffice() && request.resource.data.q == resource.data.q));
       allow delete: if isOffice();
     }
 
