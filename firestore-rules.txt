@@ -325,6 +325,23 @@ service cloud.firestore {
       allow delete: if isPrincipalRole();
     }
 
+    // ---- Teachers' messages to parents: each child's inbox (private hash key) plus a log for the office ----
+    function teachesCls(c) { return isTeacher() && (c in me().get('classTeacher', []) || c in me().get('classes', [])); }
+    match /inbox/{key} {
+      allow get: if true;
+      allow create, update: if (isOffice() || teachesCls(request.resource.data.cls))
+        && request.resource.data.cls is string && request.resource.data.items is list && request.resource.data.items.size() <= 50;
+      allow delete: if isPrincipalRole();
+    }
+    match /parentMsgs/{id} {
+      // the coordinator always sees them; the principal when copied; the sender her own
+      allow read: if isCoord() || (isPrincipalRole() && resource.data.ccPrincipal == true) || (isStaffMember() && resource.data.from == myEmail());
+      allow create: if teachesCls(request.resource.data.cls) && request.resource.data.from == myEmail()
+        && request.resource.data.ccPrincipal is bool && request.resource.data.text is string && request.resource.data.text.size() <= 1500
+        && request.resource.data.subject is string && request.resource.data.subject.size() <= 120;
+      allow delete: if isPrincipalRole();
+    }
+
     // ---- Parents writing to the class teacher, coordinator or principal ----
     function gvStaff(d) {
       return isPrincipalRole() || (isCoord() && d.to == 'coord')

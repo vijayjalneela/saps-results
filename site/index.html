@@ -1801,12 +1801,13 @@ function classDashOne(c,o){ const ex=o.exam, prevEx=EXAMS[EXAMS.indexOf(ex)-1], 
        <h4 style="margin:10px 0 4px">📚 Subjects (class average)</h4>${subs.map((x,i)=>`<div style="display:flex;justify-content:space-between;padding:2px 0"><span>${esc(x.n)}${i===0?" 💪":i===subs.length-1&&subs.length>1?" 🔻 weakest":""}</span><b>${x.a}%</b></div>`).join("")}</div></div></div>`; } }
 /* Teacher home is split into tabs so she picks what to see; the Year / Exam picker on the same row applies to all of them */
 let HTAB=null; try{ HTAB=sessionStorage.getItem("saps_htab"); }catch(_){}
-function homeTabs(){ const ct=(ME.classTeacher||[]).length; const T=(ct?[["class","📋 My class"]]:[]).concat([["summary","📊 My summary"],["engage","🗓 My engagements"],["ach","🏆 Achievements & toppers"]]);
+function homeTabs(){ const ct=(ME.classTeacher||[]).length; const T=(ct?[["class","📋 My class"]]:[]).concat([["summary","📊 My summary"],["engage","🗓 My engagements"],["ach","🏆 Achievements & toppers"],["msg","📬 Message parents"]]);
   if(!T.some(t=>t[0]===HTAB)) HTAB=T[0][0]; return T; }
 function mineHTML(){ if(!ME||ME.role!=="teacher"||ME.office) return ""; loadSubsAll(); loadCtFees(); homeTabs();
   if(HTAB==="class") return classDashHTML()+myClassHTML();
   if(HTAB==="engage") return engageHTML();
   if(HTAB==="ach") return achMineHTML();
+  if(HTAB==="msg"){ startPmLog(); return pmFormHTML(); }
   return `<p class="hint" style="margin:0 0 10px">Your subjects compared with the other subjects of the same class. Only you can see this.</p>`+myStatsHTML(HOME_RECS); }
 document.addEventListener("click",e=>{ const b=e.target.closest("[data-htab]"); if(!b) return; HTAB=b.dataset.htab; try{ sessionStorage.setItem("saps_htab",HTAB); }catch(_){} renderStats(); });
 function ctFeesHTML(){ loadCtFees(); const P=FP(), y=stuY(), cts=ME.classTeacher||[], t0=todayISO();
@@ -1871,9 +1872,9 @@ function renderStats(){
   const picker=`<div style="display:flex;gap:10px;flex-wrap:wrap"><label class="f">Year<select class="in" id="sumYear">${YEARS.map(y=>`<option ${y===SUM.year?"selected":""}>${y}</option>`).join("")}</select></label>
     <label class="f">Exam<select class="in" id="sumExam">${EXAMS.map(t=>`<option value="${esc(t)}" ${t===SUM.exam?"selected":""}>${esc(lab(t))}${examsWith.includes(t)?"":" (no results yet)"}</option>`).join("")}</select></label></div>`;
   HOME_RECS=recs;
-  startGrievances();
+  startGrievances(); if(isCoordMe()) startPmLog();
   if(ME.role==="teacher"&&!ME.office){ const T=homeTabs(); box.innerHTML=welcome+`<div id="dashApprovals">${approvalsHTML()}</div><div id="dashGV">${gvStaffHTML()}</div><div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;margin:4px 0 10px"><div class="atabs" style="margin:0">${T.map(([k,l])=>`<button data-htab="${k}" class="${HTAB===k?"on":""}">${l}</button>`).join("")}</div>${picker}</div><div id="homeMine">${mineHTML()}</div>`; return; }
-  box.innerHTML=welcome+`<div id="dashApprovals">${approvalsHTML()}</div><div id="dashGV">${gvStaffHTML()}</div><div id="dashPublish">${pubPanelHTML()}</div><div id="homeSeats">${seatsHTML()}</div><div id="homeEvAch">${eventsAchHTML()}</div>`+`<div class="sec-h" style="justify-content:space-between;flex-wrap:wrap;gap:10px"><div style="display:flex;gap:10px;align-items:center"><div class="dot" style="background:var(--violet)">🏫</div><div><h3>School summary</h3><p>Only visible to staff. One exam at a time, so numbers are not mixed.</p></div></div>
+  box.innerHTML=welcome+`<div id="dashApprovals">${approvalsHTML()}</div><div id="dashGV">${gvStaffHTML()}</div><div id="dashPM">${pmLogHTML()}</div><div id="dashPublish">${pubPanelHTML()}</div><div id="homeSeats">${seatsHTML()}</div><div id="homeEvAch">${eventsAchHTML()}</div>`+`<div class="sec-h" style="justify-content:space-between;flex-wrap:wrap;gap:10px"><div style="display:flex;gap:10px;align-items:center"><div class="dot" style="background:var(--violet)">🏫</div><div><h3>School summary</h3><p>Only visible to staff. One exam at a time, so numbers are not mixed.</p></div></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap"><label class="f">Year<select class="in" id="sumYear">${YEARS.map(y=>`<option ${y===SUM.year?"selected":""}>${y}</option>`).join("")}</select></label>
     <label class="f">Exam<select class="in" id="sumExam">${EXAMS.map(t=>`<option value="${esc(t)}" ${t===SUM.exam?"selected":""}>${esc(lab(t))}${examsWith.includes(t)?"":" (no results yet)"}</option>`).join("")}</select></label></div></div>
    <div class="kpis">${kpi("Students",recs.length,"#f2edff","#5435c9")}${kpi("Classes with results",rows.length,"#ffeef4","#b3164f")}${kpi("School average",(avg(allV)??"–")+(allV.length?"%":""),"#e8f7ff","#0b6c99")}${kpi("A+ students",allV.filter(x=>x>=91).length,"#e9fbf5","#0b7a64")}${kpi("Below 50%",allV.filter(x=>x<50).length,"#fff6ea","#a55a00")}</div>
@@ -2229,7 +2230,7 @@ function startTT(){ if(!db||!ME) return; startDrafts();
   if(!unsubCAL) unsubCAL=onSnapshot(doc(db,"calendar",TT_YEAR()),d=>{ CAL=d.exists()?d.data():null; homeRefresh(); if(location.hash==="#timetable"&&!calDraft) renderTT(); },()=>{});
   if(!unsubLV){ const q=isOffice()?collection(db,"leaves"):query(collection(db,"leaves"),where("email","==",ME.email));
     unsubLV=onSnapshot(q,snap=>{ const n={}; snap.forEach(d=>n[d.id]={...d.data(),id:d.id}); LEAVES=n; homeRefresh(); if(location.hash==="#timetable") renderTT(); },()=>{}); } }
-function stopTT(){ stopDrafts(); if(typeof stopGrievances==="function") stopGrievances(); if(typeof stopCtFees==="function") stopCtFees(); if(unsubSATT){unsubSATT();unsubSATT=null;} SATT_ALL={}; if(unsubACT){unsubACT();unsubACT=null;} ACTING=null; if(unsubDUTY){unsubDUTY();unsubDUTY=null;} DUTY=null; dutyDraft=null; ttS.tab=""; ttS.teacher=""; ttS.cls="I-A"; ttS.setup=null; if(unsubCAL){unsubCAL();unsubCAL=null;} calDraft=null; if(unsubTT){unsubTT();unsubTT=null;} if(unsubLV){unsubLV();unsubLV=null;} TT=null; LEAVES={}; SUBDOC=null; SUBPLAN=null; }
+function stopTT(){ stopDrafts(); if(typeof stopGrievances==="function") stopGrievances(); if(typeof stopPmLog==="function") stopPmLog(); if(typeof stopCtFees==="function") stopCtFees(); if(unsubSATT){unsubSATT();unsubSATT=null;} SATT_ALL={}; if(unsubACT){unsubACT();unsubACT=null;} ACTING=null; if(unsubDUTY){unsubDUTY();unsubDUTY=null;} DUTY=null; dutyDraft=null; ttS.tab=""; ttS.teacher=""; ttS.cls="I-A"; ttS.setup=null; if(unsubCAL){unsubCAL();unsubCAL=null;} calDraft=null; if(unsubTT){unsubTT();unsubTT=null;} if(unsubLV){unsubLV();unsubLV=null;} TT=null; LEAVES={}; SUBDOC=null; SUBPLAN=null; }
 
 function ttTable(set,cell){ // cell(dayIdx,periodIdx) -> html
   const cols=set.periods;
@@ -2924,7 +2925,7 @@ function renderDash(){
   const hr=new Date().getHours(), greet=hr<12?"Good morning":hr<17?"Good afternoon":"Good evening";
   const head=`<div class="dash-head"><div><h2>${greet}, ${esc(ME.name)} 👋</h2><p>${ME.role==="admin"?"Admin":"Principal"} dashboard · ${esc(y)} · ${new Date().toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long"})}</p></div>
     <div class="apick" style="margin:0">${EXAMS.map(x=>`<button class="chip ${x===t?"on":""}" data-dex="${esc(x)}" ${have.includes(x)?"":"disabled"}>${esc(lab(x))}</button>`).join("")}</div></div>`;
-  startGrievances(); const coming=`<div id="homeComing">${comingHTML()}</div><div id="dashApprovals">${approvalsHTML()}</div><div id="dashGV">${gvStaffHTML()}</div><div id="dashPublish">${pubPanelHTML()}</div><div id="homeEvAch">${eventsAchHTML()}</div>`;
+  startGrievances(); startPmLog(); const coming=`<div id="homeComing">${comingHTML()}</div><div id="dashApprovals">${approvalsHTML()}</div><div id="dashGV">${gvStaffHTML()}</div><div id="dashPM">${pmLogHTML()}</div><div id="dashPublish">${pubPanelHTML()}</div><div id="homeEvAch">${eventsAchHTML()}</div>`;
   if(!recs.length){ $("#dashBody").innerHTML=head+coming+`<div class="empty">No results for ${esc(y)} yet. Once teachers enter marks, highlights appear here.</div>`; return; }
   const key=r=>[r.std,r.div,r.roll,normName(r.name)].join("|");
   const prevMap={}; prev.forEach(r=>prevMap[key(r)]=pctOf(r));
@@ -3857,14 +3858,53 @@ document.addEventListener("click",async e=>{ const b=e.target.closest("[data-gvr
   const t=(document.querySelector(`[data-gvrt="${g.id}"]`)||{}).value||"", st=(document.querySelector(`[data-gvst="${g.id}"]`)||{}).value||g.status; if(!t.trim()&&st===g.status) return toast("Write a reply or change the status");
   const replies=t.trim()?[...(g.replies||[]),{by:ME.email,name:ME.name||"",role:isPrinRole()?"Principal":isCoordMe()?"Coordinator":"Class teacher",text:t.trim().slice(0,800),at:new Date().toISOString()}]:(g.replies||[]);
   try{ const {id,...rest}=g; await setDoc(doc(db,"grievances",g.id),{...rest,replies,status:st,updatedAt:new Date().toISOString()}); toast("✓ Sent to the parent"); }catch(err){ toast("Couldn't send: "+errMsg(err)); } });
+/* ---------- Teachers message parents: one child or the whole class. The coordinator always gets a copy; the principal if chosen. ---------- */
+let PMLOG={}, unsubPMS=[];
+function pmClasses(){ return [...new Set([...(ME.classTeacher||[]),...myClasses()])].sort((a,b)=>ALLCLS.indexOf(a)-ALLCLS.indexOf(b)); }
+function startPmLog(){ if(!db||!ME||unsubPMS.length) return; const qs=[];
+  if(isCoordMe()) qs.push(query(collection(db,"parentMsgs"),where("year","==",stuY())));
+  else if(isPrinRole()) qs.push(query(collection(db,"parentMsgs"),where("ccPrincipal","==",true),where("year","==",stuY())));
+  else if(ME.role==="teacher") qs.push(query(collection(db,"parentMsgs"),where("from","==",ME.email),where("year","==",stuY())));
+  const parts=qs.map(()=>({})); qs.forEach((q,i)=>unsubPMS.push(onSnapshot(q,sn=>{ const m={}; sn.forEach(d=>m[d.id]={...d.data(),id:d.id}); parts[i]=m; PMLOG=Object.assign({},...parts); const b=$("#dashPM"); if(b) b.innerHTML=pmLogHTML(); if(HTAB==="msg"){ const h=$("#homeMine"); if(h) h.innerHTML=mineHTML(); } },()=>{}))); }
+function stopPmLog(){ unsubPMS.forEach(u=>u()); unsubPMS=[]; PMLOG={}; }
+let PMF={kind:"class",cls:"",sid:""};
+function pmFormHTML(){ const C=pmClasses(); if(!C.length) return `<p class="hint">You have no classes yet.</p>`; if(!C.includes(PMF.cls)) PMF.cls=C[0];
+  const S=allStudents().filter(x=>x.cls===PMF.cls&&!x.left&&!x.pending).sort((a,b)=>a.roll-b.roll);
+  const mine=Object.values(PMLOG).filter(m=>m.from===ME.email).sort((a,b)=>String(b.at).localeCompare(String(a.at)));
+  return `<div class="card" style="box-shadow:none;background:#f8f6ff;margin:0 0 14px"><h3 style="margin:0 0 8px">📬 Message parents</h3>
+   <div class="grid g3"><label class="f">Send to<select class="in" id="pmKind"><option value="class" ${PMF.kind==="class"?"selected":""}>Whole class (broadcast)</option><option value="child" ${PMF.kind==="child"?"selected":""}>One child's parents (personal)</option></select></label>
+    <label class="f">Class<select class="in" id="pmCls">${C.map(c=>`<option ${c===PMF.cls?"selected":""}>${esc(c)}</option>`).join("")}</select></label>
+    ${PMF.kind==="child"?`<label class="f">Child<select class="in" id="pmSid"><option value="">Choose…</option>${S.map(x=>`<option value="${esc(x.sid)}" ${x.sid===PMF.sid?"selected":""} ${x.r.dob?"":"disabled"}>${esc(x.roll)}. ${esc(x.name)}${x.r.dob?"":" (no DOB)"}</option>`).join("")}</select></label>`:`<div class="hint" style="align-self:end">${S.filter(x=>x.r.dob).length} families will receive it</div>`}</div>
+   <label class="f">Subject<input class="in" id="pmSub" maxlength="120" placeholder="e.g. Science project due on Friday"></label>
+   <label class="f">Message<textarea class="in" id="pmText" rows="4" maxlength="1500"></textarea></label>
+   <label style="display:flex;gap:8px;align-items:center;margin:6px 0"><input type="checkbox" id="pmCc"> Also send a copy to the principal</label>
+   <p class="hint" style="margin:0 0 8px">The coordinator always receives a copy. Parents see it under <b>📬 Messages</b> on their child's page.</p>
+   <div class="row" style="justify-content:flex-start"><button class="btn pri" id="pmSend">📨 Send</button></div></div>
+   <h3 style="margin:0 0 8px">Sent by you</h3>${mine.length?mine.slice(0,15).map(m=>`<div style="padding:6px 0;border-bottom:1px dashed var(--line)"><b>${esc(m.subject)}</b> <span class="hint">· ${m.kind==="class"?`whole ${esc(m.cls)} (${m.count||0} families)`:`parents of ${esc(m.childName)} (${esc(m.cls)})`} · ${esc(fmtD(String(m.at).slice(0,10)))}${m.ccPrincipal?" · copy to principal":""}</span></div>`).join(""):`<p class="hint">Nothing sent yet.</p>`}`; }
+function pmLogHTML(){ if(!(isCoordMe()||isPrinRole())) return ""; const L=Object.values(PMLOG).sort((a,b)=>String(b.at).localeCompare(String(a.at))); if(!L.length) return "";
+  return `<div class="card" style="box-shadow:none;margin:0 0 14px;border-left:5px solid #5435c9"><details><summary style="cursor:pointer"><b>📬 Teachers' messages to parents</b> · ${L.length} this year${isPrinRole()?" (copied to you)":""}</summary>
+   ${L.slice(0,25).map(m=>`<div style="border-top:1px dashed var(--line);padding:6px 0"><b>${esc(m.subject)}</b> <span class="hint">· ${esc(m.fromName)} (${esc(m.fromRole)}) → ${m.kind==="class"?`whole ${esc(m.cls)}`:`parents of ${esc(m.childName)} (${esc(m.cls)})`} · ${esc(fmtD(String(m.at).slice(0,10)))}</span><br><small>${esc(String(m.text).slice(0,300))}</small></div>`).join("")}</details></div>`; }
+document.addEventListener("change",e=>{ const id=e.target.id; if(id==="pmKind"||id==="pmCls"||id==="pmSid"){ PMF[{pmKind:"kind",pmCls:"cls",pmSid:"sid"}[id]]=e.target.value; if(id!=="pmSid"){ const sub=$("#pmSub").value, tx=$("#pmText").value, cc=$("#pmCc").checked; const h=$("#homeMine"); if(h){ h.innerHTML=mineHTML(); $("#pmSub").value=sub; $("#pmText").value=tx; $("#pmCc").checked=cc; } } } });
+document.addEventListener("click",async e=>{ if(e.target.id!=="pmSend"||!ME) return; const sub=$("#pmSub").value.trim(), text=$("#pmText").value.trim(), cc=$("#pmCc").checked, c=PMF.cls;
+  if(!sub||text.length<5) return toast("Please write the subject and the message"); if(!pmClasses().includes(c)) return;
+  const S=PMF.kind==="child"?allStudents().filter(x=>x.sid===PMF.sid):allStudents().filter(x=>x.cls===c&&!x.left&&!x.pending&&x.r.dob);
+  if(!S.length) return toast(PMF.kind==="child"?"Choose the child":"No families with a date of birth on the register");
+  const role=(ME.classTeacher||[]).includes(c)?"Class teacher":"Subject teacher";
+  confirmBox("Send this message?",`${PMF.kind==="child"?`To the parents of ${S[0].name} (${c})`:`To all ${S.length} families of ${c}`}: "${sub}". The coordinator gets a copy${cc?", and the principal":""}.`,"Send",async()=>{
+    try{ const at=new Date().toISOString(), item={subject:sub.slice(0,120),text:text.slice(0,1500),from:ME.name||"",role,kind:PMF.kind,at};
+      for(const x of S){ const k=await childKey("pn",{...x.r,year:stuY(),std:x.std,div:x.div,roll:x.roll,name:x.name}); if(!k) continue; const ref=doc(db,"inbox",k); let old=null; try{ const d=await getDoc(ref); old=d.exists()?d.data():null; }catch(_){}
+        await setDoc(ref,{cls:c,year:stuY(),items:((old&&old.items)||[]).concat([item]).slice(-50),updatedAt:at}); }
+      await setDoc(doc(collection(db,"parentMsgs")),{year:stuY(),cls:c,kind:PMF.kind,childName:PMF.kind==="child"?S[0].name:"",count:S.length,subject:item.subject,text:item.text,from:ME.email,fromName:ME.name||"",fromRole:role,ccPrincipal:cc,at});
+      toast(`✅ Sent to ${S.length} famil${S.length>1?"ies":"y"}`); $("#pmSub").value=""; $("#pmText").value=""; }catch(err){ toast("Couldn't send: "+errMsg(err)); } }); });
 /* ---------- Parent dashboard: one page for their own child, with tabs ---------- */
 let PDATA=null, PTAB="card";
 function renderParentDash(){ const out=$("#rcOut"); if(!out||!PDATA) return; const {q,r,fd,list}=PDATA, name=(r&&r.name)||(fd&&fd.name)||capName(q.name);
   const exams=(list||[]).filter(x=>x.rec), t=todayISO();
   const up=Object.values(NOTICES||{}).filter(n=>n.date&&n.date>=t).sort((a,b)=>a.date.localeCompare(b.date));
-  const tabs=[["card","📄 Report card"],["prog","📈 Progress"],["fees","💳 Fees"],["abs","✉️ Absence note"],["couns","💬 Counselling"],["talk","🗣 Write to the school"],["news",`📢 Notices${up.length?` (${up.length})`:""}`]];
+  const tabs=[["card","📄 Report card"],["prog","📈 Progress"],["fees","💳 Fees"],["abs","✉️ Absence note"],["msgs",`📬 Messages${PDATA.inbox&&PDATA.inbox.items&&PDATA.inbox.items.length?` (${PDATA.inbox.items.length})`:""}`],["couns","💬 Counselling"],["talk","🗣 Write to the school"],["news",`📢 Notices${up.length?` (${up.length})`:""}`]];
   if(PDATA.pn===undefined){ PDATA.pn=null; childKey("pn",q).then(k=>k?getDoc(doc(db,"parentNotes",k)):null).then(d=>{ PDATA.pn=d&&d.exists()?d.data():{items:[]}; if(PTAB==="couns") renderParentDash(); }).catch(()=>{ PDATA.pn={items:[]}; }); }
   if(PDATA.gv===undefined){ PDATA.gv=null; loadGrievances(); }
+  if(PDATA.inbox===undefined){ PDATA.inbox=null; childKey("pn",q).then(k=>k?getDoc(doc(db,"inbox",k)):null).then(d=>{ PDATA.inbox=d&&d.exists()?d.data():{items:[]}; renderParentDash(); }).catch(()=>{ PDATA.inbox={items:[]}; }); }
   let body="";
   if(PTAB==="card") body=r?`${exams.length>1?`<div class="apick" style="margin:0 0 10px">${exams.map(x=>`<button class="chip ${x.rec.term===r.term?"on":""}" data-pex="${esc(x.term)}">${esc(lab(x.term))}</button>`).join("")}</div>`:""}${reportCard(r)}<div style="text-align:center;margin:14px 0"><button class="btn sec" id="rcPrint">🖨 Print / Save PDF</button></div>`
     :`<div class="card" style="text-align:center"><p style="color:var(--muted);margin:0">No report card is published yet for ${esc(name)}.</p></div>`;
@@ -3873,6 +3913,7 @@ function renderParentDash(){ const out=$("#rcOut"); if(!out||!PDATA) return; con
   else if(PTAB==="abs") body=absFormHTML().replace("<details","<details open");
   else if(PTAB==="couns"){ const I=((PDATA.pn&&PDATA.pn.items)||[]).slice().reverse(); body=`<div class="card" style="box-shadow:none">${PDATA.pn==null?`<p class="hint">Loading…</p>`:I.length?I.map(x=>`<div style="padding:8px 0;border-bottom:1px dashed var(--line)"><small class="hint">${esc(fmtD(x.date))} · ${esc(x.role)}${x.by?" "+esc(x.by):""}${x.area?" · "+esc(x.area):""}</small><p style="margin:4px 0 0">${esc(x.text)}</p></div>`).join(""):`<p class="hint" style="margin:0">No counselling notes have been shared with you. If you'd like to talk to the school about your child's well-being, use <b>Write to the school</b>.</p>`}</div>`; }
   else if(PTAB==="talk") body=gvParentHTML();
+  else if(PTAB==="msgs"){ const I=((PDATA.inbox&&PDATA.inbox.items)||[]).slice().reverse(); body=`<div class="card" style="box-shadow:none">${PDATA.inbox==null?`<p class="hint">Loading…</p>`:I.length?I.map(x=>`<div style="padding:10px 0;border-bottom:1px dashed var(--line)"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>${esc(x.subject)}</b><small class="hint">${esc(fmtD(String(x.at).slice(0,10)))}</small></div><small class="hint">From ${esc(x.from)} (${esc(x.role)})${x.kind==="class"?" · to the whole class":" · to you"}</small><p style="margin:6px 0 0;white-space:pre-wrap">${esc(x.text)}</p></div>`).join(""):`<p class="hint" style="margin:0">No messages from the school yet.</p>`}</div>`; }
   else body=`<div class="card" style="box-shadow:none">${up.length?up.map(n=>`<div style="display:flex;gap:12px;padding:8px 0;border-bottom:1px dashed var(--line)"><b style="min-width:80px">${esc(fmtD(n.date))}</b><span>${ntIcon(n.type)} <b>${esc(n.title)}</b>${n.text?`<br><small class="hint">${esc(String(n.text).slice(0,160))}</small>`:""}</span></div>`).join(""):`<p class="hint" style="margin:0">No upcoming notices.</p>`}<p style="margin:10px 0 0"><a href="#notices">All notices →</a></p></div>`;
   out.innerHTML=`<div class="card" style="margin-top:0;border-left:6px solid #ff9933"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
      <div><h2 style="margin:0">👪 ${esc(name)}</h2><p class="hint" style="margin:2px 0 0">Class ${esc(q.std)}-${esc(q.div)} · Roll ${esc(q.roll)} · ${esc(q.year)}</p></div>
