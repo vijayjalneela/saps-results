@@ -1335,7 +1335,7 @@ $("#entry").addEventListener("submit",async e=>{
   if(!editingId&&RECORDS[r.id]&&!confirmReplace(r)) return;
   const cls=r.std+"-"+r.div, details=canEditDetails(cls), orig=editingId?RECORDS[editingId]:null;
   if(!details){
-    if(!orig) return toast("Ask the class teacher or principal to add this student first");
+    if(!orig) return toast("Ask the class teacher to add this student first");
     if(!r.subjects.some(x=>canEditSubject(x.name,cls))) return toast("You can view this class, but not change it");
   }
   if(!orig&&!isOffice()){ const sd=STUDOCS[sidOf(r)], known=Object.values(RECORDS).some(x=>sidOf(x)===sidOf(r));
@@ -1597,8 +1597,10 @@ const ADMIN=String(window.ADMIN_EMAIL||"").toLowerCase();
 const isFull=()=>!!ME&&(ME.role==="admin"||ME.role==="principal");
 /* Office = principal, admin, the coordinator, or a teacher acting as coordinator while she is away. */
 const isOffice=()=>isFull()||(!!ME&&!!ME.office);
-const canEditDetails=cls=>isOffice()||(!!ME&&ME.role==="teacher"&&(ME.classTeacher||[]).includes(cls));
-const canEditSubject=(sub,cls)=>isOffice()||(!!ME&&ME.role==="teacher"&&teachesIn(ME,cls).includes(sub));
+/* Results are entered only by the teachers themselves: the subject teacher for her subject's marks,
+   the class teacher for the child's details. Principal, coordinator and admin can view them. */
+const canEditDetails=cls=>!!ME&&ME.role==="teacher"&&(ME.classTeacher||[]).includes(cls);
+const canEditSubject=(sub,cls)=>!!ME&&ME.role==="teacher"&&teachesIn(ME,cls).includes(sub);
 const formCls=()=>$("#fStd").value+"-"+$("#fDiv").value;
 function staffName(em){ const x=STAFF[em]; return x&&x.name?x.name:(ME&&ME.email===em?ME.name:em.split("@")[0]); }
 function applyPerms(){
@@ -1613,11 +1615,11 @@ document.addEventListener("click",e=>{ const b=e.target.closest("[data-loadall]"
 function renderRoleBar(){
   if(!ME){ $("#roleBar").innerHTML=""; return; }
   let t;
-  if(ME.role==="admin") t=`<span class="rb">Admin</span> Full access to all results, plus the <a href="#admin">Admin page</a>.`;
-  else if(ME.role==="principal") t=`<span class="rb">Principal</span> You can add, change and delete all results.`;
+  if(ME.role==="admin") t=`<span class="rb">Admin</span> You can view all results; marks are entered by the subject and class teachers. Use the <a href="#admin">Admin page</a> for staff and data.`;
+  else if(ME.role==="principal") t=`<span class="rb">Principal</span> You can view all results; marks are entered by the subject teachers and details by the class teachers.`;
   else { const subj=(ME.subjects||[]).join(", ")||"no subjects yet", cl=(ME.classes||[]).join(", ")||"no classes yet";
     const per=(ME.classes||[]).map(c=>`<b>${esc(teachesIn(ME,c).join(", ")||"–")}</b> in <b>${esc(c)}</b>`).join("; ");
-    t=(ME.office?`<span class="rb">${ME.coordinator?"Coordinator":"Acting coordinator"}</span> You run students, attendance and records, and prepare the timetable, calendar, leave, substitutes, exam duty and the disclosure page; the principal approves them before they go live. You can also add or correct results${ME.acting?` (acting until ${fmtD(ME.acting.to)})`:""}. `:"")+`<span class="rb">Teacher</span> You can change ${per||"no marks yet"}.`+((ME.classTeacher||[]).length?` As class teacher of <b>${esc(ME.classTeacher.join(", "))}</b> you can also add students and edit details, attendance and remarks.`:"")+` Everything else is view-only (🔒).`; }
+    t=(ME.office?`<span class="rb">${ME.coordinator?"Coordinator":"Acting coordinator"}</span> You run students, attendance and records, and prepare the timetable, calendar, leave, substitutes, exam duty and the disclosure page; the principal approves them before they go live. Results are entered by the subject and class teachers${ME.acting?` (acting until ${fmtD(ME.acting.to)})`:""}. `:"")+`<span class="rb">Teacher</span> You can change ${per||"no marks yet"}.`+((ME.classTeacher||[]).length?` As class teacher of <b>${esc(ME.classTeacher.join(", "))}</b> you can also add students and edit details, attendance and remarks.`:"")+` Everything else is view-only (🔒).`; }
   const scope=ME.role==="teacher"&&!ME.office?(LOAD.all?` <span class="hint">Showing all classes, ${esc(LOAD.year||"")}.</span> <button class="btn sec sm" data-loadall="0">Show only my classes</button>`:` <span class="hint">Showing your classes, ${esc(LOAD.year||"")}.</span> <button class="btn sec sm" data-loadall="1">Show all classes</button>`):"";
   $("#roleBar").innerHTML=`<span>👋 ${esc(ME.name)}</span> ${t}${scope} <a href="guide.html" class="hint" style="font-weight:800">📖 How to use</a>`;
 }

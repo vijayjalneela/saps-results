@@ -60,7 +60,9 @@ service cloud.firestore {
             && exists(/databases/$(database)/documents/students/$(request.resource.data.sid))
             && get(/databases/$(database)/documents/students/$(request.resource.data.sid)).data.get('admission', 'approved') == 'approved'));
       allow delete: if isOffice() || isClassTeacherOf(resource.data);
-      allow update: if okCard(request.resource.data) && (isOffice()
+      // Marks are changed only by the subject teacher (own subjects) and details by the class teacher.
+      // The principal, coordinator and admin may update a card only without touching marks.
+      allow update: if okCard(request.resource.data) && ((isOffice() && marksChanged().size() == 0)
         || (isTeacher() && onlyOwnSubjects()
             && (onlyMarks()
                 || (isClassTeacherOf(resource.data) && cls(request.resource.data) == cls(resource.data)))));
