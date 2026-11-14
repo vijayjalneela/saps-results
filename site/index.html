@@ -288,7 +288,7 @@ body.staff #v-home>*:not(#homeStats):not(#homeTicker):not(#dashBody){display:non
 body.staff #v-home.on{display:flex;flex-direction:column}
 body.staff #homeTicker{order:-1;margin:0 0 14px}
 #authLoad{display:none;text-align:center;padding:40px 10px;color:var(--muted);font-weight:700}
-body.authwait #authLoad{display:block}
+body.authwait #authLoad,body.pwait #authLoad{display:block}body.authwait .view,body.pwait .view{display:none!important}
 body:not(.parent) .parent-only{display:none!important}body.parent #v-results .p-hero{display:none}body.parent #navHome{display:none!important}
 body.staff .parent-only{display:none!important}
 body:not(.principal) .pr-only{display:none!important}
@@ -1059,7 +1059,9 @@ let db=null, auth=null, canWrite=false, user=null, unsubResults=null;
 const CFG=window.FIREBASE_CONFIG||{};
 const configured=!!(CFG.apiKey&&!String(CFG.apiKey).includes("PASTE"));
 if(configured){
-  try{ document.body.classList.add("authwait"); setTimeout(authDone,6000); const app=initializeApp(CFG); if(window.RECAPTCHA_SITE_KEY&&!String(window.RECAPTCHA_SITE_KEY).includes("PASTE")) initializeAppCheck(app,{provider:new ReCaptchaV3Provider(window.RECAPTCHA_SITE_KEY),isTokenAutoRefreshEnabled:true}); db=getFirestore(app); auth=initializeAuth(app,{persistence:[browserSessionPersistence,inMemoryPersistence]}); /* sign-in survives a refresh but ends when the tab is closed; idle sign-out below */ }
+  try{ /* on a refresh by someone signed in, show "Loading…" (not the public Home page) until we know who it is */
+  const signedBefore=(()=>{ try{ return Object.keys(sessionStorage).some(k=>k.startsWith("firebase:authUser")); }catch(_){ return false; } })();
+  if(signedBefore) document.body.classList.add("authwait"); setTimeout(authDone,6000); const app=initializeApp(CFG); if(window.RECAPTCHA_SITE_KEY&&!String(window.RECAPTCHA_SITE_KEY).includes("PASTE")) initializeAppCheck(app,{provider:new ReCaptchaV3Provider(window.RECAPTCHA_SITE_KEY),isTokenAutoRefreshEnabled:true}); db=getFirestore(app); auth=initializeAuth(app,{persistence:[browserSessionPersistence,inMemoryPersistence]}); /* sign-in survives a refresh but ends when the tab is closed; idle sign-out below */ }
   catch(e){ console.error(e); }
 }
 function errMsg(err){ const c=(err&&err.code)||String(err); if(c.includes("permission-denied")) return "⛔ Unauthorised: you don't have permission to make this change."; if(c.includes("unavailable")) return "No internet connection. Please try again."; if(c.includes("resource-exhausted")) return "Today's free database limit is used up. Please try again after 1:30 PM (India time) tomorrow; nothing is lost."; return c; }
@@ -1687,12 +1689,12 @@ $("#lookup").addEventListener("submit",async e=>{
   let r=null;
   if(!normName(q.name)) return toast("Please type the student's name");
   try{ const k=await reportKey(q); const d=k?await getDoc(doc(db,"reports",k)):null; if(d&&d.exists()) r=fromStore(d.data(),idFor(q)); }
-  catch(err){ out.innerHTML=`<div class="card" style="margin-top:22px;text-align:center"><h3>Couldn't connect</h3><p style="color:var(--muted)">${esc(errMsg(err))}</p></div>`; }
+  catch(err){ document.body.classList.remove("pwait"); out.innerHTML=`<div class="card" style="margin-top:22px;text-align:center"><h3>Couldn't connect</h3><p style="color:var(--muted)">${esc(errMsg(err))}</p></div>`; }
   finally{ if(btn){btn.disabled=false;btn.textContent="🔐 Open";} }
   let fd=null; try{ const fk=await feeKey(q); const d2=fk?await getDoc(doc(db,"fees",fk)):null; fd=d2&&d2.exists()?d2.data():null; }catch(_){}
   const feeBox=(fd||r)?feePanelHTML(fd,{...q,name:(fd&&fd.name)||(r&&r.name)||capName(q.name)}):"";
   if(!r&&fd){ parentIn(q,fd.name); PDATA={q,r:null,fd,list:null}; PTAB="fees"; renderParentDash(); window.scrollTo(0,0); loadProgress({...q,name:fd.name}).then(list=>{ if(PDATA&&PDATA.q===q){ PDATA.list=list; const last=list.filter(x=>x.rec).pop(); if(last){ PDATA.r=last.rec; } renderParentDash(); } }); return; }
-  if(!r){
+  if(!r){ document.body.classList.remove("pwait");
     out.innerHTML=`<div class="card" style="margin-top:22px;text-align:center"><div style="font-size:40px">🔎</div><h3>No result found</h3><p style="color:var(--muted)">Please check the class, section, roll number, date of birth and the spelling of the name. If they're right, the result may not be published yet.</p></div>`;
     return;
   }
@@ -3936,7 +3938,7 @@ document.addEventListener("click",async e=>{ if(e.target.id!=="pmSend"||!ME) ret
       toast(`✅ Sent to ${S.length} famil${S.length>1?"ies":"y"}`); $("#pmSub").value=""; $("#pmText").value=""; }catch(err){ toast("Couldn't send: "+errMsg(err)); } }); });
 /* ---------- Parent dashboard: one page for their own child, with tabs ---------- */
 let PDATA=null, PTAB="card";
-function renderParentDash(){ const out=$("#rcOut"); if(!out||!PDATA) return; const {q,r,fd,list}=PDATA, name=(r&&r.name)||(fd&&fd.name)||capName(q.name);
+function renderParentDash(){ const out=$("#rcOut"); if(!out||!PDATA) return; document.body.classList.remove("pwait"); const {q,r,fd,list}=PDATA, name=(r&&r.name)||(fd&&fd.name)||capName(q.name);
   const exams=(list||[]).filter(x=>x.rec), t=todayISO();
   const up=Object.values(NOTICES||{}).filter(n=>n.date&&n.date>=t).sort((a,b)=>a.date.localeCompare(b.date));
   const tabs=[["info","👤 Child details"],["card","📄 Report card"],["prog","📈 Progress"],["fees","💳 Fees"],["abs","✉️ Absence note"],["msgs",`📬 Messages${PDATA.inbox&&PDATA.inbox.items&&PDATA.inbox.items.length?` (${PDATA.inbox.items.length})`:""}`],["talk","🗣 Write to the school"],["news",`📢 Notices${up.length?` (${up.length})`:""}`]];
@@ -3975,13 +3977,14 @@ function parentOut(msg){ PARENT=null; PDATA=null; PTAB="card"; document.body.cla
 document.addEventListener("click",e=>{ if(e.target.closest("[data-parentout]")) parentOut(); });
 setInterval(()=>{ if(!PARENT) return; let last=0; try{ last=+(sessionStorage.getItem("saps_lastActive")||0); }catch(_){} if(last&&(Date.now()-last)/60000>=IDLE_MIN) parentOut(`🔒 Logged out after ${IDLE_MIN} minutes without activity.`); },5000);
 /* a refresh keeps the parent signed in (same tab only) */
-function restoreParent(){ let q=null; try{ q=JSON.parse(sessionStorage.getItem("saps_parent")||"null"); }catch(_){} if(!q) return;
-  let last=0; try{ last=+(sessionStorage.getItem("saps_lastActive")||0); }catch(_){} if(last&&(Date.now()-last)/60000>=IDLE_MIN){ try{ sessionStorage.removeItem("saps_parent"); }catch(_){} return; }
-  parentIn(q,q.name); if(location.hash!=="#results"){ if(["#home","","#"].includes(location.hash)) location.hash="results"; else return; }
+function restoreParent(){ const done=()=>document.body.classList.remove("pwait"); setTimeout(done,5000); let q=null; try{ q=JSON.parse(sessionStorage.getItem("saps_parent")||"null"); }catch(_){} if(!q){ done(); return; }
+  let last=0; try{ last=+(sessionStorage.getItem("saps_lastActive")||0); }catch(_){} if(last&&(Date.now()-last)/60000>=IDLE_MIN){ try{ sessionStorage.removeItem("saps_parent"); }catch(_){} document.body.classList.remove("parent"); done(); return; }
+  parentIn(q,q.name); if(location.hash!=="#results"){ if(["#home","","#"].includes(location.hash)) location.hash="results"; else { done(); return; } }
   const keepTab=(()=>{ try{ return sessionStorage.getItem("saps_ptab"); }catch(_){ return null; } })(); const set=(id,v)=>{ const el=$(id); if(el){ el.value=v; el.dispatchEvent(new Event("change",{bubbles:true})); } };
   set("#qYear",q.year); set("#qTerm",q.term); set("#qStd",q.std); set("#qDiv",q.div); set("#qRoll",q.roll); set("#qName",q.name); set("#qDob",q.dob);
   $("#lookup").requestSubmit(); if(keepTab) setTimeout(()=>{ if(PDATA){ PTAB=keepTab; renderParentDash(); } },1500); }
-setTimeout(restoreParent,1200);
+try{ if(sessionStorage.getItem("saps_parent")) document.body.classList.add("pwait","parent"); }catch(_){}
+setTimeout(restoreParent,60);
 
 /* init */
 renderStSubj(); renderCP(); resetSubjects(); resetNS(); renderClassList(); renderStats(); route(); showGate("gSignin");
