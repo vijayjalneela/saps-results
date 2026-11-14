@@ -79,8 +79,10 @@ service cloud.firestore {
     match /reports/{key} {
       allow get: if true;
       allow list: if false;
-      allow create, update: if (isOffice() || teachesCard(request.resource.data)) && okCard(request.resource.data);
-      allow delete: if isOffice() || teachesCard(resource.data);
+      // Only the coordinator / principal publish parents' copies (the "Publish this class" button),
+      // so a teacher can't change another teacher's subject marks in what parents see.
+      allow create, update: if isOffice() && okCard(request.resource.data);
+      allow delete: if isOffice();
     }
 
     // ---- Staff list (roles, subjects, classes): the admin, or the principal approving the coordinator's
@@ -253,10 +255,18 @@ service cloud.firestore {
     //      class, the coordinator and the principal can read them. ----
     match /absenceNotes/{id} {
       allow create: if request.resource.data.keys().hasOnly(['year','std','div','cls','roll','name','sid','from','to','reason','note','at'])
-        && request.resource.data.cls is string && request.resource.data.cls == request.resource.data.std + '-' + request.resource.data.div
+        && request.resource.data.year is string && request.resource.data.year.size() <= 7
+        && request.resource.data.std in ['I','II','III','IV','V']
+        && request.resource.data.div in ['A','B','C']
+        && request.resource.data.cls == request.resource.data.std + '-' + request.resource.data.div
+        && request.resource.data.roll is int && request.resource.data.roll >= 1 && request.resource.data.roll <= 60
         && request.resource.data.name is string && request.resource.data.name.size() < 100
+        && request.resource.data.sid is string && request.resource.data.sid.size() < 160
+        && request.resource.data.from is string && request.resource.data.from.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && request.resource.data.to is string && request.resource.data.to.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && request.resource.data.reason is string && request.resource.data.reason.size() < 60
         && request.resource.data.note is string && request.resource.data.note.size() <= 200
-        && request.resource.data.reason is string && request.resource.data.reason.size() < 60;
+        && request.resource.data.at is string && request.resource.data.at.size() <= 30;
       allow read: if isOffice() || (isTeacher() && resource.data.cls in me().get('classTeacher', []));
       allow update, delete: if isOffice();
     }

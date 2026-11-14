@@ -11,3 +11,7 @@ window.FIREBASE_CONFIG = {
 
 // The only account that can change the home page (school photo, principal's message).
 window.ADMIN_EMAIL = "vijayjalneela@gmail.com";
+
+// App Check (reCAPTCHA v3) site key. Paste it here after creating it at google.com/recaptcha/admin.
+// While it says PASTE, App Check stays off and the site works as before.
+window.RECAPTCHA_SITE_KEY = "PASTE-SITE-KEY-HERE";
