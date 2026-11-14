@@ -201,7 +201,7 @@ table.rct td:first-child,table.rct th:first-child{text-align:left;font-weight:80
 /* toast & modal */
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(120px);background:var(--ink);color:#fff;padding:12px 20px;border-radius:14px;font-weight:800;z-index:60;transition:transform .25s;max-width:90vw}
 .toast.on{transform:translateX(-50%) translateY(0)}
-.modal{position:fixed;inset:0;background:rgba(31,29,58,.45);display:none;place-items:center;z-index:70;padding:20px}#modal{z-index:90}
+.modal{position:fixed;inset:0;background:rgba(31,29,58,.45);display:none;place-items:center;z-index:70;padding:20px}#modal{z-index:90}.rev-wrap{max-height:calc(90vh - 190px);overflow:auto}.rev thead th{position:sticky;top:0;z-index:2;background:#f2effc}.rev td:nth-child(1),.rev td:nth-child(2),.rev th:nth-child(1),.rev th:nth-child(2){position:sticky;background:#fff;z-index:1}.rev th:nth-child(1),.rev th:nth-child(2){background:#f2effc;z-index:3}.rev td:nth-child(1),.rev th:nth-child(1){left:0;min-width:44px}.rev td:nth-child(2),.rev th:nth-child(2){left:44px}
 .modal.on{display:grid}
 .modal .box{background:#fff;border-radius:20px;padding:22px;max-width:420px;width:100%}
 .modal h3{font-size:22px}
@@ -1437,9 +1437,9 @@ function pubPanelHTML(){ if(!ME||!isOffice()) return "";
 let REVIEW=null;
 function reviewHTML(){ const {y,t,std,div}=REVIEW, L=clsRecs(y,t,std,div).sort((a,b)=>a.roll-b.roll), subs=[...new Set(L.flatMap(r=>(r.subjects||[]).map(x=>x.name)))], chk=pubCheck(L);
   const pct=L.map(pctOf).filter(x=>x!=null);
-  return `<div style="padding:20px"><h2 style="margin:0 0 4px">👁 Review: Class ${esc(std)}-${esc(div)} · ${esc(lab(t))}</h2>
-   <p style="margin:0 0 8px"><button class="btn sec sm" data-revall="1">🖨 Print all report cards</button></p><p class="hint" style="margin:0 0 10px">${L.length} report cards · class average ${avg(pct)??"–"}% · ${chk.gaps?`<b style="color:#b3164f">${chk.gaps} with missing marks</b>`:"all marks entered"}${chk.noDob?` · <b style="color:#b3164f">${chk.noDob} without date of birth</b> (parents can't open these)`:""}. View only.</p>
-   <div class="tbl-wrap"><table class="pt"><thead><tr><th>Roll</th><th style="text-align:left">Student</th>${subs.map(n=>`<th>${esc(n)}</th>`).join("")}<th>%</th><th>Grade</th><th>Attendance</th><th></th></tr></thead><tbody>
+  return `<div style="padding:16px 20px 20px"><div style="position:sticky;top:0;background:#fff;z-index:4;padding:4px 0 2px"><h2 style="margin:0 0 4px">👁 Review: Class ${esc(std)}-${esc(div)} · ${esc(lab(t))}</h2>
+   <p style="margin:0 0 8px"><button class="btn sec sm" data-revall="1">🖨 Print all report cards</button></p><p class="hint" style="margin:0 0 10px">${L.length} report cards · class average ${avg(pct)??"–"}% · ${chk.gaps?`<b style="color:#b3164f">${chk.gaps} with missing marks</b>`:"all marks entered"}${chk.noDob?` · <b style="color:#b3164f">${chk.noDob} without date of birth</b> (parents can't open these)`:""}. View only.</p></div>
+   <div class="tbl-wrap rev-wrap"><table class="pt rev"><thead><tr><th>Roll</th><th style="text-align:left">Student</th>${subs.map(n=>`<th>${esc(n)}</th>`).join("")}<th>%</th><th>Grade</th><th>Attendance</th><th></th></tr></thead><tbody>
    ${L.map(r=>{ const p=pctOf(r), raw=r._raw||r; return `<tr><td>${esc(r.roll)}</td><td style="text-align:left"><b>${esc(r.name)}</b>${raw.dob?"":' <small style="color:#b3164f">no DOB</small>'}</td>${subs.map(n=>{ const x=(r.subjects||[]).find(z=>z.name===n), v=x?subjTotal(x,r):null; return `<td style="${x&&v==null?"background:#ffe1e8;color:#b3164f;font-weight:800":""}">${x?(v==null?"missing":v):"–"}</td>`; }).join("")}<td><b>${p??"–"}</b></td><td>${esc(grade(p)||"–")}</td><td>${raw.workDays?`${raw.attended||0}/${raw.workDays}`:"–"}</td><td><button class="btn sec sm" data-revcard="${esc(r.id)}">Card</button></td></tr>`; }).join("")}</tbody></table></div></div>`; }
 function openReview(){ $("#pvOut").innerHTML=reviewHTML(); $("#pvModal").classList.add("on"); $("#pvModal .box").scrollTop=0; }
 document.addEventListener("click",e=>{ const b=e.target.closest("[data-pubrev],[data-revcard],[data-revback],[data-revall]"); if(!b||!ME||!isOffice()) return;
