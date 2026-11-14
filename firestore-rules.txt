@@ -197,7 +197,7 @@ service cloud.firestore {
       allow read: if anyStaff();
       allow create, update: if okStu(request.resource.data)
         && id == request.resource.data.year + '_' + cls(request.resource.data) + '_' + request.resource.data.month
-        && (isOffice() || isClassTeacherOf(request.resource.data));
+        && (isOffice() || isClassTeacherOf(request.resource.data) || teachesCard(request.resource.data));
       allow delete: if isOffice();
     }
 
