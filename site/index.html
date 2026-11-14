@@ -223,6 +223,7 @@ table.rct td:first-child,table.rct th:first-child{text-align:left;font-weight:80
 .school-photo .ph-empty svg{width:62%;max-width:300px}
 .school-photo .cap{position:absolute;left:12px;bottom:12px;background:rgba(31,29,58,.72);color:#fff;font-weight:800;font-size:13px;padding:6px 12px;border-radius:999px}
 .edit-only{display:none!important}
+.linkbtn{background:none;border:0;padding:0;color:#3b4bd8;font:inherit;font-weight:800;text-decoration:underline;cursor:pointer}
 .ticker{display:flex;align-items:center;gap:10px;margin:14px 0 0;padding:9px 14px;border-radius:14px;background:#1f1a3d;color:#fff;text-decoration:none;overflow:hidden;font-weight:700;font-size:14px}
 .ticker .tk-l{flex:none;background:#ff5a7a;border-radius:8px;padding:2px 10px;font-weight:900}
 .ticker .tk-w{overflow:hidden;flex:1;white-space:nowrap}
@@ -491,9 +492,9 @@ table.pt.duty td{font-size:13px;padding:6px 6px}
   <div class="hero home-hero">
     <div class="bubbles"><span style="width:220px;height:220px;left:-70px;bottom:-90px"></span><span style="width:70px;height:70px;left:44%;top:18px"></span></div>
     <div style="position:relative">
-      <div class="school-line">★ Term I results · 2026-27 are here</div>
+      <div class="school-line">★ CBSE · Classes I to V · Aundh Military Station, Pune</div>
       <h1>Every child's progress, bright and clear.</h1>
-      <p>Teachers enter marks, attendance and health in one place. Parents and students open the report card with the class, roll number and the student's name.</p>
+      <p>Nurturing confident, caring and curious young learners in the Army Public School tradition.</p>
       
     </div>
     <div class="school-photo" id="schoolPhoto">
@@ -527,10 +528,9 @@ table.pt.duty td{font-size:13px;padding:6px 6px}
       </div>
     </div>
     <div class="doors">
-      <a class="door t" href="#adminlogin"><div class="ic" style="background:#e9fbf5">🛠️</div><h3>Admin login</h3><p>Manage staff, the home page and data.</p><span class="go" style="color:var(--teal)">Log in →</span></a>
-      <a class="door t" href="#coordinator"><div class="ic" style="background:#fff4e0">🗂️</div><h3>Coordinator login</h3><p>Students, attendance, leave and day-to-day running of the school.</p><span class="go" style="color:var(--saffron)">Log in →</span></a>
-      <a class="door t" href="#teacher"><div class="ic">✏️</div><h3>Teacher login</h3><p>Enter marks for your subjects, and see class analysis.</p><span class="go">Log in →</span></a>
-      <a class="door p" href="#results"><div class="ic">🎓</div><h3>Parents login</h3><p>See your child's report card and results across all exams.</p><span class="go">Check a result →</span></a>
+      <a class="door t" href="#coordinator"><div class="ic" style="background:#fff4e0">🗂️</div><h3>Coordinator login</h3><p>For the school office.</p><span class="go" style="color:var(--saffron)">Log in →</span></a>
+      <a class="door t" href="#teacher"><div class="ic">✏️</div><h3>Teacher login</h3><p>For school staff.</p><span class="go">Log in →</span></a>
+      <a class="door p" href="#results"><div class="ic">🎓</div><h3>Parents login</h3><p>See your child's report card.</p><span class="go">Check a result →</span></a>
     </div>
   </div>
   <a class="card" href="#school" style="display:flex;gap:14px;align-items:center;margin-top:18px;text-decoration:none;color:inherit;background:#fff8ec;border:2px solid #ffd79a"><span style="font-size:34px">📋</span><span><b style="font-size:18px">Mandatory Public Disclosure (CBSE)</b><br><span class="hint">Affiliation, documents, staff, infrastructure, fees, committees and TC check · <span style="text-decoration:underline">Privacy notice</span> in the footer</span></span></a>
@@ -795,7 +795,7 @@ table.pt.duty td{font-size:13px;padding:6px 6px}
 <section class="view" id="v-results">
   <div class="p-hero"><div class="pals"><div data-animal="elephant"></div><div data-animal="lion"></div></div>
     <h2>Parents login: check your child's result 🎉</h2>
-    <p>Choose the class, then enter the roll number and the student's name, e.g. Riya Sharma.</p>
+    <p>Choose the year, exam and class, then enter the roll number, your child's name and date of birth.</p>
     <form class="lookup" id="lookup">
       <label class="f">Year<select class="in" id="qYear"></select></label>
       <label class="f">Term<select class="in" id="qTerm"><option value="UT-1">UT-I</option><option value="Term I" selected>Term I</option><option value="UT-2">UT-II</option><option value="Term II">Term II (Final Exam)</option></select></label>
@@ -2776,15 +2776,17 @@ const DEF_DISC={sample:true,
   general:{name:"Shivneri Army Public School",affNo:"11XXXXX (sample)",schoolCode:"XXXXX (sample)",address:"Aundh Military Station, Pune 411027",principal:"Mrs Anjali Mehra (sample)",principalQual:"M.A., M.Ed. (sample)",email:"office@school.sample",phone:"020-27400042",
     dpoName:"Principal (sample)",dpoEmail:"privacy@school.sample",officialSite:""},
   docs:{}, acad:{},
-  staff:{principal:"1",total:"15",pgt:"0",tgt:"0",prt:"15",sections:"12",ratio:"1 : 1.25",special:"Mrs ... (trained in special education) (sample)",counsellor:"Mrs ... (counsellor and wellness teacher) (sample)",teachers:""},
+  staff:{principal:"1",total:"15",pgt:"0",tgt:"0",prt:"15",sections:"12",ratio:"1 : 1.25",special:"Mrs ... (trained in special education) (sample)",counsellor:"Mrs ... (counsellor and wellness teacher) (sample)",
+    teachers:"Mr Rahul Jadhav | B.Sc., B.Ed. | PRT\nMr Sandeep Rao | B.P.Ed. | PRT (Physical Education)\nMrs Anjali Joshi | M.A., D.El.Ed. | PRT\nMrs Archana Kale | M.A., M.Ed. | Coordinator, PRT\nMrs Deepa Nair | M.A. (English), B.Ed. | PRT\nMrs Kavita Patil | M.Sc. (Botany), B.Ed. | PRT\nMrs Meena Deshpande | M.A. (Hindi), B.Ed. | PRT\nMrs Nandini Sathe | M.A. (English), B.Ed. | PRT\nMrs Neha Bhosale | B.Sc., B.Ed. | PRT\nMrs Pooja Shinde | B.Sc., D.El.Ed. | PRT\nMrs Priya Sharma | B.Sc., B.Ed. | PRT\nMrs Rekha Pawar | M.Sc. (Maths), B.Ed. | PRT\nMrs Shalini Gaikwad | B.A., D.El.Ed. | PRT\nMrs Smita Menon | B.F.A. | PRT (Art)\nMrs Sunita Kulkarni | B.A., B.Ed. | PRT"},
+  pta:"Mrs Anjali Mehra, Principal | Chairperson\nMrs Archana Kale, Coordinator | Secretary\nParent of Class I | Member (sample)\nParent of Class II | Member (sample)\nParent of Class III | Member (sample)\nParent of Class IV | Member (sample)\nParent of Class V | Member (sample)\nTwo teacher representatives | Members (sample)",
   infra:{area:"8000 (sample)",rooms:"12 rooms, 45 sq m each (sample)",labs:"1 computer lab, 50 sq m (sample)",internet:"Yes",girlsT:"8 (sample)",boysT:"8 (sample)",video:""},
   committees:DEF_COMMITTEES, fees:"I to II | 2,100 a month | Annual charges 3,000 (sample)\nIII to V | 2,300 a month | Annual charges 3,000 (sample)", feeNote:"Wards of serving and retired defence personnel: fees as per AWES rules (sample)."};
 let DISC=null, discEdit=false;
 if(db) onSnapshot(doc(db,"config","disclosure"),d=>{ DISC=d.exists()?d.data():null; if(["#school","#privacy"].includes(location.hash)) renderPub(); renderFooter(); },()=>{});
-const D_=()=>{ const d=DISC||{}; return {...DEF_DISC,...d,general:{...DEF_DISC.general,...(d.general||{})},staff:{...DEF_DISC.staff,...(d.staff||{})},infra:{...DEF_DISC.infra,...(d.infra||{})},docs:{...(d.docs||{})},acad:{...(d.acad||{})},committees:d.committees||DEF_COMMITTEES}; };
+const D_=()=>{ const d=DISC||{}; return {...DEF_DISC,...d,pta:d.pta!=null?d.pta:DEF_DISC.pta,general:{...DEF_DISC.general,...(d.general||{})},staff:{...DEF_DISC.staff,...(d.staff||{})},infra:{...DEF_DISC.infra,...(d.infra||{})},docs:{...(d.docs||{})},acad:{...(d.acad||{})},committees:d.committees||DEF_COMMITTEES}; };
 const safeUrl=u=>/^https:\/\/[^\s"'<>]+$/i.test(String(u||"").trim())?String(u).trim():"";
 function renderFooter(){ const f=document.querySelector("footer"); if(!f) return; const g=D_().general;
-  f.innerHTML=`${esc(g.name)} · ${esc(g.address)} · Tel ${esc(g.phone)} · <a href="#school" style="color:inherit;font-weight:800">📋 Mandatory Public Disclosure</a> · <a href="#privacy" style="color:inherit;font-weight:800">🔒 Privacy</a> · <a href="guide.html" style="color:inherit;font-weight:800">📖 How to use</a>`; }
+  f.innerHTML=`${esc(g.name)} · ${esc(g.address)} · Tel ${esc(g.phone)} · <a href="#school" style="color:inherit;font-weight:800">📋 Mandatory Public Disclosure</a> · <a href="#privacy" style="color:inherit;font-weight:800">🔒 Privacy</a><span class="staff-only"> · <a href="guide.html" style="color:inherit;font-weight:800">📖 How to use (staff)</a></span>`; }
 function teachersPublic(){ const d=D_(); if(d.staff.teachers) return d.staff.teachers.split("\n").map(l=>l.split("|").map(x=>x.trim())).filter(x=>x[0]);
   return []; }
 function renderPub(){ const box=$("#pubBody"); if(!box) return; const h=location.hash;
@@ -2800,12 +2802,15 @@ function discHTML(){ const d=D_(), g=d.general, s=d.staff, lnk=(u,t)=>safeUrl(u)
    <h3>A. General information</h3>${tbl([["Name of the school",esc(g.name)],["Affiliation no.",esc(g.affNo)],["School code",esc(g.schoolCode)],["Complete address with PIN code",esc(g.address)],["Principal's name and qualification",esc(g.principal)+" · "+esc(g.principalQual)],["School email ID",esc(g.email)],["Contact details",esc(g.phone)]])}
    <h3>B. Documents and information</h3>${tbl(DISC_DOCS.map(([k,l])=>[l,lnk(d.docs[k])]))}
    <p class="hint">The documents are self-attested by the Chairman / Manager / Secretary and the Principal.</p>
-   <h3>C. Result and academics</h3>${tbl(DISC_ACAD.map(([k,l])=>[l,k==="fees"&&!safeUrl(d.acad.fees)?'<a href="#fees" data-goto="fees">See below</a>':k==="calendar"&&!safeUrl(d.acad.calendar)?'<a href="#home">On the Home page</a>':k==="board"?'<span class="hint">Not applicable</span>':lnk(d.acad[k])]))}
+   <h3>C. Result and academics</h3>${tbl(DISC_ACAD.map(([k,l])=>{ const go=(id,t)=>`<button type="button" class="linkbtn" data-scroll="${id}">${t} ↓</button>`;
+     return [l,safeUrl(d.acad[k])?lnk(d.acad[k]):k==="fees"?go("dFees","Fee structure"):k==="calendar"?go("dCal","Academic calendar"):k==="smc"?go("dCom","SMC members"):k==="pta"?go("dPta","PTA members"):'<span class="hint">Not applicable (classes I to V)</span>']; }))}
    <h3>D. Staff (teaching)</h3>${tbl([["Principal",esc(s.principal)],["Total no. of teachers",esc(s.total)],["PGT",esc(s.pgt)],["TGT",esc(s.tgt)],["PRT",esc(s.prt)],["Teachers–section ratio",esc(s.ratio)],["Details of special educator",esc(s.special)],["Details of counsellor and wellness teacher",esc(s.counsellor)]])}
-   <h4>Teachers and their qualifications</h4>${T.length?`<div class="tbl-wrap"><table class="pt"><thead><tr><th>#</th><th>Name</th><th>Qualification</th><th>Designation</th></tr></thead><tbody>${T.map((x,i)=>`<tr><td>${i+1}</td><td style="text-align:left"><b>${esc(x[0])}</b></td><td>${esc(x[1]||"")}</td><td>${esc(x[2]||"")}</td></tr>`).join("")}</tbody></table></div>`:'<p class="hint">The principal adds this list (Edit → "Fill from the staff list").</p>'}
+   <h4>Teachers and their qualifications</h4>${T.length?`<div class="tbl-wrap" id="dTeachers"><table class="pt"><thead><tr><th>#</th><th>Name</th><th>Qualification</th><th>Designation</th></tr></thead><tbody>${T.map((x,i)=>`<tr><td>${i+1}</td><td style="text-align:left"><b>${esc(x[0])}</b></td><td>${esc(x[1]||"")}</td><td>${esc(x[2]||"")}</td></tr>`).join("")}</tbody></table></div>`:ME&&isOffice()?'<p class="hint">Add this list with Edit → "Fill from the staff list".</p>':'<p class="hint">To be published.</p>'}
    <h3>E. School infrastructure</h3>${tbl(DISC_INFRA.map(([k,l])=>[l,k==="video"?lnk(d.infra.video,"Watch"):esc(d.infra[k]||"–")]))}
-   <h3 id="fees">Fee structure</h3>${fees.length?`<div class="tbl-wrap"><table class="pt"><thead><tr><th>Classes</th><th>Tuition fee</th><th>Other charges</th></tr></thead><tbody>${fees.map(x=>`<tr><td><b>${esc(x[0])}</b></td><td>${esc(x[1]||"")}</td><td>${esc(x[2]||"")}</td></tr>`).join("")}</tbody></table></div>`:""}${d.feeNote?`<p class="hint">${esc(d.feeNote)}</p>`:""}
-   <h3>Committees (safety, grievances, POCSO, POSH)</h3><div class="tbl-wrap"><table class="pt"><thead><tr><th>Committee</th><th>Members</th><th>Contact</th></tr></thead><tbody>${d.committees.map(c=>`<tr><td style="text-align:left"><b>${esc(c.name)}</b></td><td style="text-align:left">${esc(c.members)}</td><td style="text-align:left">${esc(c.contact)}</td></tr>`).join("")}</tbody></table></div>
+   <h3 id="dCal">Annual academic calendar ${esc(YEARS[0])}</h3>${calDiscHTML()}
+   <h3 id="dFees">Fee structure</h3>${fees.length?`<div class="tbl-wrap"><table class="pt"><thead><tr><th>Classes</th><th>Tuition fee</th><th>Other charges</th></tr></thead><tbody>${fees.map(x=>`<tr><td><b>${esc(x[0])}</b></td><td>${esc(x[1]||"")}</td><td>${esc(x[2]||"")}</td></tr>`).join("")}</tbody></table></div>`:""}${d.feeNote?`<p class="hint">${esc(d.feeNote)}</p>`:""}
+   <h3 id="dPta">Parents Teachers Association (PTA)</h3>${(()=>{ const L=String(d.pta||"").split("\n").map(l=>l.split("|").map(x=>x.trim())).filter(x=>x[0]); return L.length?`<div class="tbl-wrap"><table class="pt"><thead><tr><th>Member</th><th>Role</th></tr></thead><tbody>${L.map(x=>`<tr><td style="text-align:left"><b>${esc(x[0])}</b></td><td>${esc(x[1]||"")}</td></tr>`).join("")}</tbody></table></div>`:'<p class="hint">To be published.</p>'; })()}
+   <h3 id="dCom">Committees (SMC, safety, grievances, POCSO, POSH)</h3><div class="tbl-wrap"><table class="pt"><thead><tr><th>Committee</th><th>Members</th><th>Contact</th></tr></thead><tbody>${d.committees.map(c=>`<tr><td style="text-align:left"><b>${esc(c.name)}</b></td><td style="text-align:left">${esc(c.members)}</td><td style="text-align:left">${esc(c.contact)}</td></tr>`).join("")}</tbody></table></div>
    <h3>Transfer certificate (TC) check</h3><p class="hint">Enter the TC no. and the student's name exactly as on the certificate to check that it was issued by this school.</p>
    <form id="tcForm" class="apick" style="align-items:flex-end"><label class="f">TC no.<input class="in" id="tcNo" required maxlength="30"></label><label class="f">Student name<input class="in" id="tcName" required maxlength="80"></label><button class="btn pri">🔍 Check</button></form><div id="tcOut"></div>`; }
 function discEditHTML(){ const d=D_(), g=d.general, s=d.staff, inp=(p,v,ph)=>`<input class="in" data-dk="${p}" value="${esc(v||"")}" placeholder="${esc(ph||"")}">`;
@@ -2819,9 +2824,14 @@ function discEditHTML(){ const d=D_(), g=d.general, s=d.staff, inp=(p,v,ph)=>`<i
    <h3>D. Staff</h3><div class="grid g4">${[["Principal","principal"],["Total teachers","total"],["PGT","pgt"],["TGT","tgt"],["PRT","prt"],["Sections","sections"],["Teachers–section ratio","ratio"]].map(([l,k])=>L(l,"staff."+k,s[k])).join("")}</div><div class="grid g2">${L("Special educator","staff.special",s.special)}${L("Counsellor and wellness teacher","staff.counsellor",s.counsellor)}</div>
    <label class="f">Teachers: one per line as <b>Name | Qualification | Designation</b><textarea class="in" data-dk="staff.teachers" style="min-height:140px">${esc(s.teachers||"")}</textarea></label><button class="btn sec sm" data-discfill="1">⬇ Fill from the staff list</button>
    <h3>E. Infrastructure</h3><div class="grid g2">${DISC_INFRA.map(([k,l])=>L(l,"infra."+k,d.infra[k],k==="video"?"https://":"")).join("")}</div>
+   <h3>PTA members</h3><label class="f">One per line as <b>Name | Role</b><textarea class="in" data-dk="pta" style="min-height:120px">${esc(d.pta||"")}</textarea></label>
    <h3>Fees</h3><label class="f">One line per group as <b>Classes | Tuition fee | Other charges</b><textarea class="in" data-dk="fees" style="min-height:80px">${esc(d.fees||"")}</textarea></label>${L("Note under the fee table","feeNote",d.feeNote)}
    <h3>Committees</h3>${d.committees.map((c,i)=>`<div class="grid g3">${L("Committee","com."+i+".name",c.name)}${L("Members","com."+i+".members",c.members)}${L("Contact","com."+i+".contact",c.contact)}</div>`).join("")}
    <div class="row"><button class="btn pri" data-discsave="1">💾 Save</button></div>`; }
+function calDiscHTML(){ const C=PCAL||CAL; if(!C) return '<p class="hint">To be published.</p>';
+  const L=[...(C.holidays||[]).filter(h=>["Vacation","Holiday","Holiday (R)"].includes(h.kind||"Holiday")).map(h=>({d:h.from,to:h.to,t:h.name,k:h.kind==="Vacation"?"Vacation":"Holiday"})),...(C.exams||[]).map(e=>({d:e.from,to:e.to,t:e.label,k:"Exam"}))].sort((a,b)=>a.d.localeCompare(b.d));
+  return `<p class="hint">Session ${fmtD(C.start)} to ${fmtD(C.end)}.</p><div class="tbl-wrap"><table class="pt"><thead><tr><th>Date</th><th>What</th><th></th></tr></thead><tbody>${L.map(x=>`<tr><td>${fmtD(x.d)}${x.to&&x.to!==x.d?" – "+fmtD(x.to):""}</td><td style="text-align:left">${esc(x.t)}</td><td>${x.k}</td></tr>`).join("")}</tbody></table></div>`; }
+document.addEventListener("click",e=>{ const b=e.target.closest("[data-scroll]"); if(!b) return; const el=document.getElementById(b.dataset.scroll); if(el) el.scrollIntoView({behavior:"smooth",block:"start"}); });
 function privacyHTML(){ const g=D_().general;
   return `<div class="title-row"><h2>🔒 Privacy notice</h2></div><p class="hint">How ${esc(g.name)} handles children's and parents' personal data on this website, under the Digital Personal Data Protection Act, 2023 and its Rules.</p>
   <h3>What we keep</h3><ul><li><b>Student:</b> name, class, section, roll no., admission no., date of birth, gender, photo (only with a parent's consent), marks, grades, attendance, height and weight, teachers' remarks.</li><li><b>Parents:</b> names, category (serving, retired, civilian) and, for serving parents, only Officer / JCO / OR. We do <b>not</b> keep rank, unit or address. A phone number is kept only if you give it.</li><li><b>Health and discipline notes:</b> only what is needed to keep your child safe at school.</li></ul>
