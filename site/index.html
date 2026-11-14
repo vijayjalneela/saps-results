@@ -1624,10 +1624,11 @@ function achMineHTML(){ const cts=ME.classTeacher||[], nm=normName(ME.name);
    <h4 style="margin:12px 0 6px">⭐ Highest scorers in your subjects · ${esc(lab(SUM.exam||""))}</h4>
    ${tops.length?`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px">${tops.map(t=>`<div style="background:#fffaf0;border:1px solid #f1dfb0;border-radius:12px;padding:8px 12px"><b>${esc(t.c)} · ${esc(t.sub)}</b>${t.L.map((x,i)=>`<div style="font-size:14px">${["🥇","🥈","🥉","🏅","🏅"][i]} ${esc(x.name)} <span class="hint">(roll ${esc(x.roll)})</span> <b>${x.p}%</b></div>`).join("")}</div>`).join("")}</div>`:`<p class="hint" style="margin:0">No marks entered yet for this exam.</p>`}</div>`; }
 /* Class teacher's dashboard of her class: like the principal's, but only her class */
-function classDashHTML(){ const cts=ME.classTeacher||[]; if(!cts.length) return ""; const ex=SUM.exam, prevEx=EXAMS[EXAMS.indexOf(ex)-1];
-  return cts.map(c=>{ const all=Object.values(RECORDS).filter(r=>r.year===SUM.year&&r.std+"-"+r.div===c&&!isLeft(r)), R=all.filter(r=>r.term===ex), prevOf=r=>prevEx?all.find(x=>x.term===prevEx&&sidOf(x)===sidOf(r)):null;
-    const head=`<h3 style="margin:0 0 6px">📋 My class ${esc(c)} · ${esc(lab(ex))}</h3>`;
-    if(!R.length) return `<div class="card" style="box-shadow:none;margin:0 0 14px;border-left:5px solid #0b6c99">${head}<p class="hint" style="margin:0">No results of ${esc(lab(ex))} saved yet for your class.</p></div>`;
+function classDashHTML(){ const cts=ME.classTeacher||[]; if(!cts.length) return ""; return cts.map(c=>classDashOne(c,{year:SUM.year,exam:SUM.exam,title:"My class"})).join(""); }
+function classDashOne(c,o){ const ex=o.exam, prevEx=EXAMS[EXAMS.indexOf(ex)-1], extra=o.extra||"";
+  { const all=Object.values(RECORDS).filter(r=>r.year===o.year&&r.std+"-"+r.div===c&&!isLeft(r)), R=all.filter(r=>r.term===ex), prevOf=r=>prevEx?all.find(x=>x.term===prevEx&&sidOf(x)===sidOf(r)):null;
+    const head=`<h3 style="margin:0 0 6px">📋 ${esc(o.title)} ${esc(c)} · ${esc(lab(ex))}</h3>${extra}`;
+    if(!R.length) return `<div class="card" style="box-shadow:none;margin:0 0 14px;border-left:5px solid #0b6c99">${head}<p class="hint" style="margin:0">No results of ${esc(lab(ex))} saved yet for this class.</p></div>`;
     const L=R.map(r=>{ const p=pctOf(r), pv=prevOf(r), pp=pv?pctOf(pv):null, att=r.workDays?r1(r.attended/r.workDays*100):null;
       const weak=(r.subjects||[]).map(x=>{ const t=subjTotal(x,r); return t==null?null:{n:x.name,v:r1(t/outOf(r)*100)}; }).filter(x=>x&&x.v<33);
       const why=[]; if(p!=null&&p<50) why.push(`overall ${p}%`); weak.forEach(w=>why.push(`${w.n} ${w.v}%`)); if(att!=null&&att<75) why.push(`attendance ${att}%`); if(p!=null&&pp!=null&&p-pp<=-10) why.push(`dropped ${r1(pp-p)} points since ${lab(prevEx)}`);
@@ -1643,7 +1644,7 @@ function classDashHTML(){ const cts=ME.classTeacher||[]; if(!cts.length) return 
       <div><h4 style="margin:0 0 4px">🏅 Highest scores</h4>${top.map((x,i)=>li(x," "+["🥇","🥈","🥉","",""][i])).join("")}</div>
       <div><h4 style="margin:0 0 4px">⚠️ Needs more attention</h4>${need.length?need.slice(0,8).map(x=>li(x,`<br><small style="color:#b3164f">${esc(x.why.join(" · "))}</small>`)).join("")+(need.length>8?`<p class="hint">and ${need.length-8} more</p>`:""):`<p class="hint">Nobody below 50%, failing a subject, under 75% attendance or slipping by 10 points. 👍</p>`}</div>
       <div><h4 style="margin:0 0 4px">📈 Most improved${prevEx?" since "+esc(lab(prevEx)):""}</h4>${imp.length?imp.map(x=>li(x,` <b style="color:#0b7a64">▲ ${x.ch}</b>`)).join(""):`<p class="hint">${prevEx?"No earlier exam to compare yet.":"This is the first exam of the year."}</p>`}
-       <h4 style="margin:10px 0 4px">📚 Subjects (class average)</h4>${subs.map((x,i)=>`<div style="display:flex;justify-content:space-between;padding:2px 0"><span>${esc(x.n)}${i===0?" 💪":i===subs.length-1&&subs.length>1?" 🔻 weakest":""}</span><b>${x.a}%</b></div>`).join("")}</div></div></div>`; }).join(""); }
+       <h4 style="margin:10px 0 4px">📚 Subjects (class average)</h4>${subs.map((x,i)=>`<div style="display:flex;justify-content:space-between;padding:2px 0"><span>${esc(x.n)}${i===0?" 💪":i===subs.length-1&&subs.length>1?" 🔻 weakest":""}</span><b>${x.a}%</b></div>`).join("")}</div></div></div>`; } }
 /* Teacher home is split into tabs so she picks what to see; the Year / Exam picker on the same row applies to all of them */
 let HTAB=null; try{ HTAB=sessionStorage.getItem("saps_htab"); }catch(_){}
 function homeTabs(){ const ct=(ME.classTeacher||[]).length; const T=(ct?[["class","📋 My class"]]:[]).concat([["summary","📊 My summary"],["engage","🗓 My engagements"],["ach","🏆 Achievements & toppers"]]);
@@ -2937,7 +2938,7 @@ const catTag=r=>r.category?`<span class="ctag" style="background:${r.category===
 const avatar=(r,sz)=>`<div class="av" style="width:${sz}px;height:${sz}px;flex:none;border-radius:12px;overflow:hidden;display:grid;place-items:center;background:#f2edff;font-weight:900;color:#5435c9">${r.photo&&safeImg(r.photo)?`<img src="${safeImg(r.photo)}" alt="" style="width:100%;height:100%;object-fit:cover">`:esc((r.name||"?").split(" ").map(w=>w[0]).slice(0,2).join(""))}</div>`;
 
 function renderStu(){ const box=$("#stuBody"); if(!box) return; if(!ME){ box.innerHTML=`<div class="empty">Please sign in.</div>`; return; } startStu();
-  const tabs=[["find","🔎 Find a student"]].concat(isOffice()?[["adm","🎒 Admissions"],["fees","💳 Fees"]]:(ME.classTeacher||[]).length?[["fees","💳 Fees of my class"]]:[],isFull()?[["attsum","📊 Attendance summary"]]:[["att","✅ Class attendance"]],isOffice()&&!isFull()?[["staff","👩‍🏫 Staff attendance"]]:[]);
+  const tabs=[["find","🔎 Find a student"]].concat(isOffice()?[["adm",isFull()?"📥 Admissions to approve":"🎒 Admissions"],["fees","💳 Fees"]]:(ME.classTeacher||[]).length?[["fees","💳 Fees of my class"]]:[],isFull()?[["attsum","📊 Attendance summary"]]:[["att","✅ Class attendance"]],isOffice()&&!isFull()?[["staff","👩‍🏫 Staff attendance"]]:[]);
   if(!tabs.some(t=>t[0]===stu.tab)) stu.tab="find";
   const head=`<div class="title-row"><h2>🧒 Students</h2><span class="hint">${esc(stuY())}${ME.office&&!isFull()?` · <b>${ME.coordinator?"Coordinator":"Acting coordinator"}</b>`:""}</span></div>
     <div class="atabs">${tabs.map(([k,l])=>`<button data-stab="${k}" class="${stu.tab===k?"on":""}">${l}</button>`).join("")}</div>`;
@@ -2958,7 +2959,7 @@ function findHTML(){ const opts=ALLCLS.filter(c=>classLoaded(c));
     <label class="f" style="flex:2;min-width:220px">Search<input class="in" id="stuQ" placeholder="Name, roll, admission no. or parent's name" value="${esc(stu.q)}"></label>
     <label class="f">Class<select class="in" id="stuCls"><option value="">All classes</option>${opts.map(c=>`<option ${c===stu.cls?"selected":""}>${c}</option>`).join("")}</select></label>
     <label class="f">Status<select class="in" id="stuSt">${[["active","Studying"],["nocon","Studying, no consent form yet"],["left","Left the school"],["all","All"]].map(([v,l])=>`<option value="${v}" ${v===stu.status?"selected":""}>${l}</option>`).join("")}</select></label>
-    ${isOffice()?`<button class="btn pri" data-stab="adm">🎒 New admission</button>`:""}</div>
+    ${isOffice()&&!isFull()?`<button class="btn pri" data-stab="adm">🎒 New admission</button>`:""}</div>
     ${ME.role==="teacher"&&!ME.office?`<p class="hint">Showing only the students of your classes.</p>`:""}
     <div id="stuList"></div>`; }
 /* a small donut chart: parts=[[label,value,colour]] */
@@ -2977,12 +2978,26 @@ function stuOverviewHTML(all){ const act=all.filter(s=>!s.left&&!s.pending), byS
    <div class="hint" style="margin:0 0 8px">${left} left the school this year${pend?` · ${pend} admission${pend>1?"s":""} awaiting approval`:""}${noCon?` · ${noCon} without a consent form`:""}</div>
    <h4 style="margin:6px 0 8px">Classes <span class="hint">(tap a class to see its students)</span></h4>
    <div class="dir-grid">${ALLCLS.map(c=>{ const L=act.filter(s=>s.cls===c), b=L.filter(isB).length, gi=L.filter(isG).length; return `<div class="dcard" data-stucls="${c}" style="border-left:5px solid ${STD_COL[c.split("-")[0]]||"#888"}"><span style="font-family:'Barlow Condensed';font-size:26px;font-weight:700;min-width:54px">${c}</span><span><b>${L.length} students</b><small>${b} boys · ${gi} girls<br>${esc(ctName(c)||"No class teacher")}</small></span></div>`; }).join("")}</div>`; }
+/* Principal / coordinator: summary of the class they open on the Students page */
+function officeClassHTML(c){ if(!ME||!isOffice()||!c) return ""; startFees(); const y=YEARS[0];
+  const ct=Object.values(STAFF).find(x=>(x.classTeacher||[]).includes(c)), subT={}; Object.values(STAFF).filter(x=>x.role==="teacher").forEach(t=>teachesIn(t,c).forEach(sb=>subT[sb]=t.name));
+  const S=allStudents().filter(x=>x.cls===c), act=S.filter(x=>!x.left&&!x.pending), boys=act.filter(x=>x.r.gender==="Boy").length, girls=act.filter(x=>x.r.gender==="Girl").length;
+  const cq=curQuarter(stuY()), unpaid=cq?act.filter(x=>!(FEES[x.sid]&&FEES[x.sid].q&&FEES[x.sid].q[cq]&&FEES[x.sid].q[cq].paid)).length:0;
+  const m=monthOf(todayISO()), M=ATTM[attKey(c,m)]; if(!(attKey(c,m) in ATTM)) getDoc(doc(db,"attendance",attKey(c,m))).then(d=>{ ATTM[attKey(c,m)]=d.exists()?d.data():null; if(stu.cls===c) renderStuList(); }).catch(()=>{});
+  const md=Object.keys((M&&M.days)||{}), absM=md.reduce((a,x)=>a+((M.days[x].absent||[]).length),0), attP=md.length&&act.length?r1(100-absM/(md.length*act.length)*100):null;
+  const have=EXAMS.filter(t=>Object.values(RECORDS).some(r=>r.year===y&&r.term===t&&r.std+"-"+r.div===c)), ex=have[have.length-1]||"Term I";
+  const info=`<div style="background:#f6f7f0;border-radius:12px;padding:10px 14px;margin:0 0 10px">
+    <div style="font-size:16px">👩‍🏫 Class teacher: <b>${esc(ct?ct.name:"not assigned")}</b>${ct&&ct.qualification?` <span class="hint">· ${esc(ct.qualification)}</span>`:""}</div>
+    <div class="hint" style="margin-top:4px">Subject teachers: ${Object.entries(subT).map(([sb,n])=>`${esc(sb)} – <b>${esc(n)}</b>`).join(" · ")||"not set"}</div>
+    <div style="margin-top:6px">🧒 <b>${act.length}</b> students (${boys} boys, ${girls} girls)${S.filter(x=>x.left).length?` · ${S.filter(x=>x.left).length} left`:""}${S.filter(x=>x.pending).length?` · ${S.filter(x=>x.pending).length} admission waiting`:""}
+      · ✅ attendance this month <b>${attP!=null?attP+"%":"not marked yet"}</b>${cq?` · 💳 ${cq}: <b>${act.length-unpaid}</b> paid${unpaid?`, <b style="color:#a3330b">${unpaid} pending</b>`:""}`:""}</div></div>`;
+  return classDashOne(c,{year:y,exam:ex,title:"Class",extra:info}); }
 function renderStuList(){ const out=$("#stuList"); if(!out) return; const q=normName(stu.q);
   if(!q&&!stu.cls&&stu.status==="active"){ out.innerHTML=stuOverviewHTML(allStudents()); return; }
   const all=allStudents(), noCon=all.filter(s=>!s.left&&!(s.doc.consent&&s.doc.consent.given)).length;
   const L=all.filter(s=>(!stu.cls||s.cls===stu.cls)&&(stu.status==="all"||(stu.status==="nocon"?(!s.left&&!(s.doc.consent&&s.doc.consent.given)):(stu.status==="left")===s.left))
     &&(!q||[s.name,s.r.father,s.r.mother,s.r.adm].some(x=>normName(x).includes(q))||String(s.roll)===stu.q.trim()));
-  out.innerHTML=(noCon&&stu.status!=="nocon"?`<div class="banner on warn" style="margin:6px 0">🔒 ${noCon} student${noCon===1?" has":"s have"} no parent consent recorded yet (needed under the data protection law). <a href="#students" data-nocon="1">Show them</a></div>`:"")+`<p class="hint" style="margin:6px 0">${L.length} student${L.length===1?"":"s"}</p>`+(L.length?`<div class="dir-grid">${L.slice(0,300).map(s=>`<div class="dcard" data-sid="${esc(s.sid)}">${avatar(s.r,44)}<span><b>${esc(s.name)}</b>${s.left?' <span class="ctag none">Left</span>':""}${s.pending?' <span class="ctag none">Awaiting principal</span>':""}<small>${esc(s.cls)} · Roll ${esc(s.roll)}${s.r.father?` · ${esc(s.r.father)}`:""}</small></span></div>`).join("")}</div>`:`<div class="empty">No student found.${Object.keys(RECORDS).length?"":" Results for this year are still loading, or none are saved yet."}</div>`); }
+  out.innerHTML=(stu.cls&&!q&&isOffice()?officeClassHTML(stu.cls):"")+(noCon&&stu.status!=="nocon"?`<div class="banner on warn" style="margin:6px 0">🔒 ${noCon} student${noCon===1?" has":"s have"} no parent consent recorded yet (needed under the data protection law). <a href="#students" data-nocon="1">Show them</a></div>`:"")+`<p class="hint" style="margin:6px 0">${L.length} student${L.length===1?"":"s"}</p>`+(L.length?`<div class="dir-grid">${L.slice(0,300).map(s=>`<div class="dcard" data-sid="${esc(s.sid)}">${avatar(s.r,44)}<span><b>${esc(s.name)}</b>${s.left?' <span class="ctag none">Left</span>':""}${s.pending?' <span class="ctag none">Awaiting principal</span>':""}<small>${esc(s.cls)} · Roll ${esc(s.roll)}${s.r.father?` · ${esc(s.r.father)}`:""}</small></span></div>`).join("")}</div>`:`<div class="empty">No student found.${Object.keys(RECORDS).length?"":" Results for this year are still loading, or none are saved yet."}</div>`); }
 
 function profileHTML(){ const s=allStudents().find(x=>x.sid===stu.sel); if(!s){ stu.sel=null; return findHTML(); }
   const r=s.r, d=s.doc, off=isOffice(), ct=canCT(s.cls);
@@ -3416,7 +3431,8 @@ function nextAdmNo(){ let best=null; [...Object.values(RECORDS).map(r=>r.adm),..
 const secStrength=(std,div)=>allStudents().filter(s=>s.std===std&&s.div===div&&!s.left).length;
 function admissionsHTML(){ const std=adm.std, secs=secOf(std); if(!secs.includes(adm.div)) adm.div=secs.slice().sort((a,b)=>secStrength(std,a)-secStrength(std,b))[0];
   const L=Object.values(STUDOCS).filter(d=>d.admittedOn).sort((a,b)=>String(b.admittedOn).localeCompare(String(a.admittedOn)));
-  return `<div class="card" style="box-shadow:none;background:#f8f6ff;margin:0 0 14px"><h3 style="margin:0 0 4px">🎒 New admission</h3><p class="hint" style="margin:0 0 10px">${isFull()?"Admissions you save are confirmed straight away.":"The admission is sent to the principal; once she approves it, the class teacher can enter the child's marks."} Only the category is kept for serving parents (Officer / JCO / OR).</p>
+  /* the coordinator admits; the principal only approves (her waiting admissions are in the box above) */
+  return `${isFull()?(Object.values(STUDOCS).some(d=>d.admission==="pending")?"":`<p class="hint">No admissions are waiting for your approval. The coordinator prepares new admissions and sends them to you.</p>`):`<div class="card" style="box-shadow:none;background:#f8f6ff;margin:0 0 14px"><h3 style="margin:0 0 4px">🎒 New admission</h3><p class="hint" style="margin:0 0 10px">${isFull()?"Admissions you save are confirmed straight away.":"The admission is sent to the principal; once she approves it, the class teacher can enter the child's marks."} Only the category is kept for serving parents (Officer / JCO / OR).</p>
    <div class="grid g3"><label class="f">Admission date<input class="in" type="date" id="adOn" value="${esc(todayISO())}"></label><label class="f">Admission no.<input class="in" id="adNo" value="${nextAdmNo()}"></label>
     <label class="f">Student's full name<input class="in" id="adName" maxlength="80"></label><label class="f">Date of birth<input class="in" type="date" id="adDob"></label>
     <label class="f">Gender<select class="in" id="adGen"><option value="">Select</option><option>Boy</option><option>Girl</option></select></label>
@@ -3429,10 +3445,10 @@ function admissionsHTML(){ const std=adm.std, secs=secOf(std); if(!secs.includes
     <label class="f">Rank group (serving)<select class="in" id="adRg"><option value="">–</option><option>Officer</option><option>JCO</option><option value="OR">OR (other ranks)</option></select></label>
     <label class="f">Parent's phone (staff only)<input class="in" id="adPh" maxlength="15"></label>
     <label class="f">Consent form signed?<select class="in" id="adCon"><option value="">Not yet</option><option value="np">Yes, no photo</option><option value="p">Yes, photo allowed</option></select></label></div>
-   <div class="row"><button class="btn pri" data-adsave="1">${isFull()?"✅ Admit":"📨 Send for approval"}</button></div></div>
+   <div class="row"><button class="btn pri" data-adsave="1">📨 Send for approval</button></div></div>`}
    <h3>Admissions this year (${L.length})</h3>${L.length?`<div class="tbl-wrap"><table class="pt"><thead><tr><th>Date</th><th>Adm. no.</th><th>Name</th><th>Class</th><th>Status</th></tr></thead><tbody>${L.map(d=>`<tr><td>${fmtD(d.admittedOn)}</td><td>${esc(d.adm||"")}</td><td style="text-align:left"><b>${esc(d.name)}</b></td><td>${esc(d.cls)} · ${esc(d.roll)}</td><td>${d.admission==="pending"?'<span class="ctag none">Awaiting principal</span>':d.status==="left"?'<span class="ctag none">Left</span>':'<span class="ctag perm">Admitted</span>'}</td></tr>`).join("")}</tbody></table></div>`:`<p class="hint">None yet.</p>`}`; }
 document.addEventListener("change",e=>{ if(e.target.id==="adStd"){ adm.std=e.target.value; const secs=secOf(adm.std); adm.div=secs.slice().sort((a,b)=>secStrength(adm.std,a)-secStrength(adm.std,b))[0]; $("#adDiv").innerHTML=secs.map(x=>`<option value="${x}" ${x===adm.div?"selected":""}>${x} (${secStrength(adm.std,x)} students)</option>`).join(""); $("#adRoll").value=nextRoll(adm.std+"-"+adm.div); } else if(e.target.id==="adDiv"){ adm.div=e.target.value; $("#adRoll").value=nextRoll(adm.std+"-"+adm.div); } });
-document.addEventListener("click",async e=>{ const b=e.target.closest("[data-adsave],[data-admok],[data-admno]"); if(!b||!ME) return;
+document.addEventListener("click",async e=>{ const b=e.target.closest("[data-adsave],[data-admok],[data-admno]"); if(!b||!ME) return; if(b.dataset.adsave&&isFull()) return toast("The coordinator prepares admissions; you approve them");
   try{
   if(b.dataset.adsave){ if(!isOffice()) return; const name=capName($("#adName").value.trim()), dob=$("#adDob").value, std=$("#adStd").value, div=$("#adDiv").value, roll=+$("#adRoll").value, cat=$("#adCat").value, con=$("#adCon").value;
     if(!name||!dob) return toast("Name and date of birth are needed"); if(!(roll>=1)) return toast("Please type the roll no."); if(!cat) return toast("Please choose the parents' category");
@@ -3479,7 +3495,7 @@ function feePanelHTML(f,q){ const P=FP(), y=q.year, amt=P.amounts[q.std]||0, t=t
     <div><b>UPI</b>: ${esc(P.pay.upi)}<br><b>Cash / cheque</b>: ${esc(P.pay.counter)}<br><span class="hint">${esc(P.pay.note)}</span></div></div></div>`; }
 /* ---- office: fee register, reminders and fee plan ---- */
 const fee={cls:"",mode:"UPI",edit:false};
-function startFees(){ if(!db||!ME||!isOffice()||unsubFEES) return; unsubFEES=onSnapshot(query(collection(db,"fees"),where("year","==",stuY())),s=>{ const n={}; s.forEach(d=>{ const x=d.data(); n[x.sid]={...x,_k:d.id}; }); FEES=n; if(location.hash==="#students"&&stu.tab==="fees") renderStu(); },()=>{}); }
+function startFees(){ if(!db||!ME||!isOffice()||unsubFEES) return; unsubFEES=onSnapshot(query(collection(db,"fees"),where("year","==",stuY())),s=>{ const n={}; s.forEach(d=>{ const x=d.data(); n[x.sid]={...x,_k:d.id}; }); FEES=n; if(location.hash==="#students"&&stu.tab==="fees") renderStu(); else if(location.hash==="#students"&&stu.cls&&!stu.sel) renderStuList(); },()=>{}); }
 function stopFees(){ if(unsubFEES){unsubFEES();unsubFEES=null;} FEES={}; }
 function feesHTML(){ startFees(); const P=FP(), y=stuY(), cq=curQuarter(y), rem=feeReminder(), t=todayISO();
   if(!ALLCLS.includes(fee.cls)) fee.cls=ALLCLS[0];
