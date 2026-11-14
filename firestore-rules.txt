@@ -221,6 +221,18 @@ service cloud.firestore {
       allow delete: if isOffice();
     }
 
+    // ---- Absence notes sent by parents (no login): anyone can send one; only the class teacher of that
+    //      class, the coordinator and the principal can read them. ----
+    match /absenceNotes/{id} {
+      allow create: if request.resource.data.keys().hasOnly(['year','std','div','cls','roll','name','sid','from','to','reason','note','at'])
+        && request.resource.data.cls is string && request.resource.data.cls == request.resource.data.std + '-' + request.resource.data.div
+        && request.resource.data.name is string && request.resource.data.name.size() < 100
+        && request.resource.data.note is string && request.resource.data.note.size() <= 200
+        && request.resource.data.reason is string && request.resource.data.reason.size() < 60;
+      allow read: if isOffice() || (isTeacher() && resource.data.cls in me().get('classTeacher', []));
+      allow update, delete: if isOffice();
+    }
+
     // ---- Staff attendance: principal and coordinator only ----
     match /staffAtt/{id} {
       allow read, write: if isOffice();

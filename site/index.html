@@ -283,6 +283,7 @@ body:not(.admin) .admin-strict{display:none!important}
 body:not(.staff) .staff-only{display:none!important}
 /* while the saved sign-in is being restored after a refresh, show "loading" instead of the login box or "unauthorised" */
 body.authwait #gate,body.authwait #dashLock,body.authwait #aLock,body.authwait #adminLock{display:none!important}
+#entry.subjonly .ct-only{display:none!important}
 #authLoad{display:none;text-align:center;padding:40px 10px;color:var(--muted);font-weight:700}
 body.authwait #authLoad{display:block}
 body:not(.parent) .parent-only{display:none!important}
@@ -734,7 +735,7 @@ footer{background:var(--navy);color:#c9cfbd!important;padding:22px 16px!importan
     <!-- 1. Student -->
     <div class="card">
       <div class="sec-h"><div class="dot" style="background:var(--violet)">1</div><div><h3>Student details</h3><p>As per school register</p></div></div>
-      <div class="photo-box" style="margin-bottom:16px">
+      <div class="photo-box ct-only" style="margin-bottom:16px">
         <div class="photo" id="photoBox" title="Upload photo"><div>📷<br>Upload<br>photo</div></div>
         <div>
           <input type="file" id="photoIn" accept="image/*" hidden>
@@ -746,17 +747,17 @@ footer{background:var(--navy);color:#c9cfbd!important;padding:22px 16px!importan
       <div class="grid g4">
         <label class="f">Roll no. <span class="req">*</span><input class="in" id="fRoll" type="number" min="1" required></label>
         <label class="f" style="grid-column:span 2">Student name <span class="req">*</span><input class="in" id="fName" required placeholder="Full name"></label>
-        <label class="f">Admission no.<input class="in" id="fAdm"></label>
-        <label class="f">Date of birth<input class="in" id="fDob" type="date"></label>
-        <label class="f">Gender<select class="in" id="fGender"><option value="">—</option><option>Girl</option><option>Boy</option></select></label>
-        <label class="f">Father's name<input class="in" id="fFather"></label>
-        <label class="f">Mother's name<input class="in" id="fMother"></label>
+        <label class="f ct-only">Admission no.<input class="in" id="fAdm"></label>
+        <label class="f ct-only">Date of birth<input class="in" id="fDob" type="date"></label>
+        <label class="f ct-only">Gender<select class="in" id="fGender"><option value="">—</option><option>Girl</option><option>Boy</option></select></label>
+        <label class="f ct-only">Father's name<input class="in" id="fFather"></label>
+        <label class="f ct-only">Mother's name<input class="in" id="fMother"></label>
       </div>
-      <p class="hint" style="margin:10px 0 0">Parents open the result with the class, roll no. and the student's name exactly as typed here (first letters capital, e.g. Riya Sharma).</p>
+      <p class="hint ct-only" style="margin:10px 0 0">Parents open the result with the class, roll no. and the student's name exactly as typed here (first letters capital, e.g. Riya Sharma).</p>
     </div>
 
     <!-- 2. Category -->
-    <div class="card">
+    <div class="card ct-only">
       <div class="sec-h"><div class="dot" style="background:var(--teal)">2</div><div><h3>Parent category</h3><p>Serving, retired or civilian. For security, the exact rank and unit are not recorded.</p></div></div>
       <div class="chips" id="catChips">
         <label class="chip c-serving"><input type="radio" name="cat" value="Serving">🎖️ Serving</label>
@@ -788,25 +789,26 @@ footer{background:var(--navy);color:#c9cfbd!important;padding:22px 16px!importan
     </div>
 
     <!-- 4. Non-scholastic -->
-    <div class="card">
+    <div class="card ct-only">
       <div class="sec-h"><div class="dot" style="background:var(--pink)">4</div><div><h3>Non-scholastic areas</h3><p>Grades only</p></div></div>
       <div class="subj-pick" id="nsPick"></div>
       <div class="ns-grid" id="nsGrid"></div>
     </div>
 
     <!-- 5. Attendance & health -->
-    <div class="card">
+    <div class="card ct-only">
       <div class="sec-h"><div class="dot" style="background:var(--saffron)">5</div><div><h3>Attendance & health</h3></div></div>
       <div class="grid g4">
         <label class="f">Total working days<input class="in" id="fWork" type="number" min="0"></label>
         <label class="f">Days attended<input class="in" id="fAtt" type="number" min="0"></label>
+        <div class="f" style="justify-content:flex-end"><button type="button" class="btn sec sm" id="fillAtt">📋 Fill from the attendance register</button></div>
         <label class="f">Height (cm)<input class="in" id="fHt" type="number" step="0.1" min="0"></label>
         <label class="f">Weight (kg)<input class="in" id="fWt" type="number" step="0.1" min="0"></label>
       </div>
     </div>
 
     <!-- 6. Remarks -->
-    <div class="card">
+    <div class="card ct-only">
       <div class="sec-h"><div class="dot" style="background:var(--lime)">6</div><div><h3>Remarks & signatures</h3></div></div>
       <label class="f">Remarks<textarea class="in" id="fRemarks" placeholder="Well done, keep progressing."></textarea></label>
       <div class="remark-chips" id="remarkChips"></div>
@@ -1512,13 +1514,13 @@ $("#lookup").addEventListener("submit",async e=>{
   finally{ if(btn){btn.disabled=false;btn.textContent="🔐 Open";} }
   let fd=null; try{ const fk=await feeKey(q); const d2=fk?await getDoc(doc(db,"fees",fk)):null; fd=d2&&d2.exists()?d2.data():null; }catch(_){}
   const feeBox=(fd||r)?feePanelHTML(fd,{...q,name:(fd&&fd.name)||(r&&r.name)||capName(q.name)}):"";
-  if(!r&&fd){ parentIn(q,fd.name); out.innerHTML=feeBox+`<div class="card" style="margin-top:14px;text-align:center"><p style="color:var(--muted);margin:0">The report card for ${esc(q.term)} isn't published yet.</p></div>`; out.scrollIntoView({behavior:"smooth",block:"start"}); return; }
+  if(!r&&fd){ parentIn(q,fd.name); out.innerHTML=feeBox+absFormHTML()+`<div class="card" style="margin-top:14px;text-align:center"><p style="color:var(--muted);margin:0">The report card for ${esc(q.term)} isn't published yet.</p></div>`; out.scrollIntoView({behavior:"smooth",block:"start"}); return; }
   if(!r){
     out.innerHTML=`<div class="card" style="margin-top:22px;text-align:center"><div style="font-size:40px">🔎</div><h3>No result found</h3><p style="color:var(--muted)">Please check the class, section, roll number, date of birth and the spelling of the name. If they're right, the result may not be published yet.</p></div>`;
     return;
   }
   parentIn(q,r.name);
-  out.innerHTML=feeBox+reportCard(r)+`<div style="text-align:center;margin:14px 0"><button class="btn sec" id="rcPrint">🖨 Print / Save PDF</button><button class="btn warn" data-parentout style="margin-left:8px">⏻ Log out</button></div><div id="progOut"><div class="prog"><p class="sub">Loading progress across exams…</p></div></div>`;
+  out.innerHTML=feeBox+absFormHTML()+reportCard(r)+`<div style="text-align:center;margin:14px 0"><button class="btn sec" id="rcPrint">🖨 Print / Save PDF</button><button class="btn warn" data-parentout style="margin-left:8px">⏻ Log out</button></div><div id="progOut"><div class="prog"><p class="sub">Loading progress across exams…</p></div></div>`;
   out.scrollIntoView({behavior:"smooth",block:"start"});
   loadProgress(r).then(list=>{ $("#progOut").innerHTML=progressHTML(r,list); });
 });
@@ -1629,15 +1631,24 @@ const canEditDetails=cls=>!!ME&&ME.role==="teacher"&&(ME.classTeacher||[]).inclu
 const canEditSubject=(sub,cls)=>!!ME&&ME.role==="teacher"&&teachesIn(ME,cls).includes(sub);
 const formCls=()=>$("#fStd").value+"-"+$("#fDiv").value;
 function staffName(em){ const x=STAFF[em]; return x&&x.name?x.name:(ME&&ME.email===em?ME.name:em.split("@")[0]); }
+document.addEventListener("click",async e=>{ if(e.target.id!=="fillAtt") return; const r=collect(), cls=r.std+"-"+r.div;
+  if(!r.name||!r.dob) return toast("Type or pick the student first (name and date of birth)");
+  const s=allStudents().find(x=>x.sid===sidOf(r)); if(!s) return toast("This student is not on the register yet");
+  const C=calData(), ex=(C.exams||[]).find(x=>normName(x.label).replace(/\s/g,"")===normName(lab(r.term)).replace(/\s/g,"")||normName(x.label).includes(normName(lab(r.term)))); const upto=ex?ex.from:todayISO();
+  try{ const a=await attOf(s), days=a.daysList.filter(d=>d<upto), abs=a.abs.filter(d=>d<upto); $("#fWork").value=days.length; $("#fAtt").value=days.length-abs.length; toast(`Filled from the register: ${days.length-abs.length} of ${days.length} days (up to ${upto})`); }
+  catch(err){ toast("Couldn't read the register: "+errMsg(err)); } });
 function applyPerms(){
   const cls=formCls(), det=canEditDetails(cls);
+  /* a subject teacher in a class where she is not the class teacher sees only roll no., name and her marks */
+  $("#entry").classList.toggle("subjonly",!det&&!!ME&&ME.role==="teacher");
+  const fa=$("#fillAtt"); if(fa) fa.style.display=det?"":"none";
   document.querySelectorAll("#entry .card").forEach(c=>{ if(c.contains($("#marksBody"))) return; c.querySelectorAll("input,select,textarea,button").forEach(el=>el.disabled=!det); });
   document.querySelectorAll("#subjPick button,#addSubj,#newSubj").forEach(el=>el.disabled=!det);
   $("#newBtn").style.display=(isOffice()||(ME&&(ME.classTeacher||[]).length))?"":"none";
   const anyEdit=det||subjects.some(x=>canEditSubject(x.name,cls));
   $("#saveBtn").disabled=!anyEdit; $("#saveBtn").title=anyEdit?"":"View only for this class";
 }
-document.addEventListener("click",e=>{ const b=e.target.closest("[data-loadall]"); if(!b) return; LOAD.all=b.dataset.loadall==="1"; startTeacherData(LOAD.year); });
+document.addEventListener("click",e=>{ const b=e.target.closest("[data-loadall]"); if(!b) return; if(ME&&ME.role==="teacher"&&!ME.office) return; LOAD.all=b.dataset.loadall==="1"; startTeacherData(LOAD.year); });
 function renderRoleBar(){
   if(!ME){ $("#roleBar").innerHTML=""; return; }
   let t;
@@ -1646,7 +1657,7 @@ function renderRoleBar(){
   else { const subj=(ME.subjects||[]).join(", ")||"no subjects yet", cl=(ME.classes||[]).join(", ")||"no classes yet";
     const per=(ME.classes||[]).map(c=>`<b>${esc(teachesIn(ME,c).join(", ")||"–")}</b> in <b>${esc(c)}</b>`).join("; ");
     t=(ME.office?`<span class="rb">${ME.coordinator?"Coordinator":"Acting coordinator"}</span> You run students, attendance and records, and prepare the timetable, calendar, leave, substitutes, exam duty and the disclosure page; the principal approves them before they go live. Results are entered by the subject and class teachers${ME.acting?` (acting until ${fmtD(ME.acting.to)})`:""}. `:"")+`<span class="rb">Teacher</span> You can change ${per||"no marks yet"}.`+((ME.classTeacher||[]).length?` As class teacher of <b>${esc(ME.classTeacher.join(", "))}</b> you can also add students and edit details, attendance and remarks.`:"")+` Everything else is view-only (🔒).`; }
-  const scope=ME.role==="teacher"&&!ME.office?(LOAD.all?` <span class="hint">Showing all classes, ${esc(LOAD.year||"")}.</span> <button class="btn sec sm" data-loadall="0">Show only my classes</button>`:` <span class="hint">Showing your classes, ${esc(LOAD.year||"")}.</span> <button class="btn sec sm" data-loadall="1">Show all classes</button>`):"";
+  const scope=ME.role==="teacher"&&!ME.office?` <span class="hint">Showing only your classes, ${esc(LOAD.year||"")}.</span>`:"";
   $("#roleBar").innerHTML=`<span>👋 ${esc(ME.name)}</span> ${t}${scope} <a href="guide.html" class="hint" style="font-weight:800">📖 How to use</a>`;
 }
 function showGate(mode){
@@ -2746,6 +2757,7 @@ function allStudents(){ const m={}, y=stuY();
   Object.values(STUDOCS).forEach(d=>{ if(d.year===y&&!m[d.id]&&d.name) m[d.id]={sid:d.id,recs:[],reg:d}; });
   return Object.values(m).map(s=>{ if(!s.recs.length){ const d=s.reg; return Object.assign(s,{r:{...d,id:"",term:""},doc:d,name:d.name,std:d.std,div:d.div,cls:d.std+"-"+d.div,roll:+d.roll||0,left:d.status==="left",pending:d.admission==="pending"}); } s.recs.sort((a,b)=>EXO.indexOf(a.term)-EXO.indexOf(b.term)); const L=s.recs[s.recs.length-1], d=STUDOCS[s.sid]||{};
     return Object.assign(s,{r:L,doc:d,name:L.name,std:L.std,div:L.div,cls:L.std+"-"+L.div,roll:+L.roll||0,left:d.status==="left"}); })
+    .filter(s=>!ME||ME.role!=="teacher"||ME.office||myClasses().includes(s.cls)||(ME.classTeacher||[]).includes(s.cls))
     .sort((a,b)=>ALLCLS.indexOf(a.cls)-ALLCLS.indexOf(b.cls)||a.roll-b.roll); }
 const canCT=cls=>isOffice()||(!!ME&&(ME.classTeacher||[]).includes(cls));
 const canMarkAtt=cls=>canCT(cls)||(!!ME&&myClasses().includes(cls)); /* class teacher, or any teacher of that class when she is away */
@@ -2776,7 +2788,7 @@ function findHTML(){ const opts=ALLCLS.filter(c=>classLoaded(c));
     <label class="f">Class<select class="in" id="stuCls"><option value="">All classes</option>${opts.map(c=>`<option ${c===stu.cls?"selected":""}>${c}</option>`).join("")}</select></label>
     <label class="f">Status<select class="in" id="stuSt">${[["active","Studying"],["nocon","Studying, no consent form yet"],["left","Left the school"],["all","All"]].map(([v,l])=>`<option value="${v}" ${v===stu.status?"selected":""}>${l}</option>`).join("")}</select></label>
     ${isOffice()?`<button class="btn pri" data-stab="adm">🎒 New admission</button>`:""}</div>
-    ${ME.role==="teacher"&&!ME.office&&!LOAD.all?`<p class="hint">Showing students of your classes. <button class="btn sec sm" data-loadall="1">Show all classes</button></p>`:""}
+    ${ME.role==="teacher"&&!ME.office?`<p class="hint">Showing only the students of your classes.</p>`:""}
     <div id="stuList"></div>`; }
 /* a small donut chart: parts=[[label,value,colour]] */
 function sDonut(parts,size=170,title=""){ const tot=parts.reduce((a,p)=>a+p[1],0)||1, r=size/2-10, c=size/2, C=2*Math.PI*r; let off=0;
@@ -2867,12 +2879,12 @@ async function classAtt(cls){ if(ATTC[cls]) return ATTC[cls]; const snap=await g
 /* which class a student was in on each date (from the move history) */
 function segments(s){ const mv=(s.doc.history||[]).filter(h=>h.from&&h.to).sort((a,b)=>a.on.localeCompare(b.on)); if(!mv.length) return [{cls:s.cls,from:"",to:"9999"}];
   const seg=[]; let st=""; mv.forEach(h=>{ seg.push({cls:h.from,from:st,to:h.on}); st=h.on; }); seg.push({cls:s.cls,from:st,to:"9999"}); return seg; }
-async function attOf(s){ let days=0, abs=[]; const leftOn=s.left&&s.doc.leftOn||"9999";
-  for(const g of segments(s)){ const L=await classAtt(g.cls); L.forEach(m=>Object.entries(m.days||{}).forEach(([dt,v])=>{ if(dt<g.from||dt>=g.to||dt>=leftOn) return; days++; if((v.absent||[]).includes(s.sid)) abs.push(dt); })); }
-  return {days,abs:abs.sort()}; }
+async function attOf(s){ let days=0, abs=[], daysList=[], why={}; const leftOn=s.left&&s.doc.leftOn||"9999";
+  for(const g of segments(s)){ const L=await classAtt(g.cls); L.forEach(m=>Object.entries(m.days||{}).forEach(([dt,v])=>{ if(dt<g.from||dt>=g.to||dt>=leftOn) return; days++; daysList.push(dt); if((v.absent||[]).includes(s.sid)){ abs.push(dt); if(v.reasons&&v.reasons[s.sid]) why[dt]=v.reasons[s.sid]; } })); }
+  return {days,abs:abs.sort(),daysList:daysList.sort(),why}; }
 async function fillProfileAsync(){ const s=allStudents().find(x=>x.sid===stu.sel); if(!s) return;
   try{ const a=await attOf(s), el=$("#stuAtt"); if(el&&stu.sel===s.sid){ const p=a.days?r1((a.days-a.abs.length)/a.days*100):null;
-    el.innerHTML=a.days?`<div style="font-size:30px;font-weight:900;color:${p>=90?"#0b7a64":p>=75?"#a55a00":"#b3164f"}">${p}%</div><div>Present <b>${a.days-a.abs.length}</b> of <b>${a.days}</b> school days marked.</div>${a.abs.length?`<div style="margin-top:6px">Absent on: ${a.abs.slice(-12).map(x=>fmtD(x).replace(/ \d{4}$/,"")).join(", ")}${a.abs.length>12?" …":""}</div>`:""}${p<75?`<div class="banner on warn" style="margin-top:8px">⚠️ Below 75%. Please speak to the parents.</div>`:""}`:"No attendance has been marked yet."; } }
+    el.innerHTML=a.days?`<div style="font-size:30px;font-weight:900;color:${p>=90?"#0b7a64":p>=75?"#a55a00":"#b3164f"}">${p}%</div><div>Present <b>${a.days-a.abs.length}</b> of <b>${a.days}</b> school days marked.</div>${a.abs.length?`<div style="margin-top:6px">Absent on: ${a.abs.slice(-12).map(x=>fmtD(x).replace(/ \d{4}$/,"")+(a.why[x]?` (${esc(a.why[x])})`:"")).join(", ")}${a.abs.length>12?" …":""}</div>`:""}${p<75?`<div class="banner on warn" style="margin-top:8px">⚠️ Below 75%. Please speak to the parents.</div>`:""}`:"No attendance has been marked yet."; } }
   catch(err){ const el=$("#stuAtt"); if(el) el.textContent="Couldn't load attendance: "+errMsg(err); }
   if(!canSeeNotes(s.cls)) return;
   let n=NOTES[s.sid]; if(n===undefined){ try{ const d=await getDoc(doc(db,"studentNotes",s.sid)); n=d.exists()?d.data():null; }catch(_){ n=null; } NOTES[s.sid]=n; }
@@ -2896,6 +2908,9 @@ async function transferStu(s,div,roll){ const cls=s.std+"-"+div;
   await b.commit(); ATTC={}; if(FEES[s.sid]){ const st2={...s,div,cls,roll}; await writeFee(st2,{}); } }
 
 /* ---- class attendance (class teacher marks daily) ---- */
+const ABS_REASONS=["Not informed","Medical / sick","Personal / family","Travelling / out of station","Leave informed by parent","Other"];
+const ABSN={}; async function absNotes(cls){ if(ABSN[cls]) return ABSN[cls]; try{ const sn=await getDocs(query(collection(db,"absenceNotes"),where("year","==",stuY()),where("cls","==",cls))); const L=[]; sn.forEach(d=>L.push(d.data())); ABSN[cls]=L; }catch(_){ ABSN[cls]=[]; } return ABSN[cls]; }
+document.addEventListener("change",e=>{ const sel=e.target.closest("[data-atr]"); if(sel) stu.reasons[sel.dataset.atr]=sel.value; });
 function closedMsg(date){ const wd=new Date(date+"T00:00:00").getDay(); if(wd===0||wd===6) return "It's a weekend: no school."; const h=holidayOn(date,calData().holidays); return h?`School closed: ${esc(h.name)}.`:""; }
 function attHTML(){ if(!stu.date) stu.date=todayISO(); const mine=[...new Set([...(ME.classTeacher||[]),...myClasses()])];
   const opts=isOffice()?ALLCLS:ALLCLS.filter(c=>mine.includes(c)); if(!opts.includes(stu.acls)) stu.acls=(ME.classTeacher||[])[0]||opts[0]||"";
@@ -2908,16 +2923,19 @@ function attHTML(){ if(!stu.date) stu.date=todayISO(); const mine=[...new Set([.
 async function fillAtt(){ const out=$("#atOut"); if(!out) return; const cls=stu.acls, key=attKey(cls,monthOf(stu.date));
   try{ if(!(key in ATTM)){ const d=await getDoc(doc(db,"attendance",key)); ATTM[key]=d.exists()?d.data():null; } }catch(err){ out.textContent="Couldn't load: "+errMsg(err); return; }
   const M=ATTM[key], day=M&&M.days&&M.days[stu.date], marked=!!day;
-  if(stu.absKey!==key+"|"+stu.date){ stu.abs=new Set(day?day.absent||[]:[]); stu.absKey=key+"|"+stu.date; }
+  if(stu.absKey!==key+"|"+stu.date){ stu.abs=new Set(day?day.absent||[]:[]); stu.reasons={...((day&&day.reasons)||{})}; stu.absKey=key+"|"+stu.date; }
+  const notes=await absNotes(cls), todays=notes.filter(n=>n.from<=stu.date&&stu.date<=(n.to||n.from));
   const L=allStudents().filter(s=>s.cls===cls&&!(s.left&&(s.doc.leftOn||"")<=stu.date)), ed=canMarkAtt(cls);
-  if(!L.length){ out.innerHTML=`<div class="empty">No students found in ${esc(cls)}.${classLoaded(cls)?"":` <button class="btn sec sm" data-loadall="1">Show all classes</button>`}</div>`; return; }
+  if(!L.length){ out.innerHTML=`<div class="empty">No students found in ${esc(cls)}.</div>`; return; }
   const ab=L.filter(s=>stu.abs.has(s.sid)).length, mdays=Object.keys((M&&M.days)||{}).sort();
-  const cnt={}; mdays.forEach(dt=>(M.days[dt].absent||[]).forEach(k=>cnt[k]=(cnt[k]||0)+1));
+  const cnt={}, rs={}; mdays.forEach(dt=>(M.days[dt].absent||[]).forEach(k=>{ cnt[k]=(cnt[k]||0)+1; const r=(M.days[dt].reasons||{})[k]||"Not recorded"; (rs[k]=rs[k]||{})[r]=(rs[k][r]||0)+1; }));
   out.innerHTML=`<div style="color:var(--ink)"><p style="margin:6px 0">${marked?`✅ Marked${day.by&&day.by!=="sample"?" by "+esc(tName(day.by)):""}.`:"Not marked yet for this day."} <b style="color:#0b7a64">Present ${L.length-ab}</b> · <b style="color:#b3164f">Absent ${ab}</b></p>
-    <div class="dir-grid">${L.map(s=>{ const a=stu.abs.has(s.sid); return `<div class="dcard" data-atk="${esc(s.sid)}" style="${ed?"":"cursor:default;"}border-color:${a?"#ff9bb5":"#bfeedd"};background:${a?"#fff0f5":"#f2fcf8"}"><span style="font-weight:900;min-width:28px">${esc(s.roll)}</span><span><b>${esc(s.name)}</b><small>${a?"❌ Absent":"✓ Present"}</small></span></div>`; }).join("")}</div>
+    ${todays.length?`<div class="banner on" style="margin:6px 0;background:#eef6ff">📝 <b>Notes from parents for this day:</b> ${todays.map(n=>`${esc(n.name)} (roll ${esc(n.roll)}): <b>${esc(n.reason)}</b>${n.note?` – ${esc(n.note)}`:""}`).join(" · ")}</div>`:""}
+    <div class="dir-grid">${L.map(s=>{ const a=stu.abs.has(s.sid), nt=todays.find(n=>n.sid===s.sid); return `<div class="dcard" data-atk="${esc(s.sid)}" style="${ed?"":"cursor:default;"}border-color:${a?"#ff9bb5":"#bfeedd"};background:${a?"#fff0f5":"#f2fcf8"};flex-wrap:wrap"><span style="font-weight:900;min-width:28px">${esc(s.roll)}</span><span><b>${esc(s.name)}</b><small>${a?"❌ Absent":"✓ Present"}${nt?" · 📝 parent informed":""}</small></span>
+      ${a&&ed?`<select class="in" data-atr="${esc(s.sid)}" style="flex:1 1 100%;padding:5px 8px;font-size:12px">${ABS_REASONS.map(x=>`<option ${(stu.reasons[s.sid]||(nt&&nt.reason)||"Not informed")===x?"selected":""}>${x}</option>`).join("")}</select>`:a&&stu.reasons[s.sid]?`<small style="flex:1 1 100%">Reason: ${esc(stu.reasons[s.sid])}</small>`:""}</div>`; }).join("")}</div>
     ${ed?`<div class="row" style="justify-content:flex-start;margin-top:10px"><button class="btn sec" data-atall="1">Everyone present</button><button class="btn pri" data-atsave="1">💾 Save attendance</button></div>`:""}
     <h4 style="margin:18px 0 6px">${esc(new Date(stu.date+"T00:00:00").toLocaleDateString("en-IN",{month:"long",year:"numeric"}))}: ${mdays.length} day${mdays.length===1?"":"s"} marked</h4>
-    ${mdays.length?`<div class="tbl-wrap"><table class="pt"><thead><tr><th>Student</th><th>Days absent</th><th>Attendance</th></tr></thead><tbody>${L.map(s=>({s,a:cnt[s.sid]||0})).sort((x,y)=>y.a-x.a||x.s.roll-y.s.roll).map(({s,a})=>{ const p=r1((mdays.length-a)/mdays.length*100); return `<tr><td>${esc(s.roll)}. <b>${esc(s.name)}</b></td><td>${a}</td><td class="p" style="color:${p>=90?"#0b7a64":p>=75?"#a55a00":"#b3164f"}"><b>${p}%</b></td></tr>`; }).join("")}</tbody></table></div>`:""}</div>`; }
+    ${mdays.length?`<div class="tbl-wrap"><table class="pt"><thead><tr><th>Student</th><th>Days absent</th><th>Reasons</th><th>Attendance</th></tr></thead><tbody>${L.map(s=>({s,a:cnt[s.sid]||0})).sort((x,y)=>y.a-x.a||x.s.roll-y.s.roll).map(({s,a})=>{ const p=r1((mdays.length-a)/mdays.length*100); return `<tr><td>${esc(s.roll)}. <b>${esc(s.name)}</b></td><td>${a}</td><td class="hint" style="text-align:left">${rs[s.sid]?Object.entries(rs[s.sid]).map(([k,v])=>`${esc(k)} ${v}`).join(", "):""}</td><td class="p" style="color:${p>=90?"#0b7a64":p>=75?"#a55a00":"#b3164f"}"><b>${p}%</b></td></tr>`; }).join("")}</tbody></table></div>`:""}</div>`; }
 
 /* ---- staff attendance (principal / coordinator) ---- */
 function staffAttHTML(){ if(!stu.sdate) stu.sdate=todayISO(); const cm=closedMsg(stu.sdate);
@@ -2968,10 +2986,12 @@ document.addEventListener("click",async e=>{ const t=e.target.closest("[data-stu
     if(D.ntadd&&s){ const text=$("#ntText").value.trim(); if(!text) return toast("Please write what happened"); const cur=(NOTES[s.sid]&&NOTES[s.sid].discipline)||[];
       await saveNotes(s,{discipline:[...cur,{date:$("#ntDate").value||todayISO(),text:text.slice(0,200),action:$("#ntAct").value.trim().slice(0,200),by:ME.email}].sort((a,b)=>a.date.localeCompare(b.date))}); toast("Added to the log ✓"); return; }
     if(D.ntdel!=null&&s){ const cur=((NOTES[s.sid]&&NOTES[s.sid].discipline)||[]).filter((_,i)=>i!==+D.ntdel); await saveNotes(s,{discipline:cur}); toast("Removed"); return; }
-    if(D.atk){ if(!canMarkAtt(stu.acls)) return; stu.abs.has(D.atk)?stu.abs.delete(D.atk):stu.abs.add(D.atk); fillAtt(); return; }
+    if(D.atk){ if(e.target.closest("select")) return; if(!canMarkAtt(stu.acls)) return; stu.abs.has(D.atk)?stu.abs.delete(D.atk):stu.abs.add(D.atk); fillAtt(); return; }
     if(D.atall){ stu.abs=new Set(); fillAtt(); return; }
     if(D.atsave){ const cls=stu.acls, [sd,dv]=cls.split("-"), m=monthOf(stu.date), key=attKey(cls,m), ids=allStudents().filter(x=>x.cls===cls).map(x=>x.sid);
-      const absent=[...stu.abs].filter(k=>ids.includes(k)), day={absent,by:ME.email,at:new Date().toISOString()};
+      const absent=[...stu.abs].filter(k=>ids.includes(k)), notes=await absNotes(cls), reasons={};
+      absent.forEach(k=>{ const nt=notes.find(n=>n.sid===k&&n.from<=stu.date&&stu.date<=(n.to||n.from)); reasons[k]=stu.reasons[k]||(nt&&nt.reason)||"Not informed"; });
+      const day={absent,reasons,by:ME.email,at:new Date().toISOString()};
       await setDoc(doc(db,"attendance",key),{year:stuY(),std:sd,div:dv,cls,month:m,days:{[stu.date]:day}},{merge:true});
       ATTM[key]={...(ATTM[key]||{}),year:stuY(),cls,month:m,days:{...((ATTM[key]&&ATTM[key].days)||{}),[stu.date]:day}}; delete ATTC[cls]; fillAtt(); toast(`✅ Attendance saved: ${absent.length} absent`); return; }
     if(D.sak){ if(leavesOnly(stu.sdate).some(l=>l.email===D.sak)) return; const nx={P:"A",A:"L",L:"P"}; stu.sabs[D.sak]=nx[stu.sabs[D.sak]||"P"]; if(stu.sabs[D.sak]==="P") delete stu.sabs[D.sak]; fillStaffAtt(); return; }
@@ -3303,6 +3323,16 @@ function idleCheck(onLoad){ if(!ME||!auth||!auth.currentUser) return; let last=0
   else if(idle>=WARN_MIN&&!idleWarned&&!onLoad){ idleWarned=true; toast(`⏳ For safety you'll be signed out in ${Math.round((IDLE_MIN-WARN_MIN)*60)} seconds. Tap or move the mouse to stay signed in.`); } }
 setInterval(()=>idleCheck(false),5000);
 
+/* ---------- Parents tell the class teacher about an absence ---------- */
+function absFormHTML(){ return `<details class="card" style="margin-top:14px;border-top:5px solid #1d4f91"><summary style="cursor:pointer;font-weight:800;font-size:17px">📝 Tell the class teacher about an absence</summary>
+  <div class="grid g4" style="margin-top:10px"><label class="f">From<input class="in" type="date" id="anFrom" value="${esc(todayISO())}"></label><label class="f">To<input class="in" type="date" id="anTo" value="${esc(todayISO())}"></label>
+   <label class="f">Reason<select class="in" id="anWhy">${ABS_REASONS.filter(x=>x!=="Not informed").map(x=>`<option>${x}</option>`).join("")}</select></label><label class="f">Note (optional)<input class="in" id="anNote" maxlength="200" placeholder="e.g. fever, doctor's advice"></label></div>
+  <div class="row" style="justify-content:flex-start"><button class="btn pri" type="button" id="anSend">📨 Send to the class teacher</button></div>
+  <p class="hint" style="margin:6px 0 0">Only the class teacher, the coordinator and the principal can see this.</p></details>`; }
+document.addEventListener("click",async e=>{ if(e.target.id!=="anSend"||!PARENT) return; const q=PARENT, from=$("#anFrom").value, to=$("#anTo").value||from;
+  if(!from) return toast("Please pick the date"); if(to<from) return toast("'To' can't be before 'From'");
+  const d={year:q.year,std:q.std,div:q.div,cls:q.std+"-"+q.div,roll:+q.roll,name:capName(q.name),sid:sidOf({year:q.year,name:capName(q.name),dob:q.dob}),from,to,reason:$("#anWhy").value,note:$("#anNote").value.trim().slice(0,200),at:new Date().toISOString()};
+  try{ await setDoc(doc(collection(db,"absenceNotes")),d); toast("✅ Sent. The class teacher will see it when she takes attendance."); e.target.closest("details").open=false; }catch(err){ toast("Couldn't send: "+errMsg(err)); } });
 /* ---------- Parents: a "session" is just the child's details in this tab; Log out clears everything ---------- */
 let PARENT=null;
 function parentIn(q,name){ PARENT={...q}; document.body.classList.add("parent"); $("#parentName").textContent="Parent of "+(name||q.name); markActive();
