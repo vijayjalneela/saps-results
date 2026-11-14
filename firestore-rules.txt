@@ -317,6 +317,40 @@ service cloud.firestore {
       allow delete: if isPrincipalRole();
     }
 
+    // ---- Counselling notes the school chose to share with parents (key = private hash of the child's details) ----
+    match /parentNotes/{key} {
+      allow get: if true;
+      allow create, update: if (isOffice() || (isTeacher() && request.resource.data.cls in me().get('classTeacher', [])))
+        && request.resource.data.cls is string && request.resource.data.items is list && request.resource.data.items.size() <= 30;
+      allow delete: if isPrincipalRole();
+    }
+
+    // ---- Parents writing to the class teacher, coordinator or principal ----
+    function gvStaff(d) {
+      return isPrincipalRole() || (isCoord() && d.to == 'coord')
+        || (isTeacher() && d.to == 'ct' && d.cls in me().get('classTeacher', []));
+    }
+    match /grievances/{id} {
+      allow get: if true;
+      allow list: if gvStaff(resource.data);
+      allow create: if request.resource.data.keys().hasOnly(['year', 'std', 'div', 'cls', 'roll', 'name', 'to', 'cat', 'subject', 'text', 'status', 'replies', 'at'])
+        && request.resource.data.to in ['ct', 'coord', 'principal'] && request.resource.data.status == 'Open'
+        && request.resource.data.replies is list && request.resource.data.replies.size() == 0
+        && request.resource.data.text is string && request.resource.data.text.size() <= 1000
+        && request.resource.data.subject is string && request.resource.data.subject.size() <= 120
+        && request.resource.data.cls == request.resource.data.std + '-' + request.resource.data.div;
+      // Replies are only ever added; the parent may add one note at a time, staff may also change the status.
+      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['replies', 'status', 'updatedAt'])
+        && request.resource.data.replies.size() <= 40
+        && request.resource.data.replies[0:resource.data.replies.size()] == resource.data.replies
+        && (gvStaff(resource.data)
+            || (resource.data.status != 'Resolved' && request.resource.data.status == resource.data.status
+                && request.resource.data.replies.size() == resource.data.replies.size() + 1
+                && request.resource.data.replies[resource.data.replies.size()].by == 'parent'
+                && request.resource.data.replies[resource.data.replies.size()].text.size() <= 500));
+      allow delete: if isPrincipalRole();
+    }
+
     // ---- Home page: school photo and principal's message (principal or admin) ----
     match /config/{id} {
       allow read: if true;
