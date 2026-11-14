@@ -1794,7 +1794,7 @@ function renderStaff(){
     <td style="white-space:nowrap">${x.role==="principal"&&ME&&ME.role!=="admin"?"":`<button class="btn sec sm" data-sted="${esc(x.email)}">Edit</button> <button class="btn warn sm" data-stdel="${esc(x.email)}">Remove</button>`} ${x.role==="teacher"||(x.role==="principal"&&ME&&isFull())?`<button class="btn sec sm" data-prof="${esc(x.email)}">📄 Contract</button>`:""}</td></tr>`).join(""):`<tr><td colspan="7" class="empty">No staff yet. Add the principal and teachers above.</td></tr>`;
   const all=Object.values(RECORDS); $("#dataInfo").textContent=`${all.length} results saved, of which ${all.filter(r=>r.sample).length} are sample (dummy) marks. ${Object.values(STAFF).filter(x=>x.sample).length} sample staff.`;
   const bd=BACKUP&&BACKUP.at?Math.floor((Date.now()-new Date(BACKUP.at))/864e5):null;
-  const bdt=BACKUP&&BACKUP.at?new Date(BACKUP.at).toLocaleString("en-IN",{day:"numeric",month:"short",year:"numeric",hour:"numeric",minute:"2-digit",hour12:true}):"", bwho=BACKUP&&BACKUP.by?` by ${esc(staffName(BACKUP.by))}`:"";
+  const bdt=BACKUP&&BACKUP.at?new Date(BACKUP.at).toLocaleString("en-IN",{day:"numeric",month:"short",year:"numeric",hour:"numeric",minute:"2-digit",hour12:true}):"", bwho=(BACKUP&&BACKUP.by?` by ${esc(staffName(BACKUP.by))}`:"")+(BACKUP&&BACKUP.via==="import"?` (file uploaded: ${esc(BACKUP.file||"data file")})`:"");
   $("#bkInfo").innerHTML=bd==null?`<span class="pend">⚠️ No backup downloaded yet.</span> Download one now and keep it safe (e.g. Google Drive).`:bd>30?`<span class="pend">⚠️ Last backup: ${bdt}${bwho} (${bd} days ago).</span> Please download a new one, and always after each exam's marks are entered.`:`<span class="done">✓ Last backup: ${bdt}${bwho} (${bd===0?"today":bd+" day"+(bd>1?"s":"")+" ago"}).</span> Download a new one after each exam's marks are entered.`;
 }
 $("#stList").addEventListener("click",e=>{
@@ -1959,7 +1959,7 @@ document.addEventListener("click",async e=>{ const b=e.target.closest("[data-dro
       if(d.col==="action"){ await deleteDoc(doc(db,"drafts",k)); $(d.id==="delOld"?"#delOld":"#delSample").click(); return; }
       if(d.col==="import"){ const parts=Object.entries(DRAFTS).filter(([,x])=>x.col==="import"&&x.data.batch===d.data.batch).sort((a,b)=>a[1].data.part-b[1].data.part);
         if(parts.length<d.data.parts) return toast("Part of the file is still uploading. Please try again in a moment.");
-        const text=parts.map(([,x])=>x.data.chunk).join(""); for(const [kk] of parts) await deleteDoc(doc(db,"drafts",kk)); await runImport(text); return; }
+        const text=parts.map(([,x])=>x.data.chunk).join(""); for(const [kk] of parts) await deleteDoc(doc(db,"drafts",kk)); await runImport(text,d.fileName||"data file"); return; }
       if(data&&data.__delete){ await writeLive(d.col,d.id,data); await deleteDoc(doc(db,"drafts",k)); toast(`✅ Done: ${d.label}`); return; } if(d.col==="duties") data=Object.fromEntries(Object.entries(data).map(([x,v])=>[x,v&&v.dates?{...v,published:true}:v]));
       await writeLive(d.col,d.id,{...data,approvedBy:ME.email,approvedAt:new Date().toISOString()}); await deleteDoc(doc(db,"drafts",k)); toast(`✅ Published: ${d.label}`); }
     else { const ks=d.col==="import"?Object.keys(DRAFTS).filter(x=>DRAFTS[x].col==="import"&&DRAFTS[x].data.batch===d.data.batch):[k]; for(const kk of ks) await deleteDoc(doc(db,"drafts",kk)); toast(isFull()?"Sent back to the coordinator":"Withdrawn"); } }catch(err){ toast("Couldn't do that: "+errMsg(err)); } });
@@ -2669,14 +2669,15 @@ $("#setupBanner").classList.toggle("on",!configured);
 $("#exportBtn").onclick=()=>{const data=Object.values(RECORDS).map(r=>({...(r._raw||r),id:r.id})); const blob=new Blob([JSON.stringify({results:data,staff:Object.values(STAFF)})],{type:"application/json"}); (()=>{ const bk={at:new Date().toISOString(),count:data.length,by:ME.email}; BACKUP=bk; renderStaff(); return writeConfig("backup",bk); })().catch(()=>{}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="saps-results-backup-"+new Date().toISOString().slice(0,10)+".json"; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); toast(`Backup of ${data.length} results downloaded`);};
 $("#importBtn").onclick=()=>$("#importIn").click();
 $("#importIn").onchange=async e=>{const f=e.target.files[0]; e.target.value=""; if(!f) return; const text=await f.text();
-  if(isFull()) return runImport(text);
+  if(isFull()) return runImport(text,f.name);
   /* coordinator: the file is sent to the principal in parts; it is imported when she approves */
   let j; try{ j=JSON.parse(text); }catch(_){ return toast("That file isn't a results file"); }
   const cnt=k=>Array.isArray(j[k])?j[k].length:0, sum=Array.isArray(j)?`${j.length} results`:["results","staff","students","attendance","leaves"].filter(k=>cnt(k)).map(k=>`${cnt(k)} ${k}`).join(", ");
   const batch=Date.now().toString(36), N=Math.ceil(text.length/300000);
-  try{ for(let i=0;i<N;i++) await setDoc(doc(db,"drafts","import__"+batch+"_"+i),{col:"import",id:batch+"_"+i,data:{batch,part:i,parts:N,chunk:text.slice(i*300000,(i+1)*300000)},label:`Data import: ${f.name.slice(0,60)} (${sum})`,by:ME.email,at:new Date().toISOString()});
+  try{ for(let i=0;i<N;i++) await setDoc(doc(db,"drafts","import__"+batch+"_"+i),{col:"import",id:batch+"_"+i,data:{batch,part:i,parts:N,chunk:text.slice(i*300000,(i+1)*300000)},label:`Data import: ${f.name.slice(0,60)} (${sum})`,fileName:f.name.slice(0,80),by:ME.email,at:new Date().toISOString()});
     toast(`📨 Sent to the principal for approval: ${f.name} (${sum}). It is imported when she approves it.`); }catch(err){ toast("Couldn't send: "+errMsg(err)); } };
-async function runImport(text){
+let IMPORT_NAME="";
+async function runImport(text,name){ IMPORT_NAME=name||IMPORT_NAME||"data file";
   let list, staff=[], hr=[]; try{ const j=JSON.parse(text); if(Array.isArray(j)) list=j; else if(j&&Array.isArray(j.results)){ list=j.results; staff=Array.isArray(j.staff)?j.staff:[]; hr=Array.isArray(j.hr)?j.hr:[]; } else throw 0; }catch(_){ return toast("That file isn't a results file"); }
   list=list.filter(r=>r&&r.name&&r.roll&&r.std&&r.div&&r.term&&r.year);
   staff=staff.filter(x=>x&&x.email&&x.role); 
@@ -2694,6 +2695,8 @@ async function runImport(text){
     const have=new Set([...Object.keys(STUDOCS),...extras.filter(x=>x[0]==="students").map(x=>x[1])]), reg={};
     list.map(norm).forEach(o=>{ if(!have.has(o.sid)) reg[o.sid]={year:o.year,name:o.name,std:o.std,div:o.div,cls:o.cls,roll:o.roll,adm:o.adm||"",dob:o.dob||"",status:"active",admission:"approved",history:[],...(o.sample?{sample:true}:{})}; });
     const R2=Object.entries(reg); for(let i=0;i<R2.length;i+=200){ const b=writeBatch(db); R2.slice(i,i+200).forEach(([k,d])=>b.set(doc(db,"students",k),d)); await b.commit(); }
+    /* the uploaded file now matches what is saved, so it counts as the latest backup */
+    try{ const bk={at:new Date().toISOString(),count:list.length,by:ME.email,via:"import",file:String(IMPORT_NAME||"").slice(0,80)}; BACKUP=bk; renderStaff(); await writeConfig("backup",bk); }catch(_){}
     toast(`Imported ${list.length-skipped} results`+(skipped?` (${skipped} were already saved)`:"")+(staff.length?` and ${staff.length} staff`:"")+" ✓"); }catch(err){ toast("Import failed: "+errMsg(err)); }}
 renderHome();
 
