@@ -141,7 +141,8 @@ export function substitutePlan({ grid, dayIdx, absent, staff, ctOf, maxPerTeache
       const x = row[k]; if (!x || !x.t || x.fixed || !absent.has(x.t)) continue;
       const cands = teachers.filter(t => !(busy[t.email] || {})[k] && !plan.some(q => q.k === k && q.sub === t.email))
         .map(t => { const n = periodsToday(t.email) + (extra[t.email] || 0);
-          const score = (t.coordinator ? 40 : 0) + (teachesIn(t, c).includes(x.s) || (t.subjects || []).includes(x.s) ? 30 : 0) + (teachesIn(t, c).length ? 20 : 0) + ((t.classTeacher || []).includes(c) ? 5 : 0)
+          /* first choice: a teacher who already teaches this class (class teacher first), so the period is used well; then the same subject; the coordinator last */
+          const score = (teachesIn(t, c).length ? 50 : 0) + ((t.classTeacher || []).includes(c) ? 15 : 0) + (teachesIn(t, c).includes(x.s) || (t.subjects || []).includes(x.s) ? 15 : 0) - (t.coordinator ? 40 : 0)
             - n * 4 - ((extra[t.email] || 0) >= maxPerTeacher ? 100 : 0);
           return { t, score, n }; })
         .sort((a, b) => b.score - a.score);
