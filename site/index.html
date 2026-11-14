@@ -3210,8 +3210,8 @@ document.addEventListener("click",async e=>{ const b=e.target.closest("[data-fee
     const rc=nextReceipt(); await writeFee(s,{[q]:{paid:true,on:todayISO(),mode:fee.mode,receipt:rc,amount:FP().amounts[s.std]||0,by:ME.email}}); toast(`✓ ${s.name}: ${q} paid · receipt ${rc}`); return; }
   }catch(err){ toast("Couldn't save: "+(err.code||errMsg(err))); } });
 
-/* ---------- Stay signed in on refresh; sign out automatically after 20 minutes without activity ---------- */
-const IDLE_MIN=20, WARN_MIN=18; let idleWarned=false, lastWrite=0;
+/* ---------- Stay signed in on refresh; sign out automatically after 10 minutes without activity ---------- */
+const IDLE_MIN=10, WARN_MIN=8; let idleWarned=false, lastWrite=0;
 function markActive(){ const n=Date.now(); if(n-lastWrite<5000) return; lastWrite=n; idleWarned=false; try{ sessionStorage.setItem("saps_lastActive",String(n)); }catch(_){} }
 ["click","keydown","mousemove","touchstart","scroll","wheel"].forEach(ev=>document.addEventListener(ev,markActive,{passive:true,capture:true}));
 function idleCheck(onLoad){ if(!ME||!auth||!auth.currentUser) return; let last=0; try{ last=+(sessionStorage.getItem("saps_lastActive")||0); }catch(_){}
