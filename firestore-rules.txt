@@ -318,7 +318,9 @@ service cloud.firestore {
     }
 
     // ---- Teachers' messages to parents: each child's inbox (private hash key) plus a log for the office ----
-    function teachesCls(c) { return isTeacher() && c in me().get('classTeacher', []); }   // class teacher of that class only
+    // the class teacher of that class, or a sports / PT / art teacher who takes that class
+    function teachesCls(c) { return isTeacher() && (c in me().get('classTeacher', [])
+      || (c in me().get('classes', []) && me().get('subjects', []).hasAny(['PT', 'Sports', 'Games', 'Art', 'Arts', 'Art and Craft', 'Music', 'Dance']))); }
     match /inbox/{key} {
       allow get: if true;
       allow create, update: if (isOffice() || teachesCls(request.resource.data.cls))
