@@ -1552,7 +1552,7 @@ let SUM={year:null,exam:null};
 /* ---------- "Coming up for you": what matters to this person in the next days ---------- */
 let SUBS_HOME={}, homeT=0;
 window.addEventListener("hashchange",()=>{ if(["#home","","#"].includes(location.hash)) homeRefresh(); });
-function homeRefresh(){ if(homeT) return; homeT=setTimeout(()=>{ homeT=0; if(ME&&(location.hash==="#home"||location.hash===""||location.hash==="#")){ const b=$("#homeComing"); if(b) b.innerHTML=comingHTML(); const m=$("#homeMine"); if(m) m.innerHTML=mineHTML(); } },300); }
+function homeRefresh(){ if(homeT) return; homeT=setTimeout(()=>{ homeT=0; if(ME&&(location.hash==="#home"||location.hash===""||location.hash==="#")){ const b=$("#homeComing"); if(b) b.innerHTML=comingHTML(); const m=$("#homeMine"); if(m) m.innerHTML=mineHTML(); const ea=$("#homeEvAch"); if(ea) ea.innerHTML=eventsAchHTML(); } },300); }
 async function loadHomeSubs(){ const t=todayISO(), d2=new Date(t+"T00:00:00"); d2.setDate(d2.getDate()+1); const tm=d2.toISOString().slice(0,10);
   for(const d of [t,tm]){ if(d in SUBS_HOME) continue; SUBS_HOME[d]=null; try{ const x=await getDoc(doc(db,"subs",d)); SUBS_HOME[d]=x.exists()?x.data():null; }catch(_){} } homeRefresh(); }
 function comingHTML(){ if(!ME) return ""; const t=todayISO(), lim=(n)=>{ const x=new Date(t+"T00:00:00"); x.setDate(x.getDate()+n); return x.toISOString().slice(0,10); }, in14=lim(14), in21=lim(21), it=[], me=ME.email;
@@ -1660,6 +1660,16 @@ function ctFeesHTML(){ loadCtFees(); const P=FP(), y=stuY(), cts=ME.classTeacher
     return `<h3 style="margin:12px 0 6px">${esc(c)}</h3><div class="tbl-wrap"><table class="pt"><thead><tr><th>Roll</th><th>Student</th>${QS.map(q=>`<th>${q}<br><small>due ${fmtD(qDate(y,q,P.quarters[q].due))}</small></th>`).join("")}</tr></thead><tbody>
      ${S.map(x=>`<tr><td>${esc(x.roll)}</td><td style="text-align:left"><b>${esc(x.name)}</b></td>${QS.map(q=>{ const st=feeState(CTFEES[x.sid],q), p=CTFEES[x.sid]&&CTFEES[x.sid].q&&CTFEES[x.sid].q[q]; return `<td>${tag[st]}${st==="paid"&&p.on?`<br><small class="hint">${fmtD(p.on)}</small>`:""}</td>`; }).join("")}</tr>`).join("")}</tbody></table></div>`; }).join(""); }
 document.addEventListener("click",e=>{ if(e.target.closest("[data-gofees]")){ e.preventDefault(); stu.tab="fees"; stu.sel=null; if(location.hash==="#students") renderStu(); else location.hash="students"; } });
+/* Office (principal / coordinator): every achievement in the order it happened, and upcoming events and competitions, earliest first */
+function eventsAchHTML(){ if(!ME||!isOffice()) return ""; const t=todayISO();
+  const up=[]; Object.values(NOTICES||{}).filter(n=>n.date&&n.date>=t).forEach(n=>{ const d=(EDUT||{})[n.id]; up.push({date:n.date,icon:ntIcon(n.type),title:n.title,kind:n.type||"Notice",duty:d&&d.duties?d.duties.length:0}); });
+  const C=CAL||(typeof PCAL!=="undefined"?PCAL:null); ((C&&C.exams)||[]).filter(e=>(e.to||e.from)>=t).forEach(e=>{ if(!up.some(x=>x.date===e.from&&x.kind==="Exam")) up.push({date:e.from,to:e.to,icon:"📝",title:e.label,kind:"Exam"}); });
+  up.sort((a,b)=>a.date.localeCompare(b.date)||a.title.localeCompare(b.title));
+  const A=Object.values(ACHS||{}).slice().sort((a,b)=>String(a.date||"").localeCompare(String(b.date||"")));
+  const row=(d,icon,main,sub)=>`<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line)"><span style="min-width:78px;font-weight:800;color:#3b4220">${d}</span><span>${icon} ${main}${sub?`<br><small class="hint">${sub}</small>`:""}</span></div>`;
+  return `<div class="card" style="box-shadow:none;margin:0 0 14px;border-left:5px solid #c9a227"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px">
+   <div><h3 style="margin:0 0 6px">🗓 Upcoming events and competitions</h3>${up.length?up.map(x=>row(fmtD(x.date).replace(/ \d{4}$/,""),x.icon,`<b>${esc(x.title)}</b>`,`${esc(x.kind)}${x.to&&x.to!==x.date?" · till "+fmtD(x.to):""}${x.duty?` · ${x.duty} staff duties`:""}`)).join(""):`<p class="hint">Nothing posted yet. Add events and competitions in Notices.</p>`}</div>
+   <div><h3 style="margin:0 0 6px">🏆 Achievements this year (${A.length})</h3><div style="max-height:420px;overflow:auto">${A.length?A.map(a=>row(a.date?fmtD(a.date).replace(/ \d{4}$/,""):"–","🏅",`<b>${esc(a.title)}</b>`,`${esc(a.who||"")}${a.category?" · "+esc(a.category):""}`)).join(""):`<p class="hint">No achievements posted yet.</p>`}</div></div></div></div>`; }
 /* Designation shown to everyone: Principal, Coordinator, Class teacher I-A, Special educator, Subject teacher */
 function desigOf(x){ if(!x) return ""; if(x.role==="admin") return "Admin"; if(x.role==="principal") return "Principal"; const ct=(x.classTeacher||[]);
   const parts=[]; if(x.coordinator) parts.push("Coordinator"); if(ct.length) parts.push("Class teacher "+ct.join(", ")); if(x.designation&&x.designation!=="PRT") parts.push(x.designation);
@@ -1695,7 +1705,7 @@ function renderStats(){
     <label class="f">Exam<select class="in" id="sumExam">${EXAMS.map(t=>`<option value="${esc(t)}" ${t===SUM.exam?"selected":""}>${esc(lab(t))}${examsWith.includes(t)?"":" (no results yet)"}</option>`).join("")}</select></label></div>`;
   HOME_RECS=recs;
   if(ME.role==="teacher"&&!ME.office){ const T=homeTabs(); box.innerHTML=welcome+`<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;margin:4px 0 10px"><div class="atabs" style="margin:0">${T.map(([k,l])=>`<button data-htab="${k}" class="${HTAB===k?"on":""}">${l}</button>`).join("")}</div>${picker}</div><div id="homeMine">${mineHTML()}</div>`; return; }
-  box.innerHTML=welcome+`<div class="sec-h" style="justify-content:space-between;flex-wrap:wrap;gap:10px"><div style="display:flex;gap:10px;align-items:center"><div class="dot" style="background:var(--violet)">🏫</div><div><h3>School summary</h3><p>Only visible to staff. One exam at a time, so numbers are not mixed.</p></div></div>
+  box.innerHTML=welcome+`<div id="homeEvAch">${eventsAchHTML()}</div>`+`<div class="sec-h" style="justify-content:space-between;flex-wrap:wrap;gap:10px"><div style="display:flex;gap:10px;align-items:center"><div class="dot" style="background:var(--violet)">🏫</div><div><h3>School summary</h3><p>Only visible to staff. One exam at a time, so numbers are not mixed.</p></div></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap"><label class="f">Year<select class="in" id="sumYear">${YEARS.map(y=>`<option ${y===SUM.year?"selected":""}>${y}</option>`).join("")}</select></label>
     <label class="f">Exam<select class="in" id="sumExam">${EXAMS.map(t=>`<option value="${esc(t)}" ${t===SUM.exam?"selected":""}>${esc(lab(t))}${examsWith.includes(t)?"":" (no results yet)"}</option>`).join("")}</select></label></div></div>
    <div class="kpis">${kpi("Students",recs.length,"#f2edff","#5435c9")}${kpi("Classes with results",rows.length,"#ffeef4","#b3164f")}${kpi("School average",(avg(allV)??"–")+(allV.length?"%":""),"#e8f7ff","#0b6c99")}${kpi("A+ students",allV.filter(x=>x>=91).length,"#e9fbf5","#0b7a64")}${kpi("Below 50%",allV.filter(x=>x<50).length,"#fff6ea","#a55a00")}</div>
@@ -2674,7 +2684,7 @@ function renderDash(){
   const hr=new Date().getHours(), greet=hr<12?"Good morning":hr<17?"Good afternoon":"Good evening";
   const head=`<div class="dash-head"><div><h2>${greet}, ${esc(ME.name)} 👋</h2><p>${ME.role==="admin"?"Admin":"Principal"} dashboard · ${esc(y)} · ${new Date().toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long"})}</p></div>
     <div class="apick" style="margin:0">${EXAMS.map(x=>`<button class="chip ${x===t?"on":""}" data-dex="${esc(x)}" ${have.includes(x)?"":"disabled"}>${esc(lab(x))}</button>`).join("")}</div></div>`;
-  const coming=`<div id="homeComing">${comingHTML()}</div><div id="dashApprovals">${approvalsHTML()}</div>`;
+  const coming=`<div id="homeComing">${comingHTML()}</div><div id="dashApprovals">${approvalsHTML()}</div><div id="homeEvAch">${eventsAchHTML()}</div>`;
   if(!recs.length){ $("#dashBody").innerHTML=head+coming+`<div class="empty">No results for ${esc(y)} yet. Once teachers enter marks, highlights appear here.</div>`; return; }
   const key=r=>[r.std,r.div,r.roll,normName(r.name)].join("|");
   const prevMap={}; prev.forEach(r=>prevMap[key(r)]=pctOf(r));
@@ -3269,7 +3279,7 @@ document.addEventListener("submit",async e=>{ if(e.target.id!=="tcForm") return;
 renderFooter();
 
 /* ================= NOTICES, ACHIEVEMENTS, EVENT DUTIES, ADMISSIONS ================= */
-const NTYPES=[["Admissions","🎒"],["Exam","📝"],["PTM","👪"],["Event","🎭"],["Guest visit","🎖️"],["Holiday","🎉"],["General","📢"]];
+const NTYPES=[["Admissions","🎒"],["Exam","📝"],["PTM","👪"],["Event","🎭"],["Competition","🏅"],["Guest visit","🎖️"],["Holiday","🎉"],["General","📢"]];
 const ntIcon=t=>(NTYPES.find(x=>x[0]===t)||["","📢"])[1];
 const ACATS=["Academics","Sports","Arts & culture","Olympiads & quizzes","School / staff","Community service"];
 let NOTICES={}, ACHS={}, EDUT={}, unsubED=null, PCAL=null;
