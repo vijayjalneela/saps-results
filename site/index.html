@@ -284,7 +284,7 @@ body:not(.staff) .staff-only{display:none!important}
 /* while the saved sign-in is being restored after a refresh, show "loading" instead of the login box or "unauthorised" */
 body.authwait #gate,body.authwait #dashLock,body.authwait #aLock,body.authwait #adminLock{display:none!important}
 #entry.subjonly .ct-only{display:none!important}#entry.noteach>.card,#entry.noteach>.actions{display:none!important}
-body.staff #v-home>*:not(#homeStats):not(#homeTicker){display:none!important}
+body.staff #v-home>*:not(#homeStats):not(#homeTicker):not(#dashBody){display:none!important}body.principal #homeStats{display:none!important}
 body.staff #v-home.on{display:flex;flex-direction:column}
 body.staff #homeTicker{order:-1;margin:0 0 14px}
 #authLoad{display:none;text-align:center;padding:40px 10px;color:var(--muted);font-weight:700}
@@ -567,12 +567,11 @@ footer{background:var(--navy);color:#c9cfbd!important;padding:22px 16px!importan
     <div class="who staff-only"><span id="whoName"></span><button type="button" class="btn sm" data-signout id="hdrOut">⏻ Log out</button></div>
     <div class="who parent-only"><span id="parentName"></span><button type="button" class="btn sm" data-parentout>⏻ Log out</button></div>
     <nav class="tabs">
-      <a href="#home" data-v="home">Home</a>
+      <a href="#home" data-v="home" id="navHome">Home</a>
       <a href="#notices" data-v="pub">📢 Notices</a>
       <a href="#achievements" data-v="pub">🏆 Achievements</a>
       <a href="#school" data-v="pub">📋 Disclosure</a>
       <a href="#teacher" data-v="teacher" class="staff-only" id="navEntry">Results entry</a>
-      <a href="#dashboard" data-v="dashboard" class="pr-only">Dashboard</a>
       <a href="#analysis" data-v="analysis" class="staff-only">Analysis</a>
       <a href="#students" data-v="students" class="staff-only">Students</a>
       <a href="#timetable" data-v="timetable" class="staff-only">Timetable</a>
@@ -588,6 +587,7 @@ footer{background:var(--navy);color:#c9cfbd!important;padding:22px 16px!importan
 <!-- ================= HOME ================= -->
 <section class="view" id="v-home">
   <div class="card staff-only" id="homeStats" style="display:block;margin-top:0"></div>
+  <div class="card pr-only" style="display:block;margin-top:0" id="dashBody"></div>
   <a id="homeTicker" href="#notices" class="ticker" style="display:none"></a>
   <div class="hero home-hero">
     <svg class="hero-sky" viewBox="0 0 520 260" aria-hidden="true">
@@ -859,7 +859,6 @@ footer{background:var(--navy);color:#c9cfbd!important;padding:22px 16px!importan
 
 <!-- ================= PRINCIPAL DASHBOARD ================= -->
 <section class="view" id="v-dashboard">
-  <div class="card pr-only" style="display:block" id="dashBody"></div>
   <div class="card" id="dashLock"><div class="unauth" style="margin:0"><b class="t">⛔ Unauthorised access</b>The dashboard is only for the principal. Please sign in with the Principal login.</div></div>
 </section>
 
@@ -1132,6 +1131,8 @@ if(db){
 function route(){
   if(window._actionMode){ document.querySelectorAll(".view").forEach(s=>s.classList.toggle("on",s.id==="v-action")); return; }
   const v=(location.hash||"#home").slice(1);
+  if(v==="dashboard"){ location.hash="home"; return; }
+  if((v==="teacher"||v==="principal")&&ME&&isFull()){ location.hash="home"; return; }
   const name=["home","teacher","principal","coordinator","adminlogin","results","admin","analysis","dashboard","timetable","students","school","privacy","notices","achievements"].includes(v)?v:"home"; if((name==="teacher"||name==="coordinator")&&ME&&ME.coordinator&&!ME.acting){ location.hash="students"; return; } if(["school","privacy","notices","achievements"].includes(name)) setTimeout(renderPub,0); if(name==="students"){ if(!ME){ if(document.body.classList.contains("authwait")) return; location.hash="teacher"; return; } startTT(); setTimeout(renderStu,0); } if(name==="timetable"){ if(!ME){ location.hash="teacher"; return; } startTT(); setTimeout(renderTT,0); } if(name==="dashboard") setTimeout(()=>renderDash(),0); if(name==="analysis") setTimeout(renderAnalysis,0);
   if(name==="teacher"||name==="principal"||name==="coordinator"||name==="adminlogin") setLoginMode(name==="adminlogin"?"admin":name);
   if(name==="adminlogin"&&ME&&ME.role==="admin"){ location.hash="admin"; return; }
@@ -1564,7 +1565,7 @@ function comingHTML(){ if(!ME) return ""; const t=todayISO(), lim=(n)=>{ const x
   (ME.classTeacher||[]).forEach(c=>{ const N=(typeof ABSN!=="undefined"&&ABSN[c])||[]; N.filter(n=>(n.to||n.from)>=t&&n.from<=lim(3)).forEach(n=>add(n.from,"📝",`Parent's note: <b>${esc(n.name)}</b> (${esc(c)}) absent ${fmtD(n.from)}${n.to&&n.to!==n.from?" – "+fmtD(n.to):""} · ${esc(n.reason)}`)); });
   if(!isOffice()){ const mr=Object.values(DRAFTS||{}).filter(d=>d.col==="removal"); if(mr.length) add(t,"⏳",`${mr.length} removal request${mr.length>1?"s":""} sent to the principal, waiting for approval`); }
   if(isOffice()){ const dr=Object.values(DRAFTS||{}).filter(d=>d.col!=="import"||d.data.part===0).length, adm=Object.values(typeof STUDOCS!=="undefined"?STUDOCS:{}).filter(d=>d.admission==="pending").length;
-    if(isFull()&&(dr||adm)) add(t,"📥",`<b>${dr+adm}</b> item${dr+adm>1?"s":""} waiting for your approval <a href="#dashboard">Open →</a>`,"hot");
+    if(isFull()&&(dr||adm)) add(t,"📥",`<b>${dr+adm}</b> item${dr+adm>1?"s":""} waiting for your approval <a href="#home" data-goapprove="1">Open →</a>`,"hot");
     if(!isFull()&&(dr||adm)) add(t,"⏳",`${dr+adm} item${dr+adm>1?"s":""} sent to the principal, waiting for approval`);
     const req=Object.values(LEAVES||{}).filter(l=>l.status==="Requested"&&(l.to||l.from)>=t).length; if(req) add(t,"🏖",`<b>${req}</b> leave request${req>1?"s":""} to ${isFull()?"decide":"recommend"} <a href="#timetable">Open →</a>`,"hot");
     const away=leavesOnly(t).map(l=>tName(l.email)); if(away.length) add(t,"👩‍🏫",`On leave today: ${esc(away.join(", "))}`);
@@ -1688,6 +1689,7 @@ function renderStats(){
   const rows=Object.keys(byCls).sort((a,b)=>order(a)-order(b)).map(c=>{ const v=byCls[c].map(pctOf).filter(x=>x!=null); return {c,n:byCls[c].length,avg:avg(v),hi:v.length?Math.max(...v):null,ap:v.filter(x=>x>=91).length,low:v.filter(x=>x<50).length}; });
   const allV=recs.map(pctOf).filter(x=>x!=null);
   const welcome0=`<div style="margin:0 0 14px;padding:14px 18px;border-radius:14px;background:linear-gradient(110deg,#0e1a2b,#2c3318);color:#fff"><div style="font-family:'Barlow Condensed';font-size:26px;font-weight:700">👋 Welcome, ${esc(ME.name)}</div><div style="color:#ffd9ad;font-weight:700">${esc(desigOf(ME))}${ME.role==="teacher"&&(ME.classes||[]).length?` · teaches ${esc([...new Set((ME.classes||[]).flatMap(c=>teachesIn(ME,c)))].join(", "))}`:""}</div></div>`;
+  if(isFull()){ box.innerHTML=""; renderDash(); return; }
   const welcome=welcome0+`<div id="homeComing">${comingHTML()}</div>`;
   const picker=`<div style="display:flex;gap:10px;flex-wrap:wrap"><label class="f">Year<select class="in" id="sumYear">${YEARS.map(y=>`<option ${y===SUM.year?"selected":""}>${y}</option>`).join("")}</select></label>
     <label class="f">Exam<select class="in" id="sumExam">${EXAMS.map(t=>`<option value="${esc(t)}" ${t===SUM.exam?"selected":""}>${esc(lab(t))}${examsWith.includes(t)?"":" (no results yet)"}</option>`).join("")}</select></label></div>`;
@@ -1701,9 +1703,10 @@ function renderStats(){
    :`<div class="empty">No ${esc(lab(SUM.exam))} results for ${esc(SUM.year)} yet.</div>`}`;
 }
 document.addEventListener("change",e=>{ if(e.target.id==="sumYear"){ SUM.year=e.target.value; SUM.picked=false; renderStats(); } if(e.target.id==="sumExam"){ SUM.exam=e.target.value; SUM.picked=true; renderStats(); } });
-document.addEventListener("click",e=>{ const tr=e.target.closest("[data-sumcls]"); if(!tr) return; const [st,dv]=tr.dataset.sumcls.split("-"); const fromDash=location.hash==="#dashboard"; $("#aYear").value=fromDash?YEARS[0]:SUM.year; $("#aStd").value=st; $("#aDiv").value=dv; aTab="exam"; aSel.exam=fromDash?DASH.exam:SUM.exam; location.hash="analysis"; });
+document.addEventListener("click",e=>{ const tr=e.target.closest("[data-sumcls]"); if(!tr) return; const [st,dv]=tr.dataset.sumcls.split("-"); const fromDash=onHome()&&isFull(); $("#aYear").value=fromDash?YEARS[0]:SUM.year; $("#aStd").value=st; $("#aDiv").value=dv; aTab="exam"; aSel.exam=fromDash?DASH.exam:SUM.exam; location.hash="analysis"; });
 
-function refreshAll(){ renderClassList(); renderStats(); if(location.hash==="#dashboard"&&typeof renderDash==="function") renderDash(); if(typeof renderStaff==="function") renderStaff(); if(location.hash==="#analysis"&&typeof renderAnalysis==="function") renderAnalysis(); if(location.hash==="#students"&&ME){ if(stu.tab==="find"&&!stu.sel) renderStuList(); else if(stu.tab!=="att") renderStu(); } }
+const onHome=()=>["#home","","#"].includes(location.hash);
+function refreshAll(){ renderClassList(); renderStats(); if(onHome()&&isFull()&&typeof renderDash==="function") renderDash(); if(typeof renderStaff==="function") renderStaff(); if(location.hash==="#analysis"&&typeof renderAnalysis==="function") renderAnalysis(); if(location.hash==="#students"&&ME){ if(stu.tab==="find"&&!stu.sel) renderStuList(); else if(stu.tab!=="att") renderStu(); } }
 
 /* ---------- Cartoon animals (original drawings) ---------- */
 const ANIMALS={
@@ -1891,14 +1894,16 @@ async function loadMe(u){
   renderRoleBar(); renderMarks(); renderStats(); toast(`Welcome, ${ME.name}`);
   $("#navEntry").href=role==="principal"?"#principal":loginAs==="coordinator"?"#coordinator":"#teacher";
   /* the coordinator does not enter results, so she has no Results entry tab (an acting coordinator keeps hers for her own classes) */
-  $("#navEntry").style.display=(sd&&sd.coordinator)?"none":"";
+  $("#navEntry").style.display=(sd&&sd.coordinator)||admin||role==="principal"?"none":"";
+  /* once signed in, Home and Dashboard are one page */
+  $("#navHome").textContent="📊 Dashboard";
   if(office&&(location.hash==="#coordinator"||location.hash==="#teacher"&&acting)) location.hash="students";
   if(admin&&LOGIN_MODE==="admin"&&location.hash==="#adminlogin") location.hash="admin";
   $("#navAdmin").textContent=admin?"Admin":"Office"; $("#admTitle").textContent=admin?"Admin":"Office: staff, contracts and data"; $("#admSub").textContent=admin?"Staff logins, subjects and classes, home page and data.":role==="principal"?"Your changes go live straight away. Changes made by the coordinator wait for your approval (see the Dashboard).":"Your changes are sent to the principal for approval before they go live.";
-  if(role==="principal"&&(location.hash==="#principal"||location.hash==="")) location.hash="dashboard";
+  if((role==="principal"||admin)&&(location.hash==="#principal"||location.hash===""||location.hash==="#teacher")) location.hash="home";
 }
 if(auth){
-  onAuthStateChanged(auth,u=>{ user=u; ME=null; canWrite=false; document.body.classList.remove("admin","staff","principal","office"); $("#navEntry").style.display="";
+  onAuthStateChanged(auth,u=>{ user=u; ME=null; canWrite=false; document.body.classList.remove("admin","staff","principal","office"); $("#navEntry").style.display=""; $("#navHome").textContent="Home";
     if(!u){ authDone(); if(!window._settingUp&&!$("#gSetup").hidden&&$("#gateErr").textContent){ stopTeacherData(); stopStaffData(); return; } showGate("gSignin"); stopTeacherData(); stopStaffData(); renderStats(); renderRoleBar(); return; }
     if(!u.emailVerified){ authDone(); if(window._settingUp) return;
       onList(u.email).then(ok=>{ if(!ok){ $("#uEmail").textContent=u.email; showGate("gUnreg"); return; }
@@ -1908,7 +1913,7 @@ if(auth){
 /* Contract / HR details live in "staffHR", readable only by the principal and admin. */
 let HR={}, unsubHR=null;
 function startStaffData(){ if(unsubStaff) return; unsubStaff=onSnapshot(collection(db,"staff"),snap=>{ const n={}; snap.forEach(d=>n[d.id]=d.data()); STAFF=n; renderStaff(); if(typeof renderStats==="function") renderStats(); if(location.hash==="#dashboard") renderDash(); },()=>{});
-  if(isOffice()&&!unsubHR) unsubHR=onSnapshot(isFull()?collection(db,"staffHR"):query(collection(db,"staffHR"),where("role","==","teacher")),snap=>{ const n={}; snap.forEach(d=>n[d.id]=d.data()); HR=n; if(location.hash==="#dashboard") renderDash(); },()=>{}); }
+  if(isOffice()&&!unsubHR) unsubHR=onSnapshot(isFull()?collection(db,"staffHR"):query(collection(db,"staffHR"),where("role","==","teacher")),snap=>{ const n={}; snap.forEach(d=>n[d.id]=d.data()); HR=n; if(onHome()&&isFull()) renderDash(); },()=>{}); }
 function stopStaffData(){ stopTT(); if(unsubStaff){unsubStaff();unsubStaff=null;} if(unsubHR){unsubHR();unsubHR=null;} STAFF={}; HR={}; }
 
 /* ---------- Admin page ---------- */
@@ -2119,7 +2124,7 @@ async function pubSet(col,id,data,lab){ if(isFull()){ await writeLive(col,id,dat
   const key=col+"__"+id, label=lab||((DRAFT_LABEL[col]||col)+(col==="subs"?" for "+fmtD(id).replace(/<[^>]*>/g,""):""));
   await setDoc(doc(db,"drafts",key),{col,id,data,label,by:ME.email,at:new Date().toISOString()}); DRAFTS[key]={col,id,data,label,by:ME.email,at:new Date().toISOString()};
   window._draftMsg=`📨 Sent to the principal for approval: ${label}. It goes live when she approves it.`; return false; }
-function startDrafts(){ if(!db||!ME||unsubDR) return; unsubDR=onSnapshot(isOffice()?collection(db,"drafts"):query(collection(db,"drafts"),where("by","==",ME.email)),snap=>{ const n={}; snap.forEach(d=>n[d.id]=d.data()); DRAFTS=n; homeRefresh(); if(location.hash==="#timetable") renderTT(); if(location.hash==="#school") renderPub(); const aa=$("#admApprovals"); if(aa) aa.innerHTML=approvalsHTML(); if(location.hash==="#dashboard"&&typeof renderDash==="function") renderDash(); if(typeof renderClassList==="function"&&$("#clsList")) renderClassList(); if($("#stuBody")&&location.hash==="#students"&&!document.querySelector("#stuBody input:focus,#stuBody textarea:focus")) renderStu(); },()=>{}); }
+function startDrafts(){ if(!db||!ME||unsubDR) return; unsubDR=onSnapshot(isOffice()?collection(db,"drafts"):query(collection(db,"drafts"),where("by","==",ME.email)),snap=>{ const n={}; snap.forEach(d=>n[d.id]=d.data()); DRAFTS=n; homeRefresh(); if(location.hash==="#timetable") renderTT(); if(location.hash==="#school") renderPub(); const aa=$("#admApprovals"); if(aa) aa.innerHTML=approvalsHTML(); if(onHome()&&isFull()&&typeof renderDash==="function") renderDash(); if(typeof renderClassList==="function"&&$("#clsList")) renderClassList(); if($("#stuBody")&&location.hash==="#students"&&!document.querySelector("#stuBody input:focus,#stuBody textarea:focus")) renderStu(); },()=>{}); }
 function stopDrafts(){ if(unsubDR){unsubDR();unsubDR=null;} DRAFTS={}; }
 /* ---------- Removals: teacher / coordinator recommends, the principal approves ---------- */
 const REM_TXT={result:"Remove exam result",left:"Mark as left the school",erase:"Erase all online data"};
@@ -2667,9 +2672,10 @@ function renderDash(){
   if(!DASH.picked||!have.includes(DASH.exam)) DASH.exam=have[have.length-1]||"Term I";
   const t=DASH.exam, pe=prevExamOf(t,y), recs=all.filter(r=>r.term===t), prev=pe?all.filter(r=>r.term===pe):[];
   const hr=new Date().getHours(), greet=hr<12?"Good morning":hr<17?"Good afternoon":"Good evening";
-  const head=`<div class="dash-head"><div><h2>${greet}, ${esc(ME.name)} 👋</h2><p>Principal dashboard · ${esc(y)} · ${new Date().toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long"})}</p></div>
+  const head=`<div class="dash-head"><div><h2>${greet}, ${esc(ME.name)} 👋</h2><p>${ME.role==="admin"?"Admin":"Principal"} dashboard · ${esc(y)} · ${new Date().toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long"})}</p></div>
     <div class="apick" style="margin:0">${EXAMS.map(x=>`<button class="chip ${x===t?"on":""}" data-dex="${esc(x)}" ${have.includes(x)?"":"disabled"}>${esc(lab(x))}</button>`).join("")}</div></div>`;
-  if(!recs.length){ $("#dashBody").innerHTML=approvalsHTML()+head+`<div class="empty">No results for ${esc(y)} yet. Once teachers enter marks, highlights appear here.</div>`; return; }
+  const coming=`<div id="homeComing">${comingHTML()}</div><div id="dashApprovals">${approvalsHTML()}</div>`;
+  if(!recs.length){ $("#dashBody").innerHTML=head+coming+`<div class="empty">No results for ${esc(y)} yet. Once teachers enter marks, highlights appear here.</div>`; return; }
   const key=r=>[r.std,r.div,r.roll,normName(r.name)].join("|");
   const prevMap={}; prev.forEach(r=>prevMap[key(r)]=pctOf(r));
   const vals=recs.map(pctOf).filter(v=>v!=null), sAvg=avg(vals), pAvg=avg(prev.map(pctOf).filter(v=>v!=null));
@@ -2725,11 +2731,12 @@ function renderDash(){
   const rems=staffReminders(60);
   const remBox=`<h3 style="margin:22px 0 8px">⏰ Contract reminders <span class="hint" style="font-weight:700">· next 60 days</span></h3>${rems.length?rems.map(r=>`<div class="rem ${r.n<0?"over":"soon"}" data-prof="${esc(r.em)}">${tAvatar(STAFF[r.em],36)}<div><b>${esc(r.name)}</b> <span class="hint">${esc(r.contract||"")}</span><br><span style="font-size:14px">${esc(r.what)}: ${fmtD(r.d)}</span></div><span class="when">${remWhen(r.n)}</span></div>`).join(""):'<div class="empty" style="background:#f0fbf7">No contract renewals or terminations in the next 60 days. 👍</div>'}`;
   const dirBox=`<h3 style="margin:22px 0 4px">🔎 Find a teacher</h3><input class="in" id="dirQ" placeholder="Search by name, subject, class or contract type…" value="${esc(DASH.q||"")}" style="max-width:420px"><div class="dir-grid" id="dirGrid">${dirHTML()}</div>`;
-  $("#dashBody").innerHTML=approvalsHTML()+head+kpis+remBox+spot+charts+dirBox+`<div class="two"><div><h4 style="margin:0 0 8px">⚠️ Needs your attention</h4><ul class="alist att">${att.map(x=>`<li>${x}</li>`).join("")||`<li style="background:#f0fbf7;border-left-color:#14c3a2">Nothing urgent. 👍</li>`}</ul></div>
+  $("#dashBody").innerHTML=head+coming+kpis+remBox+spot+charts+dirBox+`<div class="two"><div><h4 style="margin:0 0 8px">⚠️ Needs your attention</h4><ul class="alist att">${att.map(x=>`<li>${x}</li>`).join("")||`<li style="background:#f0fbf7;border-left-color:#14c3a2">Nothing urgent. 👍</li>`}</ul></div>
     <div><h4 style="margin:0 0 8px">🌟 Highlights</h4><ul class="alist hi">${hi.map(x=>`<li>${x}</li>`).join("")}</ul></div></div>
     <details class="mstat" ${pendN?"open":""} style="margin-top:18px"><summary>📋 Classes and marks entry status · ${esc(lab(t))} ${pendN?`<span class="pend">${pendN} pending</span>`:`<span class="done">✓ all entered</span>`}</summary>${status}<p class="hint" style="margin:6px 0 0">Click a class to open its full analysis.</p></details>
     <div class="qlinks" style="margin-top:14px"><a class="btn sec" href="#analysis" data-goana="teachers">👩‍🏫 Teacher comparison</a><a class="btn sec" href="#analysis" data-goana="school">🏆 School toppers and support list</a><a class="btn sec" href="#analysis" data-goana="overview">📊 Class analysis</a><a class="btn sec" data-gohome="1" href="#home">🏫 School summary</a></div>`;
 }
+document.addEventListener("click",e=>{ if(e.target.closest("[data-goapprove]")){ const a=$("#dashApprovals"); if(a&&a.firstElementChild){ e.preventDefault(); a.scrollIntoView({behavior:"smooth",block:"start"}); } } });
 document.addEventListener("click",e=>{ const d=e.target.closest("[data-dex]"); if(d&&!d.disabled){ DASH.exam=d.dataset.dex; DASH.picked=true; renderDash(); }
   const g=e.target.closest("[data-goana]"); if(g){ aTab=g.dataset.goana; aSel.exam=DASH.exam||aSel.exam; if(g.tagName!=="A") location.hash="analysis"; } });
 
@@ -2902,7 +2909,7 @@ let STUDOCS={}, unsubSTU=null, stuYearOn=null, ATTM={}, ATTC={}, SATTM={}, NOTES
 const stu={tab:"find",q:"",cls:"",status:"active",sel:null,date:"",acls:"",sdate:"",abs:null,absKey:"",sabs:null,sKey:""};
 function startStu(){ if(!db||!ME) return; const y=stuY(); if(unsubSTU&&stuYearOn===y) return; if(unsubSTU) unsubSTU(); stuYearOn=y;
   unsubSTU=onSnapshot(query(collection(db,"students"),where("year","==",y)),snap=>{ const n={}; snap.forEach(d=>n[d.id]={...d.data(),id:d.id}); STUDOCS=n; if(location.hash==="#students") renderStu(); else renderClassList(); refreshApprovals(); },()=>{}); }
-function refreshApprovals(){ const aa=$("#admApprovals"); if(aa) aa.innerHTML=approvalsHTML(); if(location.hash==="#dashboard"&&typeof renderDash==="function") renderDash(); if(location.hash==="#timetable") renderTT(); }
+function refreshApprovals(){ const aa=$("#admApprovals"); if(aa) aa.innerHTML=approvalsHTML(); if(onHome()&&isFull()&&typeof renderDash==="function") renderDash(); if(location.hash==="#timetable") renderTT(); }
 function stopStu(){ if(unsubSTU){unsubSTU();unsubSTU=null;} STUDOCS={}; stuYearOn=null; ATTM={}; ATTC={}; SATTM={}; NOTES={}; Object.assign(stu,{tab:"find",q:"",cls:"",sel:null,abs:null,absKey:"",sabs:null,sKey:""}); }
 const isLeft=r=>{ const d=STUDOCS[sidOf(r)]; return !!(d&&d.status==="left"); };
 function allStudents(){ const m={}, y=stuY();
