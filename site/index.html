@@ -1122,7 +1122,7 @@ if(db){
 function route(){
   if(window._actionMode){ document.querySelectorAll(".view").forEach(s=>s.classList.toggle("on",s.id==="v-action")); return; }
   const v=(location.hash||"#home").slice(1);
-  const name=["home","teacher","principal","coordinator","adminlogin","results","admin","analysis","dashboard","timetable","students","school","privacy","notices","achievements"].includes(v)?v:"home"; if(["school","privacy","notices","achievements"].includes(name)) setTimeout(renderPub,0); if(name==="students"){ if(!ME){ location.hash="teacher"; return; } startTT(); setTimeout(renderStu,0); } if(name==="timetable"){ if(!ME){ location.hash="teacher"; return; } startTT(); setTimeout(renderTT,0); } if(name==="dashboard") setTimeout(()=>renderDash(),0); if(name==="analysis") setTimeout(renderAnalysis,0);
+  const name=["home","teacher","principal","coordinator","adminlogin","results","admin","analysis","dashboard","timetable","students","school","privacy","notices","achievements"].includes(v)?v:"home"; if((name==="teacher"||name==="coordinator")&&ME&&ME.coordinator&&!ME.acting){ location.hash="students"; return; } if(["school","privacy","notices","achievements"].includes(name)) setTimeout(renderPub,0); if(name==="students"){ if(!ME){ location.hash="teacher"; return; } startTT(); setTimeout(renderStu,0); } if(name==="timetable"){ if(!ME){ location.hash="teacher"; return; } startTT(); setTimeout(renderTT,0); } if(name==="dashboard") setTimeout(()=>renderDash(),0); if(name==="analysis") setTimeout(renderAnalysis,0);
   if(name==="teacher"||name==="principal"||name==="coordinator"||name==="adminlogin") setLoginMode(name==="adminlogin"?"admin":name);
   if(name==="adminlogin"&&ME&&ME.role==="admin"){ location.hash="admin"; return; }
   const view=(name==="principal"||name==="coordinator"||name==="adminlogin")?"teacher":["school","privacy","notices","achievements"].includes(name)?"pub":name;
@@ -1715,13 +1715,15 @@ async function loadMe(u){
   canWrite=true; { const c0=(ME.classTeacher||[])[0]||(ME.classes||[])[0]; if(ME.role==="teacher"&&c0){ const [cs,cd]=c0.split("-"); $("#aStd").value=cs; $("#aDiv").value=cd; $("#fStd").value=cs; $("#fDiv").value=cd; } } setUnlocked(true); startTeacherData(); startStaffData(); startStu(); startDrafts(); startEDUT();
   renderRoleBar(); renderMarks(); renderStats(); toast(`Welcome, ${ME.name}`);
   $("#navEntry").href=role==="principal"?"#principal":loginAs==="coordinator"?"#coordinator":"#teacher";
+  /* the coordinator does not enter results, so she has no Results entry tab (an acting coordinator keeps hers for her own classes) */
+  $("#navEntry").style.display=(sd&&sd.coordinator)?"none":"";
   if(office&&(location.hash==="#coordinator"||location.hash==="#teacher"&&acting)) location.hash="students";
   if(admin&&LOGIN_MODE==="admin"&&location.hash==="#adminlogin") location.hash="admin";
   $("#navAdmin").textContent=admin?"Admin":"Office"; $("#admTitle").textContent=admin?"Admin":"Office: staff, contracts and data"; $("#admSub").textContent=admin?"Staff logins, subjects and classes, home page and data.":role==="principal"?"Your changes go live straight away. Changes made by the coordinator wait for your approval (see the Dashboard).":"Your changes are sent to the principal for approval before they go live.";
   if(role==="principal"&&(location.hash==="#principal"||location.hash==="")) location.hash="dashboard";
 }
 if(auth){
-  onAuthStateChanged(auth,u=>{ user=u; ME=null; canWrite=false; document.body.classList.remove("admin","staff","principal","office");
+  onAuthStateChanged(auth,u=>{ user=u; ME=null; canWrite=false; document.body.classList.remove("admin","staff","principal","office"); $("#navEntry").style.display="";
     if(!u){ if(!window._settingUp&&!$("#gSetup").hidden&&$("#gateErr").textContent){ stopTeacherData(); stopStaffData(); return; } showGate("gSignin"); stopTeacherData(); stopStaffData(); renderStats(); renderRoleBar(); return; }
     if(!u.emailVerified){ if(window._settingUp) return;
       onList(u.email).then(ok=>{ if(!ok){ $("#uEmail").textContent=u.email; showGate("gUnreg"); return; }
