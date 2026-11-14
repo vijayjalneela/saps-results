@@ -575,6 +575,7 @@ footer{background:var(--navy);color:#c9cfbd!important;padding:22px 16px!importan
       <a href="#analysis" data-v="analysis" class="staff-only">Analysis</a>
       <a href="#students" data-v="students" class="staff-only">Students</a>
       <a href="#timetable" data-v="timetable" class="staff-only">Timetable</a>
+      <a href="#counsel" data-v="counsel" class="staff-only" id="navCounsel">💬 Counselling</a>
       <a href="#admin" data-v="admin" class="admin-only" id="navAdmin">Admin</a>
     </nav>
   </div>
@@ -867,6 +868,7 @@ footer{background:var(--navy);color:#c9cfbd!important;padding:22px 16px!importan
 <section class="view" id="v-students"><div class="card" id="stuBody"></div></section>
 
 <section class="view" id="v-timetable"><div class="card" id="ttBody"></div></section>
+<section class="view" id="v-counsel"><div class="card" id="csBody"></div></section>
 
 <!-- ================= ANALYSIS ================= -->
 <section class="view" id="v-analysis">
@@ -1138,7 +1140,7 @@ function route(){
   if(v==="dashboard"){ location.hash="home"; return; }
   if(v==="analysis"&&ME&&isOffice()&&!isFull()){ location.hash="home"; return; }
   if((v==="teacher"||v==="principal")&&ME&&isFull()){ location.hash="home"; return; }
-  const name=["home","teacher","principal","coordinator","adminlogin","results","admin","analysis","dashboard","timetable","students","school","privacy","notices","achievements"].includes(v)?v:"home"; if((name==="teacher"||name==="coordinator")&&ME&&ME.coordinator&&!ME.acting){ location.hash="students"; return; } if(["school","privacy","notices","achievements"].includes(name)) setTimeout(renderPub,0); if(name==="students"){ if(!ME){ if(document.body.classList.contains("authwait")) return; location.hash="teacher"; return; } startTT(); setTimeout(renderStu,0); } if(name==="timetable"){ if(!ME){ location.hash="teacher"; return; } startTT(); setTimeout(renderTT,0); } if(name==="dashboard") setTimeout(()=>renderDash(),0); if(name==="analysis") setTimeout(renderAnalysis,0);
+  const name=["home","teacher","principal","coordinator","adminlogin","results","admin","analysis","dashboard","timetable","students","school","privacy","notices","achievements","counsel"].includes(v)?v:"home"; if((name==="teacher"||name==="coordinator")&&ME&&ME.coordinator&&!ME.acting){ location.hash="students"; return; } if(["school","privacy","notices","achievements"].includes(name)) setTimeout(renderPub,0); if(name==="students"){ if(!ME){ if(document.body.classList.contains("authwait")) return; location.hash="teacher"; return; } startTT(); setTimeout(renderStu,0); } if(name==="counsel"){ if(!ME){ if(document.body.classList.contains("authwait")) return; location.hash="teacher"; return; } startCounsel(); setTimeout(renderCounsel,0); } if(name==="timetable"){ if(!ME){ location.hash="teacher"; return; } startTT(); setTimeout(renderTT,0); } if(name==="dashboard") setTimeout(()=>renderDash(),0); if(name==="analysis") setTimeout(renderAnalysis,0);
   if(name==="teacher"||name==="principal"||name==="coordinator"||name==="adminlogin") setLoginMode(name==="adminlogin"?"admin":name);
   if(name==="adminlogin"&&ME&&ME.role==="admin"){ location.hash="admin"; return; }
   const view=(name==="principal"||name==="coordinator"||name==="adminlogin")?"teacher":["school","privacy","notices","achievements"].includes(name)?"pub":name;
@@ -1445,6 +1447,88 @@ document.addEventListener("click",async e=>{
     const d={col:"publish",id:key.slice(9),data:{year:y,term:t,std,div,count:L.length,gaps:chk.gaps,noDob:chk.noDob},label:`Publish results to parents: ${c} (${L.length} report cards)`,by:ME.email,at:new Date().toISOString()};
     try{ await setDoc(doc(db,"drafts",key),d); DRAFTS[key]=d; toast("📨 Sent to the principal. Results go to parents when she approves."); refreshPubPanel(); }catch(err){ toast("Couldn't send: "+errMsg(err)); } });
 });
+/* ---------- Counselling ----------
+   Teachers: the principal and that one teacher only (not the coordinator, other teachers or the admin).
+   Children: the class teacher of that class, the coordinator and the principal only. Never shown to parents. */
+var SC={}, CC={}, unsubSC=null, unsubCC=null, csTab=null, csCls="", csT="";
+const isPrinRole=()=>!!ME&&ME.role==="principal";
+const isCoordMe=()=>!!ME&&ME.role==="teacher"&&!!(ME.coordinator||ME.acting);
+const myCT=()=>(ME&&ME.role==="teacher"&&ME.classTeacher)||[];
+const canChildCs=()=>isPrinRole()||isCoordMe()||myCT().length>0;
+const CS_CAT=["Behaviour","Learning difficulty","Emotional wellbeing","Attendance","Peer issues / bullying","Family situation","Health","Other"];
+const nl=t=>esc(t).replace(/\n/g,"<br>");
+const csWhen=at=>{ try{ return new Date(at).toLocaleString("en-IN",{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"}); }catch(_){ return ""; } };
+function csRefresh(){ homeRefresh(); if(location.hash==="#counsel"&&!document.querySelector("#csBody textarea:focus,#csBody input:focus")) renderCounsel(); }
+function startCounsel(){ if(!db||!ME||ME.role==="admin") return;
+  if(!unsubSC) unsubSC=onSnapshot(isPrinRole()?collection(db,"staffCounsel"):query(collection(db,"staffCounsel"),where("teacher","==",ME.email)),sn=>{ const n={}; sn.forEach(d=>n[d.id]={...d.data(),id:d.id}); SC=n; csRefresh(); },()=>{});
+  if(!unsubCC&&canChildCs()){ const ct=myCT().slice(0,30);
+    const q=(isPrinRole()||isCoordMe())?query(collection(db,"childCounsel"),where("year","==",stuY())):query(collection(db,"childCounsel"),where("year","==",stuY()),where("cls","in",ct));
+    unsubCC=onSnapshot(q,sn=>{ const n={}; sn.forEach(d=>n[d.id]={...d.data(),id:d.id}); CC=n; csRefresh(); },()=>{}); } }
+function stopCounsel(){ if(unsubSC){unsubSC();unsubSC=null;} if(unsubCC){unsubCC();unsubCC=null;} SC={}; CC={}; csTab=null; csCls=""; csT=""; const cb=$("#csBody"); if(cb) cb.innerHTML=""; }
+function counselDue(){ if(!ME) return []; const t=todayISO(), d7=new Date(t+"T00:00:00"); d7.setDate(d7.getDate()+7); const lim=d7.toISOString().slice(0,10), out=[];
+  Object.values(SC).forEach(x=>{ if(!isPrinRole()&&x.teacher===ME.email&&!x.ack) out.push({date:t,hot:true,text:`The principal has shared a counselling note with you <a href="#counsel">Open →</a>`});
+    if(isPrinRole()&&x.status!=="Closed"&&x.followUp&&x.followUp<=lim) out.push({date:x.followUp,hot:x.followUp<=t,text:`Counselling follow-up: <b>${esc(x.teacherName||tName(x.teacher))}</b> <a href="#counsel">Open →</a>`}); });
+  Object.values(CC).forEach(x=>{ if(x.status!=="Closed"&&x.followUp&&x.followUp<=lim) out.push({date:x.followUp,hot:x.followUp<=t,text:`Child counselling follow-up: <b>${esc(x.name)}</b> (${esc(x.cls)}) <a href="#counsel">Open →</a>`}); });
+  return out; }
+function threadHTML(L){ return (L||[]).map(m=>`<div style="margin:6px 0;padding:8px 10px;border-radius:10px;background:${m.by===ME.email?"#eef6ff":"#f6f3ff"}"><small><b>${esc(m.role||"")}${m.name?" · "+esc(m.name):""}</b> · ${esc(csWhen(m.at))}</small><div>${nl(m.text)}</div></div>`).join(""); }
+function staffCsHTML(){ const P=isPrinRole();
+  const L=Object.values(SC).filter(x=>!csT||x.teacher===csT).sort((a,b)=>String(b.date+b.at).localeCompare(String(a.date+a.at)));
+  const teachers=Object.entries(STAFF).filter(([,x])=>x.role==="teacher").sort((a,b)=>String(a[1].name).localeCompare(String(b[1].name)));
+  const form=P?`<details class="card" style="box-shadow:none;border-top:5px solid #1d4f91"><summary style="cursor:pointer;font-weight:800">＋ New counselling session</summary>
+    <div class="grid g3" style="margin-top:10px"><label class="f">Teacher<select class="in" id="scT"><option value="">Choose…</option>${teachers.map(([em,x])=>`<option value="${esc(em)}">${esc(x.name||em)}</option>`).join("")}</select></label>
+    <label class="f">Date<input class="in" type="date" id="scDate" value="${esc(todayISO())}"></label><label class="f">Follow-up on (optional)<input class="in" type="date" id="scFu"></label></div>
+    <label class="f">Topic<input class="in" id="scTopic" maxlength="120" placeholder="e.g. Classroom management, punctuality, workload"></label>
+    <label class="f">What was discussed and agreed<textarea class="in" id="scNotes" rows="4" maxlength="1500"></textarea></label>
+    <div class="row" style="justify-content:flex-start"><button class="btn pri" id="scSave" type="button">💾 Save and share with the teacher</button></div></details>`:"";
+  const filt=P?`<label class="f" style="max-width:280px;margin:10px 0">Show<select class="in" id="scFilter"><option value="">All teachers</option>${teachers.map(([em,x])=>`<option value="${esc(em)}" ${em===csT?"selected":""}>${esc(x.name||em)}</option>`).join("")}</select></label>`:"";
+  const cards=L.map(x=>`<div class="card" style="box-shadow:none;border-left:5px solid ${x.status==="Closed"?"#9aa":"#1d4f91"};margin:10px 0">
+    <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><div><b>${P?esc(x.teacherName||tName(x.teacher))+" · ":""}${esc(x.topic)}</b><br><small>${fmtD(x.date)}${x.followUp?" · follow-up "+fmtD(x.followUp):""} · ${esc(x.status||"Open")}${!P&&!x.ack?" · <b style='color:#c4610d'>new</b>":""}${P?(x.ack?" · ✓ read by the teacher":" · not yet read"):""}</small></div>
+    <div>${!P&&!x.ack?`<button class="btn pri sm" data-scack="${esc(x.id)}">✓ I have read this</button>`:""}${P?`<button class="btn sec sm" data-scclose="${esc(x.id)}">${x.status==="Closed"?"Reopen":"Mark closed"}</button><button class="btn warn sm" data-scdel="${esc(x.id)}">Delete</button>`:""}</div></div>
+    <div style="margin:8px 0">${nl(x.notes)}</div>${threadHTML(x.thread)}
+    <div style="display:flex;gap:8px;margin-top:6px"><textarea class="in" rows="1" maxlength="1000" data-scmsg="${esc(x.id)}" placeholder="${P?"Add a note or reply":"Reply to the principal"}"></textarea><button class="btn sec sm" data-scsend="${esc(x.id)}">Send</button></div></div>`).join("")||`<div class="empty">${P?"No counselling sessions yet.":"Nothing here. Notes from counselling with the principal appear here."}</div>`;
+  return `<div class="banner on" style="background:#eef6ff">🔒 ${P?"Only you and the teacher concerned can see a session. The coordinator, other teachers and the admin cannot.":"Only you and the principal can see these notes."}</div>`+form+filt+cards; }
+function childCsHTML(){ const P=isPrinRole(), C=isCoordMe(), ct=myCT();
+  const kids=allStudents().filter(s=>!s.left&&(P||C||ct.includes(s.cls))).sort((a,b)=>(a.cls+String(a.roll).padStart(3,"0")).localeCompare(b.cls+String(b.roll).padStart(3,"0")));
+  const classes=[...new Set(Object.values(CC).map(x=>x.cls))].sort();
+  const L=Object.values(CC).filter(x=>!csCls||x.cls===csCls).sort((a,b)=>String(b.date+b.at).localeCompare(String(a.date+a.at)));
+  const form=`<details class="card" style="box-shadow:none;border-top:5px solid #b3164f"><summary style="cursor:pointer;font-weight:800">＋ New record of concern</summary>
+    <div class="grid g3" style="margin-top:10px"><label class="f">Child<select class="in" id="ccKid"><option value="">Choose…</option>${kids.map(s=>`<option value="${esc(s.sid)}">${esc(s.cls)} · ${esc(s.roll)} · ${esc(s.name)}</option>`).join("")}</select></label>
+    <label class="f">Date<input class="in" type="date" id="ccDate" value="${esc(todayISO())}"></label><label class="f">Area of concern<select class="in" id="ccCat">${CS_CAT.map(c=>`<option>${esc(c)}</option>`).join("")}</select></label></div>
+    <label class="f">What was noticed<textarea class="in" id="ccDetails" rows="3" maxlength="1500"></textarea></label>
+    <label class="f">Counselling given and plan<textarea class="in" id="ccAction" rows="3" maxlength="1000"></textarea></label>
+    <div class="grid g3"><label class="f">Parents informed?<select class="in" id="ccPar"><option>No</option><option>Yes</option></select></label><label class="f">Informed on<input class="in" type="date" id="ccParOn"></label><label class="f">Follow-up on (optional)<input class="in" type="date" id="ccFu"></label></div>
+    <div class="row" style="justify-content:flex-start"><button class="btn pri" id="ccSave" type="button">💾 Save record</button></div></details>`;
+  const filt=classes.length>1?`<label class="f" style="max-width:220px;margin:10px 0">Class<select class="in" id="ccFilter"><option value="">All</option>${classes.map(c=>`<option ${c===csCls?"selected":""}>${esc(c)}</option>`).join("")}</select></label>`:"";
+  const cards=L.map(x=>`<div class="card" style="box-shadow:none;border-left:5px solid ${x.status==="Closed"?"#9aa":"#b3164f"};margin:10px 0">
+    <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><div><b>${esc(x.name)}</b> · ${esc(x.cls)}, roll ${esc(x.roll)} · <b>${esc(x.category)}</b><br><small>${fmtD(x.date)} · recorded by ${esc(x.byName||tName(x.by))}${x.byRole?" ("+esc(x.byRole)+")":""} · parents informed: ${esc(x.parents||"No")}${x.parentsOn?" on "+fmtD(x.parentsOn):""}${x.followUp?" · follow-up "+fmtD(x.followUp):""} · ${esc(x.status||"Open")}</small></div>
+    <div><button class="btn sec sm" data-ccclose="${esc(x.id)}">${x.status==="Closed"?"Reopen":"Mark closed"}</button>${P?`<button class="btn warn sm" data-ccdel="${esc(x.id)}">Delete</button>`:""}</div></div>
+    <div style="margin:8px 0"><b>Noticed:</b> ${nl(x.details)}</div>${x.action?`<div style="margin:8px 0"><b>Counselling and plan:</b> ${nl(x.action)}</div>`:""}${threadHTML(x.thread)}
+    <div style="display:flex;gap:8px;margin-top:6px"><textarea class="in" rows="1" maxlength="1000" data-ccmsg="${esc(x.id)}" placeholder="Add a follow-up note"></textarea><button class="btn sec sm" data-ccsend="${esc(x.id)}">Add note</button></div></div>`).join("")||`<div class="empty">No records of concern.</div>`;
+  return `<div class="banner on" style="background:#fff0f5">🔒 Seen only by the child's class teacher, the coordinator and the principal. Never shown to parents or other teachers. Record facts and the help given, not opinions.</div>
+   <div class="banner on" style="background:#fff8ec">⚠ If a child may be at risk of abuse, the POCSO Act requires it to be reported to the police (Special Juvenile Police Unit) or Childline 1098. Tell the principal at once; this record does not replace that report.</div>`+form+filt+cards; }
+function renderCounsel(){ const box=$("#csBody"); if(!box) return; if(!ME){ box.innerHTML=""; return; }
+  const tabs=[]; if(ME.role!=="admin") tabs.push(["staff",isPrinRole()?"👩‍🏫 Teacher counselling":"💬 My counselling with the principal"]); if(canChildCs()) tabs.push(["child","🧒 Child counselling"]);
+  if(!tabs.length){ box.innerHTML=`<div class="unauth" style="margin:0"><b class="t">🔒 Private</b>Counselling records are kept only between the principal and the staff concerned.</div>`; return; }
+  if(!tabs.some(t=>t[0]===csTab)) csTab=tabs[0][0];
+  box.innerHTML=`<div class="page-title"><div><h2>💬 Counselling</h2><p>Private notes. Who can see each kind is shown at the top.</p></div></div><div class="atabs">${tabs.map(([k,l])=>`<button data-cstab="${k}" class="${k===csTab?"on":""}">${l}</button>`).join("")}</div>`+(csTab==="staff"?staffCsHTML():childCsHTML()); }
+async function csAppend(col,id,text){ const x=(col==="staffCounsel"?SC:CC)[id]; if(!x) return; const m={by:ME.email,name:ME.name||"",role:isPrinRole()?"Principal":isCoordMe()?"Coordinator":col==="childCounsel"?"Class teacher":"Teacher",at:new Date().toISOString(),text:text.slice(0,1000)};
+  const upd={thread:[...(x.thread||[]),m],updatedAt:m.at}; if(col==="staffCounsel"&&isPrinRole()) upd.ack=false;
+  const o={...x,...upd}; delete o.id; await setDoc(doc(db,col,id),o); }
+document.addEventListener("change",e=>{ if(e.target.id==="scFilter"){ csT=e.target.value; renderCounsel(); } if(e.target.id==="ccFilter"){ csCls=e.target.value; renderCounsel(); } });
+document.addEventListener("click",async e=>{ const g=a=>e.target.closest("["+a+"]"); let b;
+  try{
+  if(b=g("data-cstab")){ csTab=b.dataset.cstab; renderCounsel(); return; }
+  if(e.target.id==="scSave"){ if(!isPrinRole()) return; const t=$("#scT").value, topic=$("#scTopic").value.trim(), notes=$("#scNotes").value.trim();
+    if(!t) return toast("Choose the teacher"); if(topic.length<3) return toast("Write the topic"); if(notes.length<3) return toast("Write what was discussed");
+    const now=new Date().toISOString(); await setDoc(doc(collection(db,"staffCounsel")),{teacher:t,teacherName:(STAFF[t]&&STAFF[t].name)||t,date:$("#scDate").value||todayISO(),topic,notes,followUp:$("#scFu").value||"",status:"Open",ack:false,thread:[],by:ME.email,at:now,updatedAt:now}); toast("✓ Saved and shared with the teacher"); return; }
+  if(e.target.id==="ccSave"){ if(!canChildCs()) return; const sid=$("#ccKid").value, s=allStudents().find(x=>x.sid===sid), details=$("#ccDetails").value.trim();
+    if(!s) return toast("Choose the child"); if(details.length<3) return toast("Write what was noticed"); if(!(isPrinRole()||isCoordMe()||myCT().includes(s.cls))) return toast("You can record concerns only for your own class");
+    const now=new Date().toISOString(); await setDoc(doc(collection(db,"childCounsel")),{sid,name:s.name,std:s.std,div:s.div,cls:s.std+"-"+s.div,roll:+s.roll||0,year:stuY(),date:$("#ccDate").value||todayISO(),category:$("#ccCat").value,details,action:$("#ccAction").value.trim(),parents:$("#ccPar").value,parentsOn:$("#ccPar").value==="Yes"?($("#ccParOn").value||""):"",followUp:$("#ccFu").value||"",status:"Open",thread:[],by:ME.email,byName:ME.name||"",byRole:isPrinRole()?"Principal":isCoordMe()?"Coordinator":"Class teacher",at:now,updatedAt:now}); toast("✓ Record saved"); return; }
+  if(b=g("data-scsend")||g("data-ccsend")){ const col=b.dataset.scsend?"staffCounsel":"childCounsel", id=b.dataset.scsend||b.dataset.ccsend, ta=document.querySelector(`[data-${col==="staffCounsel"?"scmsg":"ccmsg"}="${CSS.escape(id)}"]`), v=(ta&&ta.value||"").trim(); if(v.length<2) return toast("Write a message first"); await csAppend(col,id,v); toast("✓ Sent"); return; }
+  if(b=g("data-scack")){ const x=SC[b.dataset.scack]; if(!x) return; await setDoc(doc(db,"staffCounsel",x.id),(({id,...o})=>({...o,ack:true,updatedAt:new Date().toISOString()}))(x)); toast("✓ Marked as read"); return; }
+  if(b=g("data-scclose")||g("data-ccclose")){ const col=b.dataset.scclose?"staffCounsel":"childCounsel", x=(col==="staffCounsel"?SC:CC)[b.dataset.scclose||b.dataset.ccclose]; if(!x) return; await setDoc(doc(db,col,x.id),(({id,...o})=>({...o,status:x.status==="Closed"?"Open":"Closed",updatedAt:new Date().toISOString()}))(x)); return; }
+  if(b=g("data-scdel")||g("data-ccdel")){ if(!isPrinRole()) return; const col=b.dataset.scdel?"staffCounsel":"childCounsel", id=b.dataset.scdel||b.dataset.ccdel; confirmBox("Delete this record?","It is removed for everyone and can't be brought back.","Delete",async()=>{ try{ await deleteDoc(doc(db,col,id)); toast("Deleted"); }catch(err){ toast("Couldn't delete: "+errMsg(err)); } }); return; }
+  }catch(err){ toast("Couldn't do that: "+errMsg(err)); } });
 function confirmBox(title,text,label,fn,opt){ $("#mTitle").textContent=title; $("#mText").textContent=text; $("#mYes").textContent=label; window._confirmFn=fn; const w=$("#mWhy"), ws=$("#mWhySel"); w.value=""; w.style.display=opt&&opt.reason?"block":"none"; w.placeholder=(opt&&opt.reason)||"";
   ws.style.display=opt&&opt.choices?"block":"none"; if(opt&&opt.choices) ws.innerHTML=`<option value="">Choose a reason…</option>`+opt.choices.map(c=>`<option>${esc(c)}</option>`).join(""); $("#modal").classList.add("on"); if(opt&&opt.reason) setTimeout(()=>w.focus(),50); }
 $("#mYes").onclick=async()=>{ const w=$("#mWhy"), ws=$("#mWhySel"); let why=w.value.trim();
@@ -1617,6 +1701,7 @@ function comingHTML(){ if(!ME) return ""; const t=todayISO(), lim=(n)=>{ const x
   if(DUTY) Object.entries(DUTY).forEach(([k,v])=>{ if(!v||!v.dates||(!v.published&&!isOffice())) return; Object.entries(v.dates).forEach(([d,m])=>{ if(d<t||d>in21) return; Object.entries(m).forEach(([c,em])=>{ if(em===me&&!c.startsWith("_")) add(d,"📝",`Invigilation: <b>${esc(c)}</b> · ${esc(k)}${v.time?" · "+esc(v.time):""}`); }); if(m._reserve===me) add(d,"📝",`Reserve invigilator · ${esc(k)}`); }); });
   Object.values(LEAVES||{}).filter(l=>l.email===me&&(l.to||l.from)>=t).forEach(l=>add(l.from,"🏖",`Your leave ${fmtD(l.from)}${l.to&&l.to!==l.from?" – "+fmtD(l.to):""}: <b>${esc(l.status==="Recommended"?"recommended, waiting for the principal":l.status)}</b>${l.rejectReason?` · ${esc(l.rejectReason)}`:""}`));
   if(ME.acting) add(ME.acting.from,"🗂️",`You are acting coordinator until ${fmtD(ME.acting.to)}`,"hot");
+  if(typeof counselDue==="function") counselDue().forEach(x=>add(x.date,"💬",x.text,x.hot?"hot":""));
   (ME.classTeacher||[]).forEach(c=>{ const N=(typeof ABSN!=="undefined"&&ABSN[c])||[]; N.filter(n=>(n.to||n.from)>=t&&n.from<=lim(3)).forEach(n=>add(n.from,"📝",`Parent's note: <b>${esc(n.name)}</b> (${esc(c)}) absent ${fmtD(n.from)}${n.to&&n.to!==n.from?" – "+fmtD(n.to):""} · ${esc(n.reason)}`)); });
   if(!isOffice()){ const mr=Object.values(DRAFTS||{}).filter(d=>d.col==="removal"); if(mr.length) add(t,"⏳",`${mr.length} removal request${mr.length>1?"s":""} sent to the principal, waiting for approval`); }
   if(isOffice()){ const dr=Object.values(DRAFTS||{}).filter(d=>d.col!=="import"||d.data.part===0).length, adm=Object.values(typeof STUDOCS!=="undefined"?STUDOCS:{}).filter(d=>d.admission==="pending").length;
@@ -2225,8 +2310,8 @@ async function pubSet(col,id,data,lab){ if(isFull()){ await writeLive(col,id,dat
   const key=col+"__"+id, label=lab||((DRAFT_LABEL[col]||col)+(col==="subs"?" for "+fmtD(id).replace(/<[^>]*>/g,""):""));
   await setDoc(doc(db,"drafts",key),{col,id,data,label,by:ME.email,at:new Date().toISOString()}); DRAFTS[key]={col,id,data,label,by:ME.email,at:new Date().toISOString()};
   window._draftMsg=`📨 Sent to the principal for approval: ${label}. It goes live when she approves it.`; return false; }
-function startDrafts(){ if(!db||!ME||unsubDR) return; startReturns(); startPubMarks(); unsubDR=onSnapshot(isOffice()?collection(db,"drafts"):query(collection(db,"drafts"),where("by","==",ME.email)),snap=>{ const n={}; snap.forEach(d=>n[d.id]=d.data()); DRAFTS=n; homeRefresh(); if(location.hash==="#timetable") renderTT(); if(location.hash==="#school") renderPub(); const aa=$("#dashApprovals"); if(aa) aa.innerHTML=approvalsHTML(); refreshPubPanel(); if(onHome()&&isFull()&&typeof renderDash==="function") renderDash(); if(typeof renderClassList==="function"&&$("#clsList")) renderClassList(); if($("#stuBody")&&location.hash==="#students"&&!document.querySelector("#stuBody input:focus,#stuBody textarea:focus")) renderStu(); },()=>{}); }
-function stopDrafts(){ if(unsubDR){unsubDR();unsubDR=null;} DRAFTS={}; stopReturns(); stopPubMarks(); }
+function startDrafts(){ if(!db||!ME||unsubDR) return; startReturns(); startPubMarks(); startCounsel(); unsubDR=onSnapshot(isOffice()?collection(db,"drafts"):query(collection(db,"drafts"),where("by","==",ME.email)),snap=>{ const n={}; snap.forEach(d=>n[d.id]=d.data()); DRAFTS=n; homeRefresh(); if(location.hash==="#timetable") renderTT(); if(location.hash==="#school") renderPub(); const aa=$("#dashApprovals"); if(aa) aa.innerHTML=approvalsHTML(); refreshPubPanel(); if(onHome()&&isFull()&&typeof renderDash==="function") renderDash(); if(typeof renderClassList==="function"&&$("#clsList")) renderClassList(); if($("#stuBody")&&location.hash==="#students"&&!document.querySelector("#stuBody input:focus,#stuBody textarea:focus")) renderStu(); },()=>{}); }
+function stopDrafts(){ if(unsubDR){unsubDR();unsubDR=null;} DRAFTS={}; stopReturns(); stopPubMarks(); stopCounsel(); }
 /* ---------- Removals: teacher / coordinator recommends, the principal approves ---------- */
 const REM_TXT={result:"Remove exam result",left:"Mark as left the school",erase:"Erase all online data"};
 function remPending(kind,target){ return (DRAFTS||{})["removal__"+kind+"_"+target]||null; }

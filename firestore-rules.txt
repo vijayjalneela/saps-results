@@ -280,6 +280,43 @@ service cloud.firestore {
       allow delete: if isPrincipal();
     }
 
+    // ---- Counselling of teachers: only the principal and the teacher concerned (not the admin, coordinator or others) ----
+    function isPrincipalRole() { return isStaffMember() && me().role == 'principal'; }
+    function okThread(old, nw) {
+      return nw is list && nw.size() <= 200 && (nw.size() == old.size() || (nw.size() == old.size() + 1
+        && nw[0:old.size()] == old && nw[old.size()].by == myEmail()
+        && nw[old.size()].text is string && nw[old.size()].text.size() <= 1000));
+    }
+    match /staffCounsel/{id} {
+      allow read: if isPrincipalRole() || (signedIn() && resource.data.teacher == myEmail());
+      allow create: if isPrincipalRole() && request.resource.data.by == myEmail()
+        && request.resource.data.teacher is string && request.resource.data.topic is string && request.resource.data.topic.size() <= 120
+        && request.resource.data.notes is string && request.resource.data.notes.size() <= 1500;
+      allow update: if (isPrincipalRole() && request.resource.data.notes.size() <= 1500
+            && okThread(resource.data.get('thread', []), request.resource.data.get('thread', [])))
+        || (signedIn() && resource.data.teacher == myEmail()
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['thread', 'ack', 'updatedAt'])
+            && okThread(resource.data.get('thread', []), request.resource.data.get('thread', [])));
+      allow delete: if isPrincipalRole();
+    }
+
+    // ---- Counselling of children: only that class's class teacher, the coordinator and the principal.
+    //      Never copied to parents' report cards. ----
+    function childCounsellor(d) { return isPrincipalRole() || isCoord() || (isTeacher() && d.cls in me().get('classTeacher', [])); }
+    match /childCounsel/{id} {
+      allow read: if childCounsellor(resource.data);
+      allow create: if childCounsellor(request.resource.data) && request.resource.data.by == myEmail()
+        && request.resource.data.cls == request.resource.data.std + '-' + request.resource.data.div
+        && request.resource.data.details is string && request.resource.data.details.size() <= 1500
+        && request.resource.data.get('action', '').size() <= 1000
+        && okThread([], request.resource.data.get('thread', []));
+      allow update: if childCounsellor(resource.data) && request.resource.data.cls == resource.data.cls
+        && request.resource.data.by == resource.data.by
+        && request.resource.data.details.size() <= 1500 && request.resource.data.get('action', '').size() <= 1000
+        && okThread(resource.data.get('thread', []), request.resource.data.get('thread', []));
+      allow delete: if isPrincipalRole();
+    }
+
     // ---- Home page: school photo and principal's message (principal or admin) ----
     match /config/{id} {
       allow read: if true;
