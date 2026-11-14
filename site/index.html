@@ -497,7 +497,7 @@ nav.tabs a:hover{color:#fff}
 .school-line{background:rgba(255,153,51,.18);border:1px solid rgba(255,153,51,.55);color:#ffd9ad;text-transform:uppercase;letter-spacing:1px;font-size:12px}
 .hero .motto{margin-top:22px;display:flex;gap:10px;flex-wrap:wrap}
 .hero .motto span{border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:6px 14px;font-weight:700;font-size:13px;color:#fff;background:rgba(255,255,255,.06);letter-spacing:.6px;text-transform:uppercase}
-.school-photo{background:linear-gradient(135deg,#1c2a1a,#0e1a2b)!important;border:3px solid #c9b98c!important;box-shadow:0 18px 40px rgba(0,0,0,.4)!important;transform:none!important;z-index:2}
+.school-photo{aspect-ratio:5/4!important;background:linear-gradient(135deg,#1c2a1a,#0e1a2b)!important;border:3px solid #c9b98c!important;box-shadow:0 18px 40px rgba(0,0,0,.4)!important;transform:none!important;z-index:2}
 .school-photo .cap{background:#0e1a2b!important;color:#ffd9ad!important}
 @media(max-width:820px){.hero.home-hero{padding:34px 22px 140px}.hero-sky{width:80%;right:-6%;top:auto;bottom:140px;opacity:.5}}
 
@@ -1556,8 +1556,9 @@ function renderHome(){
   $("#prMsg").textContent=HOME.message||DEFAULT_PR.message;
   $("#prName").textContent=HOME.name||DEFAULT_PR.name;
   const pp=$("#prPhoto"); pp.classList.toggle("has",!!HOME.photo); pp.innerHTML=HOME.photo?`<img src="${safeImg(HOME.photo)}" alt="Principal">`:"Passport<br>photo";
-  $("#schoolImg").style.display=SCHOOL_PHOTO?"block":"none"; if(SCHOOL_PHOTO) $("#schoolImg").src=safeImg(SCHOOL_PHOTO);
-  $("#schoolPhEmpty").style.display=SCHOOL_PHOTO?"none":"flex";
+  /* the principal's uploaded photo wins; otherwise the school gate photo shipped with the site */
+  $("#schoolImg").style.display="block"; $("#schoolImg").src=SCHOOL_PHOTO?safeImg(SCHOOL_PHOTO):"school.jpg";
+  $("#schoolPhEmpty").style.display="none";
 }
 async function writeConfig(id,data){ await setDoc(doc(db,"config",id),data); }
 
