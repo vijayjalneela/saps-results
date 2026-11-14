@@ -1801,7 +1801,7 @@ function classDashOne(c,o){ const ex=o.exam, prevEx=EXAMS[EXAMS.indexOf(ex)-1], 
        <h4 style="margin:10px 0 4px">📚 Subjects (class average)</h4>${subs.map((x,i)=>`<div style="display:flex;justify-content:space-between;padding:2px 0"><span>${esc(x.n)}${i===0?" 💪":i===subs.length-1&&subs.length>1?" 🔻 weakest":""}</span><b>${x.a}%</b></div>`).join("")}</div></div></div>`; } }
 /* Teacher home is split into tabs so she picks what to see; the Year / Exam picker on the same row applies to all of them */
 let HTAB=null; try{ HTAB=sessionStorage.getItem("saps_htab"); }catch(_){}
-function homeTabs(){ const ct=(ME.classTeacher||[]).length; const T=(ct?[["class","📋 My class"]]:[]).concat([["summary","📊 My summary"],["engage","🗓 My engagements"],["ach","🏆 Achievements & toppers"],["msg","📬 Message parents"]]);
+function homeTabs(){ const ct=(ME.classTeacher||[]).length; const T=(ct?[["class","📋 My class"]]:[]).concat([["summary","📊 My summary"],["engage","🗓 My engagements"],["ach","🏆 Achievements & toppers"]]).concat(ct?[["msg","📬 Message parents"]]:[]);
   if(!T.some(t=>t[0]===HTAB)) HTAB=T[0][0]; return T; }
 function mineHTML(){ if(!ME||ME.role!=="teacher"||ME.office) return ""; loadSubsAll(); loadCtFees(); homeTabs();
   if(HTAB==="class") return classDashHTML()+myClassHTML();
@@ -3806,36 +3806,38 @@ document.addEventListener("click",async e=>{ if(e.target.id!=="anSend"||!PARENT)
   const d={year:q.year,std:q.std,div:q.div,cls:q.std+"-"+q.div,roll:+q.roll,name:capName(q.name),sid:sidOf({year:q.year,name:capName(q.name),dob:q.dob}),from,to,reason:$("#anWhy").value,note:$("#anNote").value.trim().slice(0,200),at:new Date().toISOString()};
   try{ await setDoc(doc(collection(db,"absenceNotes")),d); toast("✅ Sent. The class teacher will see it when she takes attendance."); e.target.closest("details").open=false; }catch(err){ toast("Couldn't send: "+errMsg(err)); } });
 /* ---------- Parents write to the school (grievance / message), addressed to the class teacher, coordinator or principal ---------- */
-const GV_TO={ct:"Class teacher",coord:"Coordinator",principal:"Principal"}, GV_CAT=["Academics / marks","Homework / teaching","Fees","Transport","Bullying / behaviour","Health / safety","Facilities","Staff conduct","Suggestion","Other"];
+const GV_TO={ct:"Class teacher",coord:"Coordinator",principal:"Principal"}, gvTo=t=>(Array.isArray(t)?t:[t]).map(x=>GV_TO[x]||x).join(", "), GV_CAT=["Academics / marks","Homework / teaching","Fees","Transport","Bullying / behaviour","Health / safety","Facilities","Staff conduct","Suggestion","Other"];
 async function loadGrievances(){ if(!PDATA||!db) return; const ck=await childKey("gv",PDATA.q); if(!ck) return; PDATA.gk=ck; const L=[];
   for(let n=1;n<=30;n++){ try{ const d=await getDoc(doc(db,"grievances",ck+"_"+n)); if(!d.exists()) break; L.push({...d.data(),id:d.id}); }catch(_){ break; } }
   PDATA.gv=L; if(PTAB==="talk") renderParentDash(); }
 function gvParentHTML(){ const L=(PDATA.gv||[]).slice().reverse(), st=x=>`<span class="ctag ${x==="Resolved"?"perm":x==="In progress"?"temp":"none"}">${esc(x)}</span>`;
   return `<div class="card" style="box-shadow:none;background:#f8f6ff"><h3 style="margin:0 0 8px">🗣 Write to the school</h3>
-   <div class="grid g3"><label class="f">To<select class="in" id="gvTo">${Object.entries(GV_TO).map(([k,v])=>`<option value="${k}">${v}</option>`).join("")}</select></label>
+   <div style="margin:0 0 8px"><b>To</b> <span class="hint">(choose one or more)</span><div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:4px">${Object.entries(GV_TO).map(([k,v])=>`<label style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-gvto="${k}" ${k==="ct"?"checked":""}> ${v}</label>`).join("")}</div></div>
+   <div class="grid g3">
     <label class="f">About<select class="in" id="gvCat">${GV_CAT.map(c=>`<option>${c}</option>`).join("")}</select></label>
     <label class="f">Subject<input class="in" id="gvSub" maxlength="120" placeholder="In a few words"></label></div>
    <label class="f">Your message<textarea class="in" id="gvText" rows="4" maxlength="1000" placeholder="Please describe the matter. Don't include bank or card details."></textarea></label>
    <div class="row" style="justify-content:flex-start"><button class="btn pri" type="button" id="gvSend">📨 Send</button></div>
-   <p class="hint" style="margin:6px 0 0">Only the person you choose (and the principal) can read it. You'll see the reply here.</p></div>
+   <p class="hint" style="margin:6px 0 0">Only the people you choose (and the principal) can read it. You'll see the replies here.</p></div>
    <h3 style="margin:16px 0 8px">Your messages</h3>${PDATA.gv==null?`<p class="hint">Loading…</p>`:L.length?L.map(g=>`<div class="card" style="box-shadow:none;margin:0 0 10px;border-left:5px solid ${g.status==="Resolved"?"#0b7a64":"#c4610d"}">
      <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>${esc(g.subject||g.cat)}</b>${st(g.status)}</div>
-     <small class="hint">To ${esc(GV_TO[g.to]||g.to)} · ${esc(g.cat)} · ${esc(fmtD(String(g.at).slice(0,10)))}</small>
+     <small class="hint">To ${esc(gvTo(g.to))} · ${esc(g.cat)} · ${esc(fmtD(String(g.at).slice(0,10)))}</small>
      <p style="margin:6px 0">${esc(g.text)}</p>${(g.replies||[]).map(r=>`<div style="margin:6px 0 0 12px;padding:6px 10px;border-radius:10px;background:${r.by==="parent"?"#f4f4f4":"#eef0e3"}"><small><b>${r.by==="parent"?"You":esc(r.name||"School")+" ("+esc(r.role||"")+")"}</b> · ${esc(fmtD(String(r.at).slice(0,10)))}</small><br>${esc(r.text)}</div>`).join("")}
      ${g.status!=="Resolved"?`<div class="row" style="justify-content:flex-start;margin-top:6px"><input class="in" data-gvmore="${esc(g.id)}" maxlength="500" placeholder="Add to this message…" style="flex:1"><button class="btn sec sm" data-gvadd="${esc(g.id)}">Send</button></div>`:""}</div>`).join(""):`<p class="hint">No messages yet.</p>`}`; }
 document.addEventListener("click",async e=>{ if(!PDATA) return;
   if(e.target.id==="gvSend"){ const text=$("#gvText").value.trim(); if(text.length<5) return toast("Please write your message"); if(!PDATA.gk) return toast("Please wait a moment and try again");
     const n=(PDATA.gv||[]).length+1; if(n>30) return toast("Too many messages for this child. Please contact the school office.");
-    const q=PDATA.q, d={year:q.year,std:q.std,div:q.div,cls:q.std+"-"+q.div,roll:+q.roll,name:capName(q.name),to:$("#gvTo").value,cat:$("#gvCat").value,subject:$("#gvSub").value.trim().slice(0,120),text:text.slice(0,1000),status:"Open",replies:[],at:new Date().toISOString()};
-    confirmBox("Send this message?",`To the ${GV_TO[d.to]}: ${d.subject||d.cat}.`,"Send",async()=>{ try{ await setDoc(doc(db,"grievances",PDATA.gk+"_"+n),d); toast("✅ Sent. You'll see the reply here."); PDATA.gv=[...(PDATA.gv||[]),{...d,id:PDATA.gk+"_"+n}]; renderParentDash(); }catch(err){ toast("Couldn't send: "+errMsg(err)); } }); return; }
+    const to=[...document.querySelectorAll("[data-gvto]:checked")].map(x=>x.dataset.gvto); if(!to.length) return toast("Choose who should receive it");
+    const q=PDATA.q, d={year:q.year,std:q.std,div:q.div,cls:q.std+"-"+q.div,roll:+q.roll,name:capName(q.name),to,cat:$("#gvCat").value,subject:$("#gvSub").value.trim().slice(0,120),text:text.slice(0,1000),status:"Open",replies:[],at:new Date().toISOString()};
+    confirmBox("Send this message?",`To the ${gvTo(d.to)}: ${d.subject||d.cat}.`,"Send",async()=>{ try{ await setDoc(doc(db,"grievances",PDATA.gk+"_"+n),d); toast("✅ Sent. You'll see the reply here."); PDATA.gv=[...(PDATA.gv||[]),{...d,id:PDATA.gk+"_"+n}]; renderParentDash(); }catch(err){ toast("Couldn't send: "+errMsg(err)); } }); return; }
   const a=e.target.closest("[data-gvadd]"); if(a){ const g=(PDATA.gv||[]).find(x=>x.id===a.dataset.gvadd), inp=document.querySelector(`[data-gvmore="${a.dataset.gvadd}"]`), t=inp&&inp.value.trim(); if(!g||!t) return;
     const replies=[...(g.replies||[]),{by:"parent",text:t.slice(0,500),at:new Date().toISOString()}]; try{ await setDoc(doc(db,"grievances",g.id),{...Object.fromEntries(Object.entries(g).filter(([k])=>k!=="id")),replies,updatedAt:new Date().toISOString()}); g.replies=replies; g.updatedAt=new Date().toISOString(); renderParentDash(); toast("Added ✓"); }catch(err){ toast("Couldn't send: "+errMsg(err)); } } });
 /* staff side: messages addressed to me */
 let GVS={}, unsubGV=[];
 function startGrievances(){ if(!db||!ME||unsubGV.length) return; const qs=[];
   if(isPrinRole()) qs.push(query(collection(db,"grievances"),where("year","==",stuY())));
-  else { if(isCoordMe()) qs.push(query(collection(db,"grievances"),where("to","==","coord"),where("year","==",stuY())));
-    const ct=ME.classTeacher||[]; if(ct.length) qs.push(query(collection(db,"grievances"),where("to","==","ct"),where("cls","in",ct.slice(0,10)),where("year","==",stuY()))); }
+  else { if(isCoordMe()) qs.push(query(collection(db,"grievances"),where("to","array-contains","coord"),where("year","==",stuY())));
+    const ct=ME.classTeacher||[]; if(ct.length) qs.push(query(collection(db,"grievances"),where("to","array-contains","ct"),where("cls","in",ct.slice(0,10)),where("year","==",stuY()))); }
   const parts=qs.map(()=>({}));
   qs.forEach((q,i)=>unsubGV.push(onSnapshot(q,sn=>{ const m={}; sn.forEach(d=>m[d.id]={...d.data(),id:d.id}); parts[i]=m; GVS=Object.assign({},...parts); homeRefresh(); const g=$("#dashGV"); if(g) g.innerHTML=gvStaffHTML(); },()=>{}))); }
 function stopGrievances(){ unsubGV.forEach(u=>u()); unsubGV=[]; GVS={}; }
@@ -3844,7 +3846,7 @@ function gvStaffHTML(){ const L=Object.values(GVS).sort((a,b)=>(a.status==="Reso
   return `<div class="card" style="box-shadow:none;margin:0 0 14px;border-left:5px solid #c4610d"><details ${open.length?"open":""}><summary style="cursor:pointer"><b>🗣 Messages from parents</b> · ${open.length} open${L.length>open.length?`, ${L.length-open.length} resolved`:""}</summary>
    ${L.slice(0,20).map(g=>`<div style="border-top:1px dashed var(--line);padding:8px 0">
      <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><span><b>${esc(g.subject||g.cat)}</b> · parent of <b>${esc(g.name)}</b> (${esc(g.cls)}, roll ${esc(g.roll)})</span><span class="ctag ${g.status==="Resolved"?"perm":g.status==="In progress"?"temp":"none"}">${esc(g.status)}</span></div>
-     <small class="hint">To ${esc(GV_TO[g.to]||g.to)} · ${esc(g.cat)} · ${esc(fmtD(String(g.at).slice(0,10)))}</small><p style="margin:4px 0">${esc(g.text)}</p>
+     <small class="hint">To ${esc(gvTo(g.to))} · ${esc(g.cat)} · ${esc(fmtD(String(g.at).slice(0,10)))}</small><p style="margin:4px 0">${esc(g.text)}</p>
      ${(g.replies||[]).map(r=>`<div style="margin:4px 0 0 12px;padding:5px 9px;border-radius:9px;background:${r.by==="parent"?"#f4f4f4":"#eef0e3"}"><small><b>${r.by==="parent"?"Parent":esc(r.name||"")+" ("+esc(r.role||"")+")"}</b> · ${esc(fmtD(String(r.at).slice(0,10)))}</small><br>${esc(r.text)}</div>`).join("")}
      ${g.status!=="Resolved"?`<div class="row" style="justify-content:flex-start;margin-top:6px;flex-wrap:wrap"><input class="in" data-gvrt="${esc(g.id)}" maxlength="800" placeholder="Reply to the parent…" style="flex:1;min-width:220px"><select class="in" data-gvst="${esc(g.id)}" style="max-width:150px">${["Open","In progress","Resolved"].map(x=>`<option ${x===g.status?"selected":""}>${x}</option>`).join("")}</select><button class="btn pri sm" data-gvreply="${esc(g.id)}">Send</button></div>`:""}</div>`).join("")}</details></div>`; }
 document.addEventListener("click",async e=>{ const b=e.target.closest("[data-gvreply]"); if(!b||!ME) return; const g=GVS[b.dataset.gvreply]; if(!g) return;
@@ -3853,7 +3855,8 @@ document.addEventListener("click",async e=>{ const b=e.target.closest("[data-gvr
   try{ const {id,...rest}=g; await setDoc(doc(db,"grievances",g.id),{...rest,replies,status:st,updatedAt:new Date().toISOString()}); toast("✓ Sent to the parent"); }catch(err){ toast("Couldn't send: "+errMsg(err)); } });
 /* ---------- Teachers message parents: one child or the whole class. The coordinator always gets a copy; the principal if chosen. ---------- */
 let PMLOG={}, unsubPMS=[];
-function pmClasses(){ return [...new Set([...(ME.classTeacher||[]),...myClasses()])].sort((a,b)=>ALLCLS.indexOf(a)-ALLCLS.indexOf(b)); }
+/* only the class teacher messages the parents of her class */
+function pmClasses(){ return [...(ME.classTeacher||[])].sort((a,b)=>ALLCLS.indexOf(a)-ALLCLS.indexOf(b)); }
 function startPmLog(){ if(!db||!ME||unsubPMS.length) return; const qs=[];
   if(isCoordMe()) qs.push(query(collection(db,"parentMsgs"),where("year","==",stuY())));
   else if(isPrinRole()) qs.push(query(collection(db,"parentMsgs"),where("ccPrincipal","==",true),where("year","==",stuY())));
@@ -3882,7 +3885,7 @@ document.addEventListener("click",async e=>{ if(e.target.id!=="pmSend"||!ME) ret
   if(!sub||text.length<5) return toast("Please write the subject and the message"); if(!pmClasses().includes(c)) return;
   const S=PMF.kind==="child"?allStudents().filter(x=>x.sid===PMF.sid):allStudents().filter(x=>x.cls===c&&!x.left&&!x.pending&&x.r.dob);
   if(!S.length) return toast(PMF.kind==="child"?"Choose the child":"No families with a date of birth on the register");
-  const role=(ME.classTeacher||[]).includes(c)?"Class teacher":"Subject teacher";
+  const role="Class teacher";
   confirmBox("Send this message?",`${PMF.kind==="child"?`To the parents of ${S[0].name} (${c})`:`To all ${S.length} families of ${c}`}: "${sub}". The coordinator gets a copy${cc?", and the principal":""}.`,"Send",async()=>{
     try{ const at=new Date().toISOString(), item={subject:sub.slice(0,120),text:text.slice(0,1500),from:ME.name||"",role,kind:PMF.kind,at};
       for(const x of S){ const k=await childKey("pn",{...x.r,year:stuY(),std:x.std,div:x.div,roll:x.roll,name:x.name}); if(!k) continue; const ref=doc(db,"inbox",k); let old=null; try{ const d=await getDoc(ref); old=d.exists()?d.data():null; }catch(_){}

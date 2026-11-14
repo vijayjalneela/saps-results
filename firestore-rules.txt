@@ -318,7 +318,7 @@ service cloud.firestore {
     }
 
     // ---- Teachers' messages to parents: each child's inbox (private hash key) plus a log for the office ----
-    function teachesCls(c) { return isTeacher() && (c in me().get('classTeacher', []) || c in me().get('classes', [])); }
+    function teachesCls(c) { return isTeacher() && c in me().get('classTeacher', []); }   // class teacher of that class only
     match /inbox/{key} {
       allow get: if true;
       allow create, update: if (isOffice() || teachesCls(request.resource.data.cls))
@@ -336,14 +336,15 @@ service cloud.firestore {
 
     // ---- Parents writing to the class teacher, coordinator or principal ----
     function gvStaff(d) {
-      return isPrincipalRole() || (isCoord() && d.to == 'coord')
-        || (isTeacher() && d.to == 'ct' && d.cls in me().get('classTeacher', []));
+      return isPrincipalRole() || (isCoord() && d.to is list && 'coord' in d.to)
+        || (isTeacher() && d.to is list && 'ct' in d.to && d.cls in me().get('classTeacher', []));
     }
     match /grievances/{id} {
       allow get: if true;
       allow list: if gvStaff(resource.data);
       allow create: if request.resource.data.keys().hasOnly(['year', 'std', 'div', 'cls', 'roll', 'name', 'to', 'cat', 'subject', 'text', 'status', 'replies', 'at'])
-        && request.resource.data.to in ['ct', 'coord', 'principal'] && request.resource.data.status == 'Open'
+        && request.resource.data.to is list && request.resource.data.to.size() >= 1 && request.resource.data.to.size() <= 3
+        && request.resource.data.to.toSet().hasOnly(['ct', 'coord', 'principal']) && request.resource.data.status == 'Open'
         && request.resource.data.replies is list && request.resource.data.replies.size() == 0
         && request.resource.data.text is string && request.resource.data.text.size() <= 1000
         && request.resource.data.subject is string && request.resource.data.subject.size() <= 120
