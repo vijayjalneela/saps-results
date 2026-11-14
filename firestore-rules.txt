@@ -317,14 +317,6 @@ service cloud.firestore {
       allow delete: if isPrincipalRole();
     }
 
-    // ---- Counselling notes the school chose to share with parents (key = private hash of the child's details) ----
-    match /parentNotes/{key} {
-      allow get: if true;
-      allow create, update: if (isOffice() || (isTeacher() && request.resource.data.cls in me().get('classTeacher', [])))
-        && request.resource.data.cls is string && request.resource.data.items is list && request.resource.data.items.size() <= 30;
-      allow delete: if isPrincipalRole();
-    }
-
     // ---- Teachers' messages to parents: each child's inbox (private hash key) plus a log for the office ----
     function teachesCls(c) { return isTeacher() && (c in me().get('classTeacher', []) || c in me().get('classes', [])); }
     match /inbox/{key} {
