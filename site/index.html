@@ -289,7 +289,7 @@ body.staff #v-home.on{display:flex;flex-direction:column}
 body.staff #homeTicker{order:-1;margin:0 0 14px}
 #authLoad{display:none;text-align:center;padding:40px 10px;color:var(--muted);font-weight:700}
 body.authwait #authLoad{display:block}
-body:not(.parent) .parent-only{display:none!important}
+body:not(.parent) .parent-only{display:none!important}body.parent #v-results .p-hero{display:none}body.parent #navHome{display:none!important}
 body.staff .parent-only{display:none!important}
 body:not(.principal) .pr-only{display:none!important}
 .note{background:#f8f6ff;border:1px dashed #cfc6f5;border-radius:14px;padding:10px 14px;font-size:13px;font-weight:700;color:#5a5684;margin:10px 0}
@@ -567,7 +567,7 @@ footer{background:var(--navy);color:#c9cfbd!important;padding:22px 16px!importan
     <div class="who staff-only"><span id="whoName"></span><button type="button" class="btn sm" data-signout id="hdrOut">⏻ Log out</button></div>
     <div class="who parent-only"><span id="parentName"></span><button type="button" class="btn sm" data-parentout>⏻ Log out</button></div>
     <nav class="tabs">
-      <a href="#home" data-v="home" id="navHome">Home</a>
+      <a href="#home" data-v="home" id="navHome">Home</a><a href="#results" data-v="results" class="parent-only" id="navChild">👪 My child</a>
       <a href="#notices" data-v="pub">📢 Notices</a>
       <a href="#achievements" data-v="pub">🏆 Achievements</a>
       <a href="#school" data-v="pub" id="navDisc">📋 Disclosure</a>
@@ -1694,15 +1694,13 @@ $("#lookup").addEventListener("submit",async e=>{
   finally{ if(btn){btn.disabled=false;btn.textContent="🔐 Open";} }
   let fd=null; try{ const fk=await feeKey(q); const d2=fk?await getDoc(doc(db,"fees",fk)):null; fd=d2&&d2.exists()?d2.data():null; }catch(_){}
   const feeBox=(fd||r)?feePanelHTML(fd,{...q,name:(fd&&fd.name)||(r&&r.name)||capName(q.name)}):"";
-  if(!r&&fd){ parentIn(q,fd.name); out.innerHTML=feeBox+absFormHTML()+`<div class="card" style="margin-top:14px;text-align:center"><p style="color:var(--muted);margin:0">The report card for ${esc(q.term)} isn't published yet.</p></div>`; out.scrollIntoView({behavior:"smooth",block:"start"}); return; }
+  if(!r&&fd){ parentIn(q,fd.name); PDATA={q,r:null,fd,list:null}; PTAB="fees"; renderParentDash(); window.scrollTo(0,0); loadProgress({...q,name:fd.name}).then(list=>{ if(PDATA&&PDATA.q===q){ PDATA.list=list; const last=list.filter(x=>x.rec).pop(); if(last){ PDATA.r=last.rec; } renderParentDash(); } }); return; }
   if(!r){
     out.innerHTML=`<div class="card" style="margin-top:22px;text-align:center"><div style="font-size:40px">🔎</div><h3>No result found</h3><p style="color:var(--muted)">Please check the class, section, roll number, date of birth and the spelling of the name. If they're right, the result may not be published yet.</p></div>`;
     return;
   }
-  parentIn(q,r.name);
-  out.innerHTML=feeBox+absFormHTML()+reportCard(r)+`<div style="text-align:center;margin:14px 0"><button class="btn sec" id="rcPrint">🖨 Print / Save PDF</button><button class="btn warn" data-parentout style="margin-left:8px">⏻ Log out</button></div><div id="progOut"><div class="prog"><p class="sub">Loading progress across exams…</p></div></div>`;
-  out.scrollIntoView({behavior:"smooth",block:"start"});
-  loadProgress(r).then(list=>{ $("#progOut").innerHTML=progressHTML(r,list); });
+  parentIn(q,r.name); PDATA={q,r,fd,list:null}; PTAB="card"; renderParentDash(); window.scrollTo(0,0);
+  loadProgress(r).then(list=>{ if(PDATA&&PDATA.q===q){ PDATA.list=list; renderParentDash(); } });
 });
 
 /* ---------- Home stats ---------- */
@@ -3805,20 +3803,44 @@ document.addEventListener("click",async e=>{ if(e.target.id!=="anSend"||!PARENT)
   if(!from) return toast("Please pick the date"); if(to<from) return toast("'To' can't be before 'From'");
   const d={year:q.year,std:q.std,div:q.div,cls:q.std+"-"+q.div,roll:+q.roll,name:capName(q.name),sid:sidOf({year:q.year,name:capName(q.name),dob:q.dob}),from,to,reason:$("#anWhy").value,note:$("#anNote").value.trim().slice(0,200),at:new Date().toISOString()};
   try{ await setDoc(doc(collection(db,"absenceNotes")),d); toast("✅ Sent. The class teacher will see it when she takes attendance."); e.target.closest("details").open=false; }catch(err){ toast("Couldn't send: "+errMsg(err)); } });
+/* ---------- Parent dashboard: one page for their own child, with tabs ---------- */
+let PDATA=null, PTAB="card";
+function renderParentDash(){ const out=$("#rcOut"); if(!out||!PDATA) return; const {q,r,fd,list}=PDATA, name=(r&&r.name)||(fd&&fd.name)||capName(q.name);
+  const exams=(list||[]).filter(x=>x.rec), t=todayISO();
+  const up=Object.values(NOTICES||{}).filter(n=>n.date&&n.date>=t).sort((a,b)=>a.date.localeCompare(b.date));
+  const tabs=[["card","📄 Report card"],["prog","📈 Progress"],["fees","💳 Fees"],["abs","✉️ Absence note"],["news",`📢 Notices${up.length?` (${up.length})`:""}`]];
+  let body="";
+  if(PTAB==="card") body=r?`${exams.length>1?`<div class="apick" style="margin:0 0 10px">${exams.map(x=>`<button class="chip ${x.rec.term===r.term?"on":""}" data-pex="${esc(x.term)}">${esc(lab(x.term))}</button>`).join("")}</div>`:""}${reportCard(r)}<div style="text-align:center;margin:14px 0"><button class="btn sec" id="rcPrint">🖨 Print / Save PDF</button></div>`
+    :`<div class="card" style="text-align:center"><p style="color:var(--muted);margin:0">No report card is published yet for ${esc(name)}.</p></div>`;
+  else if(PTAB==="prog") body=r?(list?`<div id="progOut">${progressHTML(r,list)}</div>`:`<div class="prog"><p class="sub">Loading progress across exams…</p></div>`):`<div class="empty">Progress appears once a report card is published.</div>`;
+  else if(PTAB==="fees") body=fd?feePanelHTML(fd,{...q,name}):`<div class="empty">Fee details are not available yet.</div>`;
+  else if(PTAB==="abs") body=absFormHTML().replace("<details","<details open");
+  else body=`<div class="card" style="box-shadow:none">${up.length?up.map(n=>`<div style="display:flex;gap:12px;padding:8px 0;border-bottom:1px dashed var(--line)"><b style="min-width:80px">${esc(fmtD(n.date))}</b><span>${ntIcon(n.type)} <b>${esc(n.title)}</b>${n.text?`<br><small class="hint">${esc(String(n.text).slice(0,160))}</small>`:""}</span></div>`).join(""):`<p class="hint" style="margin:0">No upcoming notices.</p>`}<p style="margin:10px 0 0"><a href="#notices">All notices →</a></p></div>`;
+  out.innerHTML=`<div class="card" style="margin-top:0;border-left:6px solid #ff9933"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+     <div><h2 style="margin:0">👪 ${esc(name)}</h2><p class="hint" style="margin:2px 0 0">Class ${esc(q.std)}-${esc(q.div)} · Roll ${esc(q.roll)} · ${esc(q.year)}</p></div>
+     <button class="btn warn sm" data-parentout>⏻ Log out</button></div>
+     <div class="atabs" style="margin:12px 0 0">${tabs.map(([k,l])=>`<button data-ptab="${k}" class="${PTAB===k?"on":""}">${l}</button>`).join("")}</div></div><div style="margin-top:14px">${body}</div>`; }
+document.addEventListener("click",e=>{ const b=e.target.closest("[data-ptab],[data-pex]"); if(!b||!PDATA) return;
+  if(b.dataset.ptab){ PTAB=b.dataset.ptab; try{ sessionStorage.setItem("saps_ptab",PTAB); }catch(_){} renderParentDash(); return; }
+  const x=(PDATA.list||[]).find(z=>z.term===b.dataset.pex); if(x&&x.rec){ PDATA.r=x.rec; renderParentDash(); } });
+/* parents stay on their child's page: Home and the login door lead back to it */
+window.addEventListener("hashchange",()=>{ if(!PARENT) return; if(["#home","","#"].includes(location.hash)){ location.hash="results"; return; } if(location.hash==="#results"){ if(PDATA) renderParentDash(); else restoreParent(); } });
 /* ---------- Parents: a "session" is just the child's details in this tab; Log out clears everything ---------- */
 let PARENT=null;
 function parentIn(q,name){ PARENT={...q}; document.body.classList.add("parent"); $("#parentName").textContent="Parent of "+(name||q.name); markActive();
   try{ sessionStorage.setItem("saps_parent",JSON.stringify(q)); sessionStorage.setItem("saps_lastActive",String(Date.now())); }catch(_){} }
-function parentOut(msg){ PARENT=null; document.body.classList.remove("parent"); try{ sessionStorage.removeItem("saps_parent"); }catch(_){}
+function parentOut(msg){ PARENT=null; PDATA=null; PTAB="card"; document.body.classList.remove("parent"); try{ sessionStorage.removeItem("saps_ptab"); }catch(_){} try{ sessionStorage.removeItem("saps_parent"); }catch(_){}
   $("#rcOut").innerHTML=""; ["#qRoll","#qName","#qDob"].forEach(x=>{ const el=$(x); if(el) el.value=""; }); if(location.hash==="#results") window.scrollTo(0,0); toast(msg||"Logged out. Your child's details are cleared from this screen."); }
 document.addEventListener("click",e=>{ if(e.target.closest("[data-parentout]")) parentOut(); });
 setInterval(()=>{ if(!PARENT) return; let last=0; try{ last=+(sessionStorage.getItem("saps_lastActive")||0); }catch(_){} if(last&&(Date.now()-last)/60000>=IDLE_MIN) parentOut(`🔒 Logged out after ${IDLE_MIN} minutes without activity.`); },5000);
 /* a refresh keeps the parent signed in (same tab only) */
-setTimeout(()=>{ let q=null; try{ q=JSON.parse(sessionStorage.getItem("saps_parent")||"null"); }catch(_){} if(!q) return;
+function restoreParent(){ let q=null; try{ q=JSON.parse(sessionStorage.getItem("saps_parent")||"null"); }catch(_){} if(!q) return;
   let last=0; try{ last=+(sessionStorage.getItem("saps_lastActive")||0); }catch(_){} if(last&&(Date.now()-last)/60000>=IDLE_MIN){ try{ sessionStorage.removeItem("saps_parent"); }catch(_){} return; }
-  if(location.hash!=="#results") return; const set=(id,v)=>{ const el=$(id); if(el){ el.value=v; el.dispatchEvent(new Event("change",{bubbles:true})); } };
+  parentIn(q,q.name); if(location.hash!=="#results"){ if(["#home","","#"].includes(location.hash)) location.hash="results"; else return; }
+  const keepTab=(()=>{ try{ return sessionStorage.getItem("saps_ptab"); }catch(_){ return null; } })(); const set=(id,v)=>{ const el=$(id); if(el){ el.value=v; el.dispatchEvent(new Event("change",{bubbles:true})); } };
   set("#qYear",q.year); set("#qTerm",q.term); set("#qStd",q.std); set("#qDiv",q.div); set("#qRoll",q.roll); set("#qName",q.name); set("#qDob",q.dob);
-  $("#lookup").requestSubmit(); },1200);
+  $("#lookup").requestSubmit(); if(keepTab) setTimeout(()=>{ if(PDATA){ PTAB=keepTab; renderParentDash(); } },1500); }
+setTimeout(restoreParent,1200);
 
 /* init */
 renderStSubj(); renderCP(); resetSubjects(); resetNS(); renderClassList(); renderStats(); route(); showGate("gSignin");
