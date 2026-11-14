@@ -223,6 +223,13 @@ table.rct td:first-child,table.rct th:first-child{text-align:left;font-weight:80
 .school-photo .ph-empty svg{width:62%;max-width:300px}
 .school-photo .cap{position:absolute;left:12px;bottom:12px;background:rgba(31,29,58,.72);color:#fff;font-weight:800;font-size:13px;padding:6px 12px;border-radius:999px}
 .edit-only{display:none!important}
+.ticker{display:flex;align-items:center;gap:10px;margin:14px 0 0;padding:9px 14px;border-radius:14px;background:#1f1a3d;color:#fff;text-decoration:none;overflow:hidden;font-weight:700;font-size:14px}
+.ticker .tk-l{flex:none;background:#ff5a7a;border-radius:8px;padding:2px 10px;font-weight:900}
+.ticker .tk-w{overflow:hidden;flex:1;white-space:nowrap}
+.ticker .tk-m{display:inline-block;padding-left:100%;animation:tk 28s linear infinite}
+.ticker:hover .tk-m{animation-play-state:paused}
+@keyframes tk{to{transform:translateX(-100%)}}
+@media (prefers-reduced-motion:reduce){.ticker .tk-m{animation:none;padding-left:0}}
 body.principal .edit-only,body.office .edit-only{display:inline-flex!important}
 .school-photo .edit-only{position:absolute;right:12px;top:12px}
 .parade{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:22px 0 4px}
@@ -462,6 +469,8 @@ table.pt.duty td{font-size:13px;padding:6px 6px}
     <div class="brand" id="brandName">Shivneri Army Public School<small>Results Portal · Aundh Mil. Station, Pune</small></div>
     <nav class="tabs">
       <a href="#home" data-v="home">Home</a>
+      <a href="#notices" data-v="pub">📢 Notices</a>
+      <a href="#achievements" data-v="pub">🏆 Achievements</a>
       <a href="#school" data-v="pub">📋 Disclosure</a>
       <a href="#teacher" data-v="teacher" class="staff-only" id="navEntry">Results entry</a>
       <a href="#dashboard" data-v="dashboard" class="pr-only">Dashboard</a>
@@ -478,6 +487,7 @@ table.pt.duty td{font-size:13px;padding:6px 6px}
 
 <!-- ================= HOME ================= -->
 <section class="view" id="v-home">
+  <a id="homeTicker" href="#notices" class="ticker" style="display:none"></a>
   <div class="hero home-hero">
     <div class="bubbles"><span style="width:220px;height:220px;left:-70px;bottom:-90px"></span><span style="width:70px;height:70px;left:44%;top:18px"></span></div>
     <div style="position:relative">
@@ -495,6 +505,7 @@ table.pt.duty td{font-size:13px;padding:6px 6px}
     </div>
   </div>
 
+  <div id="homeFlash"></div>
   <div class="parade">
     <div class="pal"><div data-animal="lion"></div><b>Leo says</b><span>Be brave, ask questions!</span></div>
     <div class="pal"><div data-animal="elephant"></div><b>Ellie says</b><span>Read a little every day.</span></div>
@@ -910,7 +921,7 @@ function errMsg(err){ const c=(err&&err.code)||String(err); if(c.includes("permi
 async function reportKey(r){ if(!r||!r.dob||!crypto.subtle) return null;
   const t=[r.year,r.term,r.std,r.div,String(r.roll),normName(r.name),String(r.dob).trim()].join("|");
   const h=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(t)); return [...new Uint8Array(h)].map(b=>b.toString(16).padStart(2,"0")).join(""); }
-function publicCopy(store){ const o=JSON.parse(JSON.stringify(store)); delete o.updatedBy; delete o._raw; delete o.id; delete o.rank; delete o.unit; delete o.phone; { const c=(typeof STUDOCS!=="undefined"&&STUDOCS[sidOf(store)]||{}).consent; if(!(c&&c.photo)) delete o.photo; } Object.values(o.marks||{}).forEach(m=>{ if(m) delete m.by; }); o.cls=o.std+"-"+o.div; return o; }
+function publicCopy(store){ const o=JSON.parse(JSON.stringify(store)); delete o.updatedBy; delete o._raw; delete o.id; delete o.rank; delete o.unit; delete o.phone; delete o.sid; { const c=(typeof STUDOCS!=="undefined"&&STUDOCS[sidOf(store)]||{}).consent; if(!(c&&c.photo)) delete o.photo; } Object.values(o.marks||{}).forEach(m=>{ if(m) delete m.by; }); o.cls=o.std+"-"+o.div; return o; }
 async function saveRecord(id,store){
   const before=RECORDS[id]; const oldK=before?await reportKey(before._raw||before):null, newK=await reportKey(store);
   await setDoc(doc(db,"results",id),store);
@@ -931,7 +942,7 @@ function buildStore(r,orig){
     out.updatedAt=r.updatedAt; out.updatedBy=ME.email; return out;
   }
   const {subjects:subs,_raw,...rest}=r;
-  const out={...rest,cls:rest.std+"-"+rest.div,subjectList:subs.map(x=>x.name),marks:{},updatedBy:ME.email};
+  const out={...rest,cls:rest.std+"-"+rest.div,sid:sidOf(rest),subjectList:subs.map(x=>x.name),marks:{},updatedBy:ME.email};
   subs.forEach(x=>{ const o=rawMarks[x.name];
     if(canEditSubject(x.name,cls)){ const m=markOf(x); out.marks[x.name]=(o&&sameMarks(m,o))?o:{...m,by:ME.email}; }
     else if(o) out.marks[x.name]=o; });
@@ -962,7 +973,7 @@ function startTeacherData(year){
     const next={}; snap.forEach(d=>{ next[d.id]=fromStore(d.data(),d.id); }); RECORDS=next; refreshAll(); renderRoleBar();
   },err=>{ toast("Couldn't load results: "+errMsg(err)); });
 }
-function stopTeacherData(){ stopStu(); if(unsubResults){unsubResults();unsubResults=null;} RECORDS={}; LOAD={year:null,all:false,key:""}; refreshAll(); }
+function stopTeacherData(){ stopStu(); stopEDUT(); if(unsubResults){unsubResults();unsubResults=null;} RECORDS={}; LOAD={year:null,all:false,key:""}; refreshAll(); }
 function classLoaded(c){ return isOffice()||LOAD.all||myClasses().includes(c); }
 if(db){
   onSnapshot(doc(db,"config","home"),d=>{ if(d.exists()){ HOME={...DEFAULT_PR,...d.data()}; renderHome(); } },()=>{});
@@ -974,10 +985,10 @@ if(db){
 function route(){
   if(window._actionMode){ document.querySelectorAll(".view").forEach(s=>s.classList.toggle("on",s.id==="v-action")); return; }
   const v=(location.hash||"#home").slice(1);
-  const name=["home","teacher","principal","coordinator","adminlogin","results","admin","analysis","dashboard","timetable","students","school","privacy"].includes(v)?v:"home"; if(name==="school"||name==="privacy") setTimeout(renderPub,0); if(name==="students"){ if(!ME){ location.hash="teacher"; return; } startTT(); setTimeout(renderStu,0); } if(name==="timetable"){ if(!ME){ location.hash="teacher"; return; } startTT(); setTimeout(renderTT,0); } if(name==="dashboard") setTimeout(()=>renderDash(),0); if(name==="analysis") setTimeout(renderAnalysis,0);
+  const name=["home","teacher","principal","coordinator","adminlogin","results","admin","analysis","dashboard","timetable","students","school","privacy","notices","achievements"].includes(v)?v:"home"; if(["school","privacy","notices","achievements"].includes(name)) setTimeout(renderPub,0); if(name==="students"){ if(!ME){ location.hash="teacher"; return; } startTT(); setTimeout(renderStu,0); } if(name==="timetable"){ if(!ME){ location.hash="teacher"; return; } startTT(); setTimeout(renderTT,0); } if(name==="dashboard") setTimeout(()=>renderDash(),0); if(name==="analysis") setTimeout(renderAnalysis,0);
   if(name==="teacher"||name==="principal"||name==="coordinator"||name==="adminlogin") setLoginMode(name==="adminlogin"?"admin":name);
   if(name==="adminlogin"&&ME&&ME.role==="admin"){ location.hash="admin"; return; }
-  const view=(name==="principal"||name==="coordinator"||name==="adminlogin")?"teacher":(name==="school"||name==="privacy")?"pub":name;
+  const view=(name==="principal"||name==="coordinator"||name==="adminlogin")?"teacher":["school","privacy","notices","achievements"].includes(name)?"pub":name;
   document.querySelectorAll(".view").forEach(s=>s.classList.toggle("on",s.id==="v-"+view));
   document.querySelectorAll("nav.tabs a").forEach(a=>a.classList.toggle("on",a.dataset.v===view));
   window.scrollTo(0,0);
@@ -1133,6 +1144,12 @@ function collect(){
   r.id=idFor(r); return r;
 }
 const vStr=v=>v==null?"":String(v);
+/* typing a roll no. for a new entry fills the child's details from the admission register */
+document.addEventListener("change",e=>{ if(e.target.id!=="fRoll"||editingId) return; const cls=$("#fStd").value+"-"+$("#fDiv").value, roll=+e.target.value;
+  const s=allStudents().find(x=>x.cls===cls&&x.roll===roll&&!x.left); if(!s||$("#fName").value.trim()) return; const d={...s.r,...s.doc};
+  $("#fName").value=d.name||""; $("#fDob").value=d.dob||""; $("#fGender").value=d.gender||""; $("#fAdm").value=d.adm||""; $("#fFather").value=d.father||""; $("#fMother").value=d.mother||"";
+  if(d.category){ const rb=document.querySelector(`input[name=cat][value="${d.category}"]`); if(rb){ rb.checked=true; setCat(d.category); } $("#fBranch").value=d.branch||""; $("#fRankGrp").value=d.rankGroup||""; }
+  toast(`Filled in from the register: ${d.name}`); });
 function loadIntoForm(r){ openedAt=((r&&(r._raw||r).updatedAt)||""); staleOK=null;
   editingId=r.id;
   $("#fYear").value=r.year;$("#fTerm").value=r.term;$("#fStd").value=r.std;$("#fDiv").value=r.div;
@@ -1184,6 +1201,9 @@ $("#entry").addEventListener("submit",async e=>{
     if(!orig) return toast("Ask the class teacher or principal to add this student first");
     if(!r.subjects.some(x=>canEditSubject(x.name,cls))) return toast("You can view this class, but not change it");
   }
+  if(!orig&&!isOffice()){ const sd=STUDOCS[sidOf(r)], known=Object.values(RECORDS).some(x=>sidOf(x)===sidOf(r));
+    if(!known&&!(sd&&sd.status!=="left")) return toast("New students are admitted by the coordinator (Students → Admissions). Check the name and date of birth match the register.");
+    if(sd&&sd.admission==="pending") return toast("This admission is still waiting for the principal's approval"); }
   const store=buildStore(r,orig), newId=details?r.id:editingId;
   $("#saveBtn").disabled=true;
   try{
@@ -1547,7 +1567,7 @@ async function loadMe(u){
   window._freshLogin=false;
   ME={email:em,name:(sd&&sd.name)||(admin?"Admin":em),role,subjects:(sd&&sd.subjects)||[],classes:(sd&&sd.classes)||[],classTeacher:(sd&&sd.classTeacher)||[],teaches:(sd&&sd.teaches)||{},coordinator:!!(sd&&sd.coordinator),office,acting};
   document.body.classList.toggle("admin",admin); document.body.classList.add("staff"); document.body.classList.toggle("principal",admin||((sd&&sd.role)==="principal")); document.body.classList.toggle("office",admin||role==="principal"||office);
-  canWrite=true; { const c0=(ME.classTeacher||[])[0]||(ME.classes||[])[0]; if(ME.role==="teacher"&&c0){ const [cs,cd]=c0.split("-"); $("#aStd").value=cs; $("#aDiv").value=cd; $("#fStd").value=cs; $("#fDiv").value=cd; } } setUnlocked(true); startTeacherData(); startStaffData(); startStu(); startDrafts();
+  canWrite=true; { const c0=(ME.classTeacher||[])[0]||(ME.classes||[])[0]; if(ME.role==="teacher"&&c0){ const [cs,cd]=c0.split("-"); $("#aStd").value=cs; $("#aDiv").value=cd; $("#fStd").value=cs; $("#fDiv").value=cd; } } setUnlocked(true); startTeacherData(); startStaffData(); startStu(); startDrafts(); startEDUT();
   renderRoleBar(); renderMarks(); renderStats(); toast(`Welcome, ${ME.name}`);
   $("#navEntry").href=role==="principal"?"#principal":loginAs==="coordinator"?"#coordinator":"#teacher";
   if(office&&(location.hash==="#coordinator"||location.hash==="#teacher"&&acting)) location.hash="students";
@@ -1639,7 +1659,7 @@ $("#delSample").onclick=()=>{ if(!isFull()) return asOffice("delSample","Delete 
     const rk=(await Promise.all(ids.map(id=>reportKey(RECORDS[id]._raw||RECORDS[id])))).filter(Boolean);
     let extra=[]; try{ const [lv,sb,tt]=await Promise.all([getDocs(collection(db,"leaves")),getDocs(collection(db,"subs")),getDocs(collection(db,"timetable"))]);
       try{ const du=await getDocs(collection(db,"duties")); du.forEach(d=>{ if(d.data().sample) extra.push(["duties",d.id]); }); }catch(_){}
-      for(const c of ["students","studentNotes","attendance","staffAtt"]){ try{ const q=await getDocs(collection(db,c)); q.forEach(d=>{ if(d.data().sample) extra.push([c,d.id]); }); }catch(_){} }
+      for(const c of ["students","studentNotes","attendance","staffAtt","tcs","notices","achievements","eventDuties"]){ try{ const q=await getDocs(collection(db,c)); q.forEach(d=>{ if(d.data().sample) extra.push([c,d.id]); }); }catch(_){} }
       lv.forEach(d=>{ if(d.data().sample) extra.push(["leaves",d.id]); }); sb.forEach(d=>{ if(d.data().sample) extra.push(["subs",d.id]); }); tt.forEach(d=>{ if(d.data().sample) extra.push(["timetable",d.id]); }); }catch(_){}
     const ops=[...ids.map(id=>["results",id]),...rk.map(k=>["reports",k]),...sids.map(id=>["staff",id]),...sids.map(id=>["staffHR",id]),...extra];
     for(let i=0;i<ops.length;i+=100){ const b=writeBatch(db); ops.slice(i,i+100).forEach(([c,id])=>b.delete(doc(db,c,id))); await b.commit(); }
@@ -1759,16 +1779,24 @@ function renderTT(){
 let DRAFTS={}, unsubDR=null;
 /* the coordinator keeps working on her own draft of the duty until the principal approves it */
 const DV=()=>(ME&&!isFull()&&DRAFTS["duties__"+TT_YEAR()])?DRAFTS["duties__"+TT_YEAR()].data:DUTY;
-const DRAFT_LABEL={staff:"Staff list",staffHR:"Contract",import:"Data import",action:"Data clean-up",timetable:"Timetable",calendar:"School calendar and exam dates",duties:"Exam invigilation duty",subs:"Substitute plan",config:"Public disclosure page"};
-async function pubSet(col,id,data,lab){ if(isFull()){ if(data&&data.__delete) await deleteDoc(doc(db,col,id)); else await setDoc(doc(db,col,id),data); return true; }
+const DRAFT_LABEL={notices:"Notice",achievements:"Achievement",staff:"Staff list",staffHR:"Contract",import:"Data import",action:"Data clean-up",timetable:"Timetable",calendar:"School calendar and exam dates",duties:"Exam invigilation duty",subs:"Substitute plan",config:"Public disclosure page"};
+/* writes the live (published) copy. Notices keep their staff duties in a separate, staff-only collection. */
+async function writeLive(col,id,data){
+  if(data&&data.__delete){ await deleteDoc(doc(db,col,id)); if(col==="notices") await deleteDoc(doc(db,"eventDuties",id)).catch(()=>{}); return; }
+  if(col==="notices"){ const {__duties,...pub}=data; await setDoc(doc(db,"notices",id),pub);
+    if(__duties&&__duties.length) await setDoc(doc(db,"eventDuties",id),{title:pub.title,date:pub.date||"",duties:__duties}); else await deleteDoc(doc(db,"eventDuties",id)).catch(()=>{}); return; }
+  await setDoc(doc(db,col,id),data); }
+async function pubSet(col,id,data,lab){ if(isFull()){ await writeLive(col,id,data); return true; }
   const key=col+"__"+id, label=lab||((DRAFT_LABEL[col]||col)+(col==="subs"?" for "+fmtD(id).replace(/<[^>]*>/g,""):""));
   await setDoc(doc(db,"drafts",key),{col,id,data,label,by:ME.email,at:new Date().toISOString()}); DRAFTS[key]={col,id,data,label,by:ME.email,at:new Date().toISOString()};
   window._draftMsg=`📨 Sent to the principal for approval: ${label}. It goes live when she approves it.`; return false; }
 function startDrafts(){ if(!db||!isOffice()||unsubDR) return; unsubDR=onSnapshot(collection(db,"drafts"),snap=>{ const n={}; snap.forEach(d=>n[d.id]=d.data()); DRAFTS=n; if(location.hash==="#timetable") renderTT(); if(location.hash==="#school") renderPub(); const aa=$("#admApprovals"); if(aa) aa.innerHTML=approvalsHTML(); if(location.hash==="#dashboard"&&typeof renderDash==="function") renderDash(); },()=>{}); }
 function stopDrafts(){ if(unsubDR){unsubDR();unsubDR=null;} DRAFTS={}; }
-function approvalsHTML(){ if(!ME||!isOffice()) return ""; const L=Object.entries(DRAFTS).filter(([,d])=>d.col!=="import"||d.data.part===0).sort((a,b)=>String(a[1].at).localeCompare(String(b[1].at))); if(!L.length) return "";
+function approvalsHTML(){ if(!ME||!isOffice()) return ""; const L=Object.entries(DRAFTS).filter(([,d])=>d.col!=="import"||d.data.part===0).sort((a,b)=>String(a[1].at).localeCompare(String(b[1].at)));
+  const AD=Object.entries(typeof STUDOCS==="undefined"?{}:STUDOCS).filter(([,d])=>d.admission==="pending"); if(!L.length&&!AD.length) return "";
   const P=isFull();
-  return `<div class="card" style="box-shadow:none;background:#fff8ec;border:2px solid #ffd79a;margin:0 0 14px"><h4 style="margin:0 0 8px">${P?"📥 Waiting for your approval":"⏳ Sent to the principal, waiting for approval"} (${L.length})</h4>
+  return `<div class="card" style="box-shadow:none;background:#fff8ec;border:2px solid #ffd79a;margin:0 0 14px"><h4 style="margin:0 0 8px">${P?"📥 Waiting for your approval":"⏳ Sent to the principal, waiting for approval"} (${L.length+AD.length})</h4>
+   ${AD.map(([sid,d])=>`<div class="dcard" style="cursor:default;flex-wrap:wrap;gap:8px;margin-bottom:6px"><span style="flex:1;min-width:200px"><b>🎒 Admission: ${esc(d.name)} → ${esc(d.cls)} (roll ${esc(d.roll)})</b><small>Adm. no. ${esc(d.adm||"–")} · DOB ${fmtD(d.dob)} · ${esc(d.category||"")}${d.rankGroup?" · "+esc(d.rankGroup):""} · prepared by ${esc(tName(d.updatedBy))}</small></span>${P?`<button class="btn pri sm" data-admok="${esc(sid)}">✅ Approve admission</button><button class="btn sec sm" data-admno="${esc(sid)}">↩ Send back</button>`:""}</div>`).join("")}
    ${L.map(([k,d])=>`<div class="dcard" style="cursor:default;flex-wrap:wrap;gap:8px;margin-bottom:6px"><span style="flex:1;min-width:200px"><b>${esc(d.label)}</b><small>Prepared by ${esc(tName(d.by))} · ${esc(new Date(d.at).toLocaleString("en-IN",{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"}))}${d.col==="subs"?` · ${(d.data.plan||[]).length} periods covered`:""}${d.col==="duties"?` · ${Object.keys(d.data).filter(x=>d.data[x]&&d.data[x].dates).join(", ")}`:""}</small></span>
      ${P?`<button class="btn pri sm" data-drok="${esc(k)}">✅ Approve and publish</button><button class="btn sec sm" data-drno="${esc(k)}">↩ Send back</button>`:`<button class="btn sec sm" data-drno="${esc(k)}">Withdraw</button>`}</div>`).join("")}
    ${P?`<p class="hint" style="margin:4px 0 0">Approving replaces what teachers (or the public) see now with this version.</p>`:""}</div>`; }
@@ -1778,8 +1806,8 @@ document.addEventListener("click",async e=>{ const b=e.target.closest("[data-dro
       if(d.col==="import"){ const parts=Object.entries(DRAFTS).filter(([,x])=>x.col==="import"&&x.data.batch===d.data.batch).sort((a,b)=>a[1].data.part-b[1].data.part);
         if(parts.length<d.data.parts) return toast("Part of the file is still uploading. Please try again in a moment.");
         const text=parts.map(([,x])=>x.data.chunk).join(""); for(const [kk] of parts) await deleteDoc(doc(db,"drafts",kk)); await runImport(text); return; }
-      if(data&&data.__delete){ await deleteDoc(doc(db,d.col,d.id)); await deleteDoc(doc(db,"drafts",k)); toast(`✅ Done: ${d.label}`); return; } if(d.col==="duties") data=Object.fromEntries(Object.entries(data).map(([x,v])=>[x,v&&v.dates?{...v,published:true}:v]));
-      await setDoc(doc(db,d.col,d.id),{...data,approvedBy:ME.email,approvedAt:new Date().toISOString()}); await deleteDoc(doc(db,"drafts",k)); toast(`✅ Published: ${d.label}`); }
+      if(data&&data.__delete){ await writeLive(d.col,d.id,data); await deleteDoc(doc(db,"drafts",k)); toast(`✅ Done: ${d.label}`); return; } if(d.col==="duties") data=Object.fromEntries(Object.entries(data).map(([x,v])=>[x,v&&v.dates?{...v,published:true}:v]));
+      await writeLive(d.col,d.id,{...data,approvedBy:ME.email,approvedAt:new Date().toISOString()}); await deleteDoc(doc(db,"drafts",k)); toast(`✅ Published: ${d.label}`); }
     else { const ks=d.col==="import"?Object.keys(DRAFTS).filter(x=>DRAFTS[x].col==="import"&&DRAFTS[x].data.batch===d.data.batch):[k]; for(const kk of ks) await deleteDoc(doc(db,"drafts",kk)); toast(isFull()?"Sent back to the coordinator":"Withdrawn"); } }catch(err){ toast("Couldn't do that: "+errMsg(err)); } });
 /* ---------- Coordinator relief: who acts as coordinator while she is on leave ---------- */
 function reliefPick(l){ const grid=TT&&TT.grid, busy=grid?teacherSlots(grid):{};
@@ -2486,14 +2514,18 @@ async function runImport(text){
   staff=staff.filter(x=>x&&x.email&&x.role); 
   hr=hr.filter(x=>x&&x.email); let leaves=[]; try{ const j2=JSON.parse(text); leaves=Array.isArray(j2.leaves)?j2.leaves.filter(x=>x&&x.email&&x.from):[]; }catch(_){}
   if(leaves.length){ try{ const b=writeBatch(db); leaves.slice(0,300).forEach(x=>{ const em=String(x.email).toLowerCase(); b.set(doc(db,"leaves",("imp-"+em+"-"+x.from).replace(/[^A-Za-z0-9_\-]/g,"-")),{...x,email:em}); }); await b.commit(); if(!list.length&&!staff.length&&!hr.length) return toast(`Imported ${leaves.length} leave records ✓`); }catch(err){ return toast("Import of leave failed: "+errMsg(err)); } }
-  let extras=[]; try{ const j3=JSON.parse(text); [["students","students"],["notes","studentNotes"],["attendance","attendance"],["staffAtt","staffAtt"],["tcs","tcs"]].forEach(([k,c])=>(Array.isArray(j3[k])?j3[k]:[]).forEach(x=>{ if(x&&x.id){ const {id,...b}=x; extras.push([c,String(id),b]); } })); }catch(_){}
+  let extras=[]; try{ const j3=JSON.parse(text); [["students","students"],["notes","studentNotes"],["attendance","attendance"],["staffAtt","staffAtt"],["tcs","tcs"],["notices","notices"],["achievements","achievements"],["eventDuties","eventDuties"]].forEach(([k,c])=>(Array.isArray(j3[k])?j3[k]:[]).forEach(x=>{ if(x&&x.id){ const {id,...b}=x; extras.push([c,String(id),b]); } })); }catch(_){}
   if(extras.length){ try{ for(let i=0;i<extras.length;i+=100){ const b=writeBatch(db); extras.slice(i,i+100).forEach(([c,id,d])=>b.set(doc(db,c,id),d)); await b.commit(); } toast(`Imported ${extras.length} attendance, student and notes records ✓`); if(!list.length&&!staff.length&&!hr.length) return; }catch(err){ return toast("Import of attendance/notes failed: "+errMsg(err)); } }
   if(!list.length&&!staff.length&&!hr.length&&!leaves.length) return toast("No results found in that file");
   if(hr.length){ try{ const b=writeBatch(db); hr.slice(0,400).forEach(x=>{ const {email,...h}=x; const em2=String(email).toLowerCase(); b.set(doc(db,"staffHR",em2),{role:(staff.find(y=>String(y.email).toLowerCase()===em2)||STAFF[em2]||{}).role||"teacher",...h}); }); await b.commit(); if(!list.length&&!staff.length) return toast(`Imported contract details for ${hr.length} staff ✓`); }catch(err){ return toast("Import of contract details failed: "+errMsg(err)); } }
   if(staff.length){ try{ for(let i=0;i<staff.length;i+=100){ const b=writeBatch(db); staff.slice(i,i+100).forEach(x=>{ const em=String(x.email).toLowerCase(); b.set(doc(db,"staff",em),{...x,email:em}); }); await b.commit(); } }catch(err){ return toast("Import of staff failed: "+errMsg(err)); } }
   toast(`Importing ${list.length} results… please wait`); let skipped=0;
-  const norm=r=>{ const {_raw,subjects:subs,...rest}=r; const o=rest.marks?{...rest}:{...rest,subjectList:(subs||[]).map(x=>x.name),marks:Object.fromEntries((subs||[]).map(x=>[x.name,{...markOf(x),by:null}]))}; o.cls=o.std+"-"+o.div; o.id=idFor(o); return o; };
+  const norm=r=>{ const {_raw,subjects:subs,...rest}=r; const o=rest.marks?{...rest}:{...rest,subjectList:(subs||[]).map(x=>x.name),marks:Object.fromEntries((subs||[]).map(x=>[x.name,{...markOf(x),by:null}]))}; o.cls=o.std+"-"+o.div; o.sid=sidOf(o); o.id=idFor(o); return o; };
   try{ for(let i=0;i<list.length;i+=100){ const b=writeBatch(db); for(const r of list.slice(i,i+100)){ const rec=norm(r); const {id:_i,...body}=rec; const ex=RECORDS[rec.id]&&RECORDS[rec.id]._raw; if(ex&&ex.cls&&ex.updatedAt===body.updatedAt&&JSON.stringify(ex.marks)===JSON.stringify(body.marks)){ skipped++; continue; } b.set(doc(db,"results",rec.id),body); const k=await reportKey(body); if(k) b.set(doc(db,"reports",k),publicCopy(body)); } await b.commit(); toast(`Importing… ${Math.min(i+100,list.length)} of ${list.length}`); }
+    /* every imported child also goes on the admission register (so class teachers can enter later exams) */
+    const have=new Set([...Object.keys(STUDOCS),...extras.filter(x=>x[0]==="students").map(x=>x[1])]), reg={};
+    list.map(norm).forEach(o=>{ if(!have.has(o.sid)) reg[o.sid]={year:o.year,name:o.name,std:o.std,div:o.div,cls:o.cls,roll:o.roll,adm:o.adm||"",dob:o.dob||"",status:"active",admission:"approved",history:[],...(o.sample?{sample:true}:{})}; });
+    const R2=Object.entries(reg); for(let i=0;i<R2.length;i+=200){ const b=writeBatch(db); R2.slice(i,i+200).forEach(([k,d])=>b.set(doc(db,"students",k),d)); await b.commit(); }
     toast(`Imported ${list.length-skipped} results`+(skipped?` (${skipped} were already saved)`:"")+(staff.length?` and ${staff.length} staff`:"")+" ✓"); }catch(err){ toast("Import failed: "+errMsg(err)); }}
 renderHome();
 
@@ -2508,12 +2540,14 @@ const ALLCLS=STDS.flatMap(s=>secOf(s).map(d=>s+"-"+d));
 let STUDOCS={}, unsubSTU=null, stuYearOn=null, ATTM={}, ATTC={}, SATTM={}, NOTES={};
 const stu={tab:"find",q:"",cls:"",status:"active",sel:null,date:"",acls:"",sdate:"",abs:null,absKey:"",sabs:null,sKey:""};
 function startStu(){ if(!db||!ME) return; const y=stuY(); if(unsubSTU&&stuYearOn===y) return; if(unsubSTU) unsubSTU(); stuYearOn=y;
-  unsubSTU=onSnapshot(query(collection(db,"students"),where("year","==",y)),snap=>{ const n={}; snap.forEach(d=>n[d.id]={...d.data(),id:d.id}); STUDOCS=n; if(location.hash==="#students") renderStu(); else renderClassList(); },()=>{}); }
+  unsubSTU=onSnapshot(query(collection(db,"students"),where("year","==",y)),snap=>{ const n={}; snap.forEach(d=>n[d.id]={...d.data(),id:d.id}); STUDOCS=n; if(location.hash==="#students") renderStu(); else renderClassList(); refreshApprovals(); },()=>{}); }
+function refreshApprovals(){ const aa=$("#admApprovals"); if(aa) aa.innerHTML=approvalsHTML(); if(location.hash==="#dashboard"&&typeof renderDash==="function") renderDash(); if(location.hash==="#timetable") renderTT(); }
 function stopStu(){ if(unsubSTU){unsubSTU();unsubSTU=null;} STUDOCS={}; stuYearOn=null; ATTM={}; ATTC={}; SATTM={}; NOTES={}; Object.assign(stu,{tab:"find",q:"",cls:"",sel:null,abs:null,absKey:"",sabs:null,sKey:""}); }
 const isLeft=r=>{ const d=STUDOCS[sidOf(r)]; return !!(d&&d.status==="left"); };
 function allStudents(){ const m={}, y=stuY();
   Object.values(RECORDS).forEach(r=>{ if(r.year!==y) return; const k=sidOf(r); (m[k]||(m[k]={sid:k,recs:[]})).recs.push(r); });
-  return Object.values(m).map(s=>{ s.recs.sort((a,b)=>EXO.indexOf(a.term)-EXO.indexOf(b.term)); const L=s.recs[s.recs.length-1], d=STUDOCS[s.sid]||{};
+  Object.values(STUDOCS).forEach(d=>{ if(d.year===y&&!m[d.id]&&d.name) m[d.id]={sid:d.id,recs:[],reg:d}; });
+  return Object.values(m).map(s=>{ if(!s.recs.length){ const d=s.reg; return Object.assign(s,{r:{...d,id:"",term:""},doc:d,name:d.name,std:d.std,div:d.div,cls:d.std+"-"+d.div,roll:+d.roll||0,left:d.status==="left",pending:d.admission==="pending"}); } s.recs.sort((a,b)=>EXO.indexOf(a.term)-EXO.indexOf(b.term)); const L=s.recs[s.recs.length-1], d=STUDOCS[s.sid]||{};
     return Object.assign(s,{r:L,doc:d,name:L.name,std:L.std,div:L.div,cls:L.std+"-"+L.div,roll:+L.roll||0,left:d.status==="left"}); })
     .sort((a,b)=>ALLCLS.indexOf(a.cls)-ALLCLS.indexOf(b.cls)||a.roll-b.roll); }
 const canCT=cls=>isOffice()||(!!ME&&(ME.classTeacher||[]).includes(cls));
@@ -2523,13 +2557,14 @@ const catTag=r=>r.category?`<span class="ctag" style="background:${r.category===
 const avatar=(r,sz)=>`<div class="av" style="width:${sz}px;height:${sz}px;flex:none;border-radius:12px;overflow:hidden;display:grid;place-items:center;background:#f2edff;font-weight:900;color:#5435c9">${r.photo&&safeImg(r.photo)?`<img src="${safeImg(r.photo)}" alt="" style="width:100%;height:100%;object-fit:cover">`:esc((r.name||"?").split(" ").map(w=>w[0]).slice(0,2).join(""))}</div>`;
 
 function renderStu(){ const box=$("#stuBody"); if(!box) return; if(!ME){ box.innerHTML=`<div class="empty">Please sign in.</div>`; return; } startStu();
-  const tabs=[["find","🔎 Find a student"],["att","✅ Class attendance"]].concat(isOffice()?[["staff","👩‍🏫 Staff attendance"]]:[]);
+  const tabs=[["find","🔎 Find a student"]].concat(isOffice()?[["adm","🎒 Admissions"]]:[],[["att","✅ Class attendance"]],isOffice()?[["staff","👩‍🏫 Staff attendance"]]:[]);
   if(!tabs.some(t=>t[0]===stu.tab)) stu.tab="find";
   const head=`<div class="title-row"><h2>🧒 Students</h2><span class="hint">${esc(stuY())}${ME.office&&!isFull()?` · <b>${ME.coordinator?"Coordinator":"Acting coordinator"}</b>`:""}</span></div>
     <div class="atabs">${tabs.map(([k,l])=>`<button data-stab="${k}" class="${stu.tab===k?"on":""}">${l}</button>`).join("")}</div>`;
   let body="";
   if(stu.tab==="find") body=stu.sel?profileHTML():findHTML();
   else if(stu.tab==="att") body=attHTML();
+  else if(stu.tab==="adm") body=approvalsHTML()+admissionsHTML();
   else body=staffAttHTML();
   box.innerHTML=head+body;
   if(stu.tab==="find"&&!stu.sel) renderStuList();
@@ -2541,14 +2576,14 @@ function findHTML(){ const opts=ALLCLS.filter(c=>classLoaded(c));
     <label class="f" style="flex:2;min-width:220px">Search<input class="in" id="stuQ" placeholder="Name, roll, admission no. or parent's name" value="${esc(stu.q)}"></label>
     <label class="f">Class<select class="in" id="stuCls"><option value="">All classes</option>${opts.map(c=>`<option ${c===stu.cls?"selected":""}>${c}</option>`).join("")}</select></label>
     <label class="f">Status<select class="in" id="stuSt">${[["active","Studying"],["nocon","Studying, no consent form yet"],["left","Left the school"],["all","All"]].map(([v,l])=>`<option value="${v}" ${v===stu.status?"selected":""}>${l}</option>`).join("")}</select></label>
-    ${(isOffice()||(ME.classTeacher||[]).length)?`<button class="btn pri" data-stuadd="1">➕ Add a new student</button>`:""}</div>
+    ${isOffice()?`<button class="btn pri" data-stab="adm">🎒 New admission</button>`:""}</div>
     ${ME.role==="teacher"&&!ME.office&&!LOAD.all?`<p class="hint">Showing students of your classes. <button class="btn sec sm" data-loadall="1">Show all classes</button></p>`:""}
     <div id="stuList"></div>`; }
 function renderStuList(){ const out=$("#stuList"); if(!out) return; const q=normName(stu.q);
   const all=allStudents(), noCon=all.filter(s=>!s.left&&!(s.doc.consent&&s.doc.consent.given)).length;
   const L=all.filter(s=>(!stu.cls||s.cls===stu.cls)&&(stu.status==="all"||(stu.status==="nocon"?(!s.left&&!(s.doc.consent&&s.doc.consent.given)):(stu.status==="left")===s.left))
     &&(!q||[s.name,s.r.father,s.r.mother,s.r.adm].some(x=>normName(x).includes(q))||String(s.roll)===stu.q.trim()));
-  out.innerHTML=(noCon&&stu.status!=="nocon"?`<div class="banner on warn" style="margin:6px 0">🔒 ${noCon} student${noCon===1?" has":"s have"} no parent consent recorded yet (needed under the data protection law). <a href="#students" data-nocon="1">Show them</a></div>`:"")+`<p class="hint" style="margin:6px 0">${L.length} student${L.length===1?"":"s"}</p>`+(L.length?`<div class="dir-grid">${L.slice(0,300).map(s=>`<div class="dcard" data-sid="${esc(s.sid)}">${avatar(s.r,44)}<span><b>${esc(s.name)}</b>${s.left?' <span class="ctag none">Left</span>':""}<small>${esc(s.cls)} · Roll ${esc(s.roll)}${s.r.father?` · ${esc(s.r.father)}`:""}</small></span></div>`).join("")}</div>`:`<div class="empty">No student found.${Object.keys(RECORDS).length?"":" Results for this year are still loading, or none are saved yet."}</div>`); }
+  out.innerHTML=(noCon&&stu.status!=="nocon"?`<div class="banner on warn" style="margin:6px 0">🔒 ${noCon} student${noCon===1?" has":"s have"} no parent consent recorded yet (needed under the data protection law). <a href="#students" data-nocon="1">Show them</a></div>`:"")+`<p class="hint" style="margin:6px 0">${L.length} student${L.length===1?"":"s"}</p>`+(L.length?`<div class="dir-grid">${L.slice(0,300).map(s=>`<div class="dcard" data-sid="${esc(s.sid)}">${avatar(s.r,44)}<span><b>${esc(s.name)}</b>${s.left?' <span class="ctag none">Left</span>':""}${s.pending?' <span class="ctag none">Awaiting principal</span>':""}<small>${esc(s.cls)} · Roll ${esc(s.roll)}${s.r.father?` · ${esc(s.r.father)}`:""}</small></span></div>`).join("")}</div>`:`<div class="empty">No student found.${Object.keys(RECORDS).length?"":" Results for this year are still loading, or none are saved yet."}</div>`); }
 
 function profileHTML(){ const s=allStudents().find(x=>x.sid===stu.sel); if(!s){ stu.sel=null; return findHTML(); }
   const r=s.r, d=s.doc, off=isOffice(), ct=canCT(s.cls);
@@ -2754,6 +2789,8 @@ function teachersPublic(){ const d=D_(); if(d.staff.teachers) return d.staff.tea
   return []; }
 function renderPub(){ const box=$("#pubBody"); if(!box) return; const h=location.hash;
   if(h==="#privacy"){ box.innerHTML=privacyHTML(); return; }
+  if(h==="#notices"){ box.innerHTML=approvalsHTML()+noticesHTML(); return; }
+  if(h==="#achievements"){ box.innerHTML=approvalsHTML()+achHTML(); return; }
   box.innerHTML=approvalsHTML()+(discEdit&&isOffice()?discEditHTML():discHTML()); }
 function discHTML(){ const d=D_(), g=d.general, s=d.staff, lnk=(u,t)=>safeUrl(u)?`<a href="${esc(safeUrl(u))}" target="_blank" rel="noopener">${t||"View"} ↗</a>`:'<span class="hint">To be uploaded</span>';
   const tbl=(rows)=>`<div class="tbl-wrap"><table class="pt"><tbody>${rows.map(([k,v],i)=>`<tr><td style="width:40px">${i+1}</td><td style="text-align:left">${esc(k)}</td><td style="text-align:left"><b>${v}</b></td></tr>`).join("")}</tbody></table></div>`;
@@ -2811,6 +2848,144 @@ document.addEventListener("submit",async e=>{ if(e.target.id!=="tcForm") return;
     out.innerHTML=d.exists()?`<div class="banner on" style="background:#eafaf4">✅ Genuine. TC <b>${esc(d.data().tc)}</b> was issued to <b>${esc(d.data().name)}</b> (class ${esc(d.data().cls)}) on ${fmtD(d.data().issued)}.</div>`:`<div class="banner on warn">No TC with that number and name. Check the spelling, or contact the school office.</div>`; }
   catch(err){ out.innerHTML=`<div class="banner on warn">Couldn't check: ${esc(errMsg(err))}</div>`; } });
 renderFooter();
+
+/* ================= NOTICES, ACHIEVEMENTS, EVENT DUTIES, ADMISSIONS ================= */
+const NTYPES=[["Admissions","🎒"],["Exam","📝"],["PTM","👪"],["Event","🎭"],["Guest visit","🎖️"],["Holiday","🎉"],["General","📢"]];
+const ntIcon=t=>(NTYPES.find(x=>x[0]===t)||["","📢"])[1];
+const ACATS=["Academics","Sports","Arts & culture","Olympiads & quizzes","School / staff","Community service"];
+let NOTICES={}, ACHS={}, EDUT={}, unsubED=null, PCAL=null;
+if(db){ onSnapshot(collection(db,"notices"),s=>{ const n={}; s.forEach(d=>n[d.id]={...d.data(),id:d.id}); NOTICES=n; pubRefresh(); },()=>{});
+  onSnapshot(collection(db,"achievements"),s=>{ const n={}; s.forEach(d=>n[d.id]={...d.data(),id:d.id}); ACHS=n; pubRefresh(); },()=>{});
+  getDoc(doc(db,"calendar",YEARS[0])).then(d=>{ PCAL=d.exists()?d.data():null; pubRefresh(); }).catch(()=>{}); }
+function startEDUT(){ if(!db||!ME||unsubED) return; unsubED=onSnapshot(collection(db,"eventDuties"),s=>{ const n={}; s.forEach(d=>n[d.id]=d.data()); EDUT=n; pubRefresh(); },()=>{}); }
+function stopEDUT(){ if(unsubED){unsubED();unsubED=null;} EDUT={}; }
+function pubRefresh(){ renderFlash(); if(["#notices","#achievements"].includes(location.hash)) renderPub(); }
+const ntEnd=n=>n.until||n.to||n.date||"";
+const upNotices=()=>Object.values(NOTICES).filter(n=>ntEnd(n)>=todayISO()).sort((a,b)=>(b.pinned?1:0)-(a.pinned?1:0)||String(a.date||"").localeCompare(String(b.date||"")));
+const achList=()=>Object.values(ACHS).sort((a,b)=>String(b.date||"").localeCompare(String(a.date||"")));
+/* the "flash" on the Home page */
+function renderFlash(){ const tk=$("#homeTicker"); if(tk){ const items=[...upNotices().slice(0,6).map(n=>`${ntIcon(n.type)} ${esc(n.title)}${n.date?" · "+fmtD(n.date):""}`),...achList().slice(0,3).map(a=>`🏆 ${esc(a.title)}${a.who?" · "+esc(a.who):""}`)];
+    tk.style.display=items.length?"flex":"none"; tk.innerHTML=`<span class="tk-l">📢 New</span><span class="tk-w"><span class="tk-m">${items.join(" &nbsp;&nbsp;•&nbsp;&nbsp; ")}</span></span>`; }
+  const box=$("#homeFlash"); if(!box) return; const N=upNotices().slice(0,4), A=achList().slice(0,3);
+  if(!N.length&&!A.length){ box.innerHTML=""; return; }
+  box.innerHTML=`<div class="grid g2" style="margin-top:18px;align-items:stretch">
+   ${N.length?`<a class="card" href="#notices" style="margin:0;text-decoration:none;color:inherit;background:#eef6ff;border:2px solid #b9dcff"><h3 style="margin:0 0 8px">📢 Notices</h3>${N.map(n=>`<div style="padding:5px 0;border-bottom:1px dashed #cfe3ff"><b>${ntIcon(n.type)} ${esc(n.title)}</b>${n.date?`<span class="hint"> · ${fmtD(n.date)}${n.to&&n.to!==n.date?" – "+fmtD(n.to):""}</span>`:""}</div>`).join("")}<span class="hint" style="display:block;margin-top:8px;text-decoration:underline">All notices →</span></a>`:""}
+   ${A.length?`<a class="card" href="#achievements" style="margin:0;text-decoration:none;color:inherit;background:#fff8e6;border:2px solid #ffe08a"><h3 style="margin:0 0 8px">🏆 Our achievers</h3>${A.map(a=>`<div style="display:flex;gap:10px;align-items:center;padding:5px 0">${a.photo&&safeImg(a.photo)?`<img src="${safeImg(a.photo)}" alt="" style="width:52px;height:52px;object-fit:cover;border-radius:10px">`:`<span style="font-size:30px">🏅</span>`}<span><b>${esc(a.title)}</b><br><span class="hint">${esc(a.who||"")}</span></span></div>`).join("")}<span class="hint" style="display:block;margin-top:8px;text-decoration:underline">All achievements →</span></a>`:""}</div>`; }
+
+/* ---------- Notices page ---------- */
+let ntEdit=null, acEdit=null, ntDuties=[], acPhoto="";
+function noticesHTML(){ const off=!!ME&&isOffice(), U=upNotices(), P=Object.values(NOTICES).filter(n=>ntEnd(n)<todayISO()).sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,10);
+  const C=PCAL||CAL, ex=((C&&C.exams)||[]).filter(e=>(e.to||e.from)>=todayISO()).sort((a,b)=>a.from.localeCompare(b.from)).slice(0,4);
+  const myDut=ME?Object.entries(EDUT).flatMap(([id,e])=>(e.duties||[]).filter(d=>d.email===ME.email).map(d=>({...d,ev:e,id}))).filter(x=>(x.ev.date||"")>=todayISO()):[];
+  const card=n=>{ const du=(ME&&EDUT[n.id]&&EDUT[n.id].duties)||[];
+    return `<div class="card" style="box-shadow:none;margin:0 0 12px;${n.pinned?"border:2px solid #ffd79a;":""}"><div style="display:flex;gap:12px;align-items:flex-start"><span style="font-size:30px">${ntIcon(n.type)}</span><div style="flex:1">
+      <div class="hint">${esc(n.type||"Notice")}${n.date?` · <b>${fmtD(n.date)}${n.to&&n.to!==n.date?" – "+fmtD(n.to):""}</b>`:""}${n.time?` · ${esc(n.time)}`:""}${n.pinned?" · 📌 Important":""}</div>
+      <h3 style="margin:2px 0 6px">${esc(n.title)}</h3><div style="white-space:pre-line">${esc(n.text||"")}</div>
+      ${safeUrl(n.link)?`<p style="margin:8px 0 0"><a href="${esc(safeUrl(n.link))}" target="_blank" rel="noopener">More details ↗</a></p>`:""}
+      ${du.length?`<div style="margin-top:10px;background:#f8f6ff;border-radius:10px;padding:8px 12px"><b>👩‍🏫 Staff duties</b> <span class="hint">(staff only)</span>${du.map(d=>`<div>• <b>${esc(tName(d.email))}</b>: ${esc(d.task)}</div>`).join("")}</div>`:""}
+      ${off?`<div class="row" style="justify-content:flex-start;margin-top:8px"><button class="btn sec sm" data-nted="${esc(n.id)}">✏️ Edit</button><button class="btn warn sm" data-ntrm="${esc(n.id)}">🗑 Remove</button></div>`:""}</div></div></div>`; };
+  return `<div class="title-row"><h2>📢 Notices</h2>${off?`<button class="btn pri" data-ntnew="1">➕ New notice or event</button>`:""}</div>
+   <p class="hint">Admissions, exams, parent-teacher meetings, events and visits.${off&&!isFull()?" Your notices go live after the principal approves them.":""}</p>
+   ${off&&ntEdit?ntFormHTML():""}
+   ${myDut.length?`<div class="card" style="box-shadow:none;background:#f2fcf8;margin:0 0 12px"><b>✅ Your event duties</b>${myDut.map(x=>`<div>• ${fmtD(x.ev.date)} · <b>${esc(x.ev.title)}</b>: ${esc(x.task)}</div>`).join("")}</div>`:""}
+   ${ex.length?`<div class="card" style="box-shadow:none;background:#fff8ec;margin:0 0 12px"><b>📝 Upcoming exams</b> <span class="hint">(from the school calendar)</span>${ex.map(e=>`<div>• <b>${esc(e.label)}</b>: ${fmtD(e.from)}${e.to&&e.to!==e.from?" – "+fmtD(e.to):""}</div>`).join("")}</div>`:""}
+   ${U.length?U.map(card).join(""):`<div class="empty">No current notices.</div>`}
+   ${P.length?`<details style="margin-top:10px"><summary class="hint" style="cursor:pointer">Past notices (${P.length})</summary>${P.map(card).join("")}</details>`:""}`; }
+function ntFormHTML(){ const n=ntEdit, T=Object.values(STAFF).filter(x=>x.role==="teacher").sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+  return `<div class="card" style="box-shadow:none;background:#f8f6ff;margin:0 0 14px"><h3 style="margin:0 0 8px">${n.id?"✏️ Edit notice":"➕ New notice or event"}</h3>
+   <div class="grid g3"><label class="f">Type<select class="in" id="ntType">${NTYPES.map(([t,i])=>`<option value="${t}" ${n.type===t?"selected":""}>${i} ${t}</option>`).join("")}</select></label>
+    <label class="f">Title<input class="in" id="ntTitle" maxlength="120" value="${esc(n.title||"")}" placeholder="e.g. Annual Day 2026"></label>
+    <label class="f">Date<input class="in" type="date" id="ntDate" value="${esc(n.date||"")}"></label>
+    <label class="f">To (optional)<input class="in" type="date" id="ntTo" value="${esc(n.to||"")}"></label>
+    <label class="f">Time / venue (optional)<input class="in" id="ntTime" maxlength="80" value="${esc(n.time||"")}" placeholder="e.g. 9:30 AM, school auditorium"></label>
+    <label class="f">Show on the site until<input class="in" type="date" id="ntUntil" value="${esc(n.until||"")}"></label></div>
+   <label class="f">Details<textarea class="in" id="ntText" maxlength="1500" style="min-height:90px">${esc(n.text||"")}</textarea></label>
+   <div class="grid g2"><label class="f">Link (optional, https://)<input class="in" id="ntLink" value="${esc(n.link||"")}"></label><label class="f">Important?<select class="in" id="ntPin"><option value="">No</option><option value="1" ${n.pinned?"selected":""}>Yes, pin to the top</option></select></label></div>
+   <h4 style="margin:12px 0 6px">👩‍🏫 Staff duties for this event <span class="hint">(only staff see these)</span></h4>
+   <div id="ntDut">${ntDuties.map((d,i)=>`<div class="grid g3" style="align-items:end"><label class="f">Teacher<select class="in" data-ndt="${i}">${T.map(t=>`<option value="${esc(t.email)}" ${t.email===d.email?"selected":""}>${esc(t.name)}</option>`).join("")}</select></label><label class="f">Duty<input class="in" data-ndk="${i}" maxlength="120" value="${esc(d.task||"")}" placeholder="e.g. Stage and compering"></label><div class="f"><button class="btn sec sm" data-ndrm="${i}">✖ Remove</button></div></div>`).join("")}</div>
+   <button class="btn sec sm" data-ndadd="1">＋ Add a duty</button>
+   <div class="row"><button class="btn sec" data-ntcancel="1">Cancel</button><button class="btn pri" data-ntsave="1">${isFull()?"💾 Publish":"📨 Send to the principal"}</button></div></div>`; }
+
+/* ---------- Achievements page ---------- */
+function achHTML(){ const off=!!ME&&isOffice(), L=achList();
+  return `<div class="title-row"><h2>🏆 Achievements</h2>${off?`<button class="btn pri" data-acnew="1">➕ Add an achievement</button>`:""}</div>
+   <p class="hint">Proud moments of our students, teams and staff.${off?" Use a child's photo and full name only if the parent has agreed to it.":""}</p>
+   ${off&&acEdit?acFormHTML():""}
+   ${L.length?`<div class="dir-grid">${L.map(a=>`<div class="card" style="box-shadow:none;margin:0;padding:0;overflow:hidden">${a.photo&&safeImg(a.photo)?`<img src="${safeImg(a.photo)}" alt="" style="width:100%;height:170px;object-fit:cover;display:block">`:`<div style="height:90px;display:grid;place-items:center;font-size:46px;background:#fff8e6">🏅</div>`}
+     <div style="padding:12px 14px"><div class="hint">${esc(a.category||"")}${a.date?" · "+fmtD(a.date):""}</div><h3 style="margin:2px 0 4px">${esc(a.title)}</h3><b>${esc(a.who||"")}</b><div style="margin-top:4px">${esc(a.text||"")}</div>
+     ${off?`<div class="row" style="justify-content:flex-start;margin-top:8px"><button class="btn sec sm" data-aced="${esc(a.id)}">✏️ Edit</button><button class="btn warn sm" data-acrm="${esc(a.id)}">🗑 Remove</button></div>`:""}</div></div>`).join("")}</div>`:`<div class="empty">No achievements posted yet.</div>`}`; }
+function acFormHTML(){ const a=acEdit;
+  return `<div class="card" style="box-shadow:none;background:#f8f6ff;margin:0 0 14px"><h3 style="margin:0 0 8px">${a.id?"✏️ Edit achievement":"➕ New achievement"}</h3>
+   <div class="grid g3"><label class="f">Title<input class="in" id="acTitle" maxlength="120" value="${esc(a.title||"")}" placeholder="e.g. Gold at the inter-APS athletics meet"></label>
+    <label class="f">Who<input class="in" id="acWho" maxlength="160" value="${esc(a.who||"")}" placeholder="e.g. Aarav K., Class IV-A"></label>
+    <label class="f">Date<input class="in" type="date" id="acDate" value="${esc(a.date||todayISO())}"></label>
+    <label class="f">Category<select class="in" id="acCat">${ACATS.map(c=>`<option ${a.category===c?"selected":""}>${c}</option>`).join("")}</select></label></div>
+   <label class="f">A few words<textarea class="in" id="acText" maxlength="500">${esc(a.text||"")}</textarea></label>
+   <div class="row" style="justify-content:flex-start"><span id="acPrev">${acPhoto&&safeImg(acPhoto)?`<img src="${safeImg(acPhoto)}" style="height:60px;border-radius:8px">`:""}</span><button class="btn sec sm" data-acph="1">📷 Photo (optional)</button>${acPhoto?`<button class="btn sec sm" data-acphrm="1">Remove photo</button>`:""}<input type="file" id="acPhotoIn" accept="image/*" hidden></div>
+   <div class="row"><button class="btn sec" data-accancel="1">Cancel</button><button class="btn pri" data-acsave="1">${isFull()?"💾 Publish":"📨 Send to the principal"}</button></div></div>`; }
+document.addEventListener("change",e=>{ if(e.target.id==="acPhotoIn"){ const f=e.target.files[0]; e.target.value=""; if(!f) return; shrinkImage(f,900,600,150000,d=>{ acPhoto=d; renderPub(); }); } });
+document.addEventListener("click",async e=>{ const t=e.target.closest("[data-ntnew],[data-nted],[data-ntrm],[data-ntcancel],[data-ntsave],[data-ndadd],[data-ndrm],[data-acnew],[data-aced],[data-acrm],[data-accancel],[data-acsave],[data-acph],[data-acphrm]"); if(!t||!ME||!isOffice()) return; const D=t.dataset;
+  const keepDut=()=>{ document.querySelectorAll("[data-ndt]").forEach(el=>{ ntDuties[+el.dataset.ndt].email=el.value; }); document.querySelectorAll("[data-ndk]").forEach(el=>{ ntDuties[+el.dataset.ndk].task=el.value; }); };
+  const keepNt=()=>{ if(!$("#ntTitle")) return; keepDut(); Object.assign(ntEdit,{type:$("#ntType").value,title:$("#ntTitle").value,date:$("#ntDate").value,to:$("#ntTo").value,time:$("#ntTime").value,until:$("#ntUntil").value,text:$("#ntText").value,link:$("#ntLink").value,pinned:!!$("#ntPin").value}); };
+  try{
+  if(D.ntnew){ ntEdit={type:"Event"}; ntDuties=[]; renderPub(); return; }
+  if(D.nted){ ntEdit={...NOTICES[D.nted]}; ntDuties=JSON.parse(JSON.stringify((EDUT[D.nted]&&EDUT[D.nted].duties)||[])); renderPub(); window.scrollTo(0,0); return; }
+  if(D.ntcancel){ ntEdit=null; renderPub(); return; }
+  if(D.ndadd){ keepNt(); const T=Object.values(STAFF).filter(x=>x.role==="teacher"); ntDuties.push({email:(T[0]||{}).email||"",task:""}); renderPub(); return; }
+  if(D.ndrm!=null){ keepNt(); ntDuties.splice(+D.ndrm,1); renderPub(); return; }
+  if(D.ntsave){ keepNt(); const n=ntEdit; if(!n.title.trim()) return toast("Please type a title"); if(n.link&&!safeUrl(n.link)) return toast("The link must start with https://");
+    if(n.to&&n.date&&n.to<n.date) return toast("'To' can't be before the date");
+    const id=n.id||("n"+Date.now().toString(36)), data={type:n.type,title:n.title.trim().slice(0,120),date:n.date||"",to:n.to||"",time:(n.time||"").slice(0,80),until:n.until||n.to||n.date||"",text:(n.text||"").slice(0,1500),link:safeUrl(n.link)||"",pinned:!!n.pinned,updatedAt:new Date().toISOString(),updatedBy:ME.email,__duties:ntDuties.filter(d=>d.email&&d.task.trim()).map(d=>({email:d.email,task:d.task.trim().slice(0,120)}))};
+    if(!data.until) data.until=new Date(Date.now()+30*864e5).toISOString().slice(0,10);
+    await pubSet("notices",id,data,`Notice: ${ntIcon(data.type)} ${data.title}${data.__duties.length?` (+${data.__duties.length} staff duties)`:""}`); ntEdit=null; toast("Notice published ✓"); renderPub(); return; }
+  if(D.ntrm){ const n=NOTICES[D.ntrm]; confirmBox("Remove this notice?",n.title,"Remove",async()=>{ try{ await pubSet("notices",n.id,{__delete:true},`Remove notice: ${n.title}`); toast("Removed"); }catch(err){ toast("Couldn't remove: "+errMsg(err)); } }); return; }
+  if(D.acnew){ acEdit={}; acPhoto=""; renderPub(); return; }
+  if(D.aced){ acEdit={...ACHS[D.aced]}; acPhoto=acEdit.photo||""; renderPub(); window.scrollTo(0,0); return; }
+  if(D.accancel){ acEdit=null; renderPub(); return; }
+  if(D.acph){ Object.assign(acEdit,{title:$("#acTitle").value,who:$("#acWho").value,date:$("#acDate").value,category:$("#acCat").value,text:$("#acText").value}); $("#acPhotoIn").click(); return; }
+  if(D.acphrm){ acPhoto=""; renderPub(); return; }
+  if(D.acsave){ const a={title:$("#acTitle").value.trim().slice(0,120),who:$("#acWho").value.trim().slice(0,160),date:$("#acDate").value||todayISO(),category:$("#acCat").value,text:$("#acText").value.trim().slice(0,500),photo:acPhoto||"",updatedAt:new Date().toISOString(),updatedBy:ME.email};
+    if(!a.title) return toast("Please type a title"); const id=acEdit.id||("a"+Date.now().toString(36));
+    await pubSet("achievements",id,a,`Achievement: ${a.title}`); acEdit=null; acPhoto=""; toast("Achievement published ✓"); renderPub(); return; }
+  if(D.acrm){ const a=ACHS[D.acrm]; confirmBox("Remove this achievement?",a.title,"Remove",async()=>{ try{ await pubSet("achievements",a.id,{__delete:true},`Remove achievement: ${a.title}`); toast("Removed"); }catch(err){ toast("Couldn't remove: "+errMsg(err)); } }); return; }
+  }catch(err){ toast("Couldn't save: "+errMsg(err)); } });
+
+/* ---------- Admissions (coordinator; the principal approves) ---------- */
+const adm={std:"I",div:"",cat:""};
+function nextAdmNo(){ let best=null; [...Object.values(RECORDS).map(r=>r.adm),...Object.values(STUDOCS).map(d=>d.adm)].forEach(x=>{ const m=String(x||"").match(/^(.*?)(\d+)\s*$/); if(m&&(!best||+m[2]>best.n)) best={p:m[1],n:+m[2]}; }); return best?best.p+(best.n+1):"1001"; }
+const secStrength=(std,div)=>allStudents().filter(s=>s.std===std&&s.div===div&&!s.left).length;
+function admissionsHTML(){ const std=adm.std, secs=secOf(std); if(!secs.includes(adm.div)) adm.div=secs.slice().sort((a,b)=>secStrength(std,a)-secStrength(std,b))[0];
+  const L=Object.values(STUDOCS).filter(d=>d.admittedOn).sort((a,b)=>String(b.admittedOn).localeCompare(String(a.admittedOn)));
+  return `<div class="card" style="box-shadow:none;background:#f8f6ff;margin:0 0 14px"><h3 style="margin:0 0 4px">🎒 New admission</h3><p class="hint" style="margin:0 0 10px">${isFull()?"Admissions you save are confirmed straight away.":"The admission is sent to the principal; once she approves it, the class teacher can enter the child's marks."} Only the category is kept for serving parents (Officer / JCO / OR).</p>
+   <div class="grid g3"><label class="f">Admission date<input class="in" type="date" id="adOn" value="${esc(todayISO())}"></label><label class="f">Admission no.<input class="in" id="adNo" value="${nextAdmNo()}"></label>
+    <label class="f">Student's full name<input class="in" id="adName" maxlength="80"></label><label class="f">Date of birth<input class="in" type="date" id="adDob"></label>
+    <label class="f">Gender<select class="in" id="adGen"><option value="">Select</option><option>Male</option><option>Female</option></select></label>
+    <label class="f">Class<select class="in" id="adStd">${STDS.map(x=>`<option ${x===std?"selected":""}>${x}</option>`).join("")}</select></label>
+    <label class="f">Section<select class="in" id="adDiv">${secs.map(x=>`<option value="${x}" ${x===adm.div?"selected":""}>${x} (${secStrength(std,x)} students)</option>`).join("")}</select></label>
+    <label class="f">Roll no.<input class="in" type="number" min="1" id="adRoll" value="${nextRoll(std+"-"+adm.div)}"></label>
+    <label class="f">Father's name<input class="in" id="adFa" maxlength="80"></label><label class="f">Mother's name<input class="in" id="adMo" maxlength="80"></label>
+    <label class="f">Category<select class="in" id="adCat"><option value="">Select</option><option>Serving</option><option>Retired</option><option>Civilian</option></select></label>
+    <label class="f">Service<select class="in" id="adBr"><option value="">–</option><option>Army</option><option>Air Force</option><option>Navy</option><option>PMF</option><option>Others</option></select></label>
+    <label class="f">Rank group (serving)<select class="in" id="adRg"><option value="">–</option><option>Officer</option><option>JCO</option><option value="OR">OR (other ranks)</option></select></label>
+    <label class="f">Parent's phone (staff only)<input class="in" id="adPh" maxlength="15"></label>
+    <label class="f">Consent form signed?<select class="in" id="adCon"><option value="">Not yet</option><option value="np">Yes, no photo</option><option value="p">Yes, photo allowed</option></select></label></div>
+   <div class="row"><button class="btn pri" data-adsave="1">${isFull()?"✅ Admit":"📨 Send for approval"}</button></div></div>
+   <h3>Admissions this year (${L.length})</h3>${L.length?`<div class="tbl-wrap"><table class="pt"><thead><tr><th>Date</th><th>Adm. no.</th><th>Name</th><th>Class</th><th>Status</th></tr></thead><tbody>${L.map(d=>`<tr><td>${fmtD(d.admittedOn)}</td><td>${esc(d.adm||"")}</td><td style="text-align:left"><b>${esc(d.name)}</b></td><td>${esc(d.cls)} · ${esc(d.roll)}</td><td>${d.admission==="pending"?'<span class="ctag none">Awaiting principal</span>':d.status==="left"?'<span class="ctag none">Left</span>':'<span class="ctag perm">Admitted</span>'}</td></tr>`).join("")}</tbody></table></div>`:`<p class="hint">None yet.</p>`}`; }
+document.addEventListener("change",e=>{ if(e.target.id==="adStd"){ adm.std=e.target.value; const secs=secOf(adm.std); adm.div=secs.slice().sort((a,b)=>secStrength(adm.std,a)-secStrength(adm.std,b))[0]; $("#adDiv").innerHTML=secs.map(x=>`<option value="${x}" ${x===adm.div?"selected":""}>${x} (${secStrength(adm.std,x)} students)</option>`).join(""); $("#adRoll").value=nextRoll(adm.std+"-"+adm.div); } else if(e.target.id==="adDiv"){ adm.div=e.target.value; $("#adRoll").value=nextRoll(adm.std+"-"+adm.div); } });
+document.addEventListener("click",async e=>{ const b=e.target.closest("[data-adsave],[data-admok],[data-admno]"); if(!b||!ME) return;
+  try{
+  if(b.dataset.adsave){ if(!isOffice()) return; const name=capName($("#adName").value.trim()), dob=$("#adDob").value, std=$("#adStd").value, div=$("#adDiv").value, roll=+$("#adRoll").value, cat=$("#adCat").value, con=$("#adCon").value;
+    if(!name||!dob) return toast("Name and date of birth are needed"); if(!(roll>=1)) return toast("Please type the roll no."); if(!cat) return toast("Please choose the parents' category");
+    const ph=$("#adPh").value.trim(); if(ph&&!/^[+0-9 \-]{6,15}$/.test(ph)) return toast("Please type a valid phone number");
+    const cls=std+"-"+div; if(allStudents().some(x=>x.cls===cls&&x.roll===roll&&!x.left)) return toast(`Roll ${roll} is already taken in ${cls}`);
+    const y=stuY(), sid=sidOf({year:y,name,dob}); if(STUDOCS[sid]) return toast("This student is already on the register");
+    const d={year:y,name,dob,gender:$("#adGen").value,adm:$("#adNo").value.trim(),std,div,cls,roll,father:capName($("#adFa").value.trim()),mother:capName($("#adMo").value.trim()),category:cat,branch:cat==="Serving"?$("#adBr").value:"",rankGroup:cat==="Serving"?$("#adRg").value:"",phone:ph,status:"active",admission:isFull()?"approved":"pending",admittedOn:$("#adOn").value||todayISO(),
+      consent:con?{given:true,by:"Parent",on:$("#adOn").value||todayISO(),how:"Signed at admission",photo:con==="p",recordedBy:ME.email}:null,history:[{on:$("#adOn").value||todayISO(),what:`Admitted to ${cls} (roll ${roll})${isFull()?"":", sent for approval"}`,by:ME.email}],updatedAt:new Date().toISOString(),updatedBy:ME.email};
+    await setDoc(doc(db,"students",sid),d); toast(isFull()?`✅ ${name} admitted to ${cls}`:`📨 ${name}'s admission was sent to the principal for approval`); renderStu(); return; }
+  if(!isFull()) return; const sid=b.dataset.admok||b.dataset.admno, d=STUDOCS[sid]; if(!d) return;
+  if(b.dataset.admok){ await setDoc(doc(db,"students",sid),{...d,admission:"approved",approvedBy:ME.email,approvedAt:new Date().toISOString(),history:[...(d.history||[]),{on:todayISO(),what:"Admission approved",by:ME.email}]}); toast(`✅ ${d.name} admitted to ${d.cls}`); }
+  else confirmBox("Send this admission back?",`${d.name} (${d.cls}) will be removed from the register so the coordinator can correct and resend it.`,"Send back",async()=>{ try{ await deleteDoc(doc(db,"students",sid)); toast("Sent back"); }catch(err){ toast("Couldn't: "+errMsg(err)); } });
+  }catch(err){ toast("Couldn't save: "+errMsg(err)); } });
 
 /* init */
 renderStSubj(); renderCP(); resetSubjects(); resetNS(); renderClassList(); renderStats(); route(); showGate("gSignin");
