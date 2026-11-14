@@ -570,7 +570,7 @@ footer{background:var(--navy);color:#c9cfbd!important;padding:22px 16px!importan
       <a href="#home" data-v="home" id="navHome">Home</a>
       <a href="#notices" data-v="pub">📢 Notices</a>
       <a href="#achievements" data-v="pub">🏆 Achievements</a>
-      <a href="#school" data-v="pub">📋 Disclosure</a>
+      <a href="#school" data-v="pub" id="navDisc">📋 Disclosure</a>
       <a href="#teacher" data-v="teacher" class="staff-only" id="navEntry">Results entry</a>
       <a href="#analysis" data-v="analysis" class="staff-only">Analysis</a>
       <a href="#students" data-v="students" class="staff-only">Students</a>
@@ -1924,6 +1924,8 @@ async function loadMe(u){
   $("#navEntry").style.display=(sd&&sd.coordinator)||admin||role==="principal"?"none":"";
   /* once signed in, Home and Dashboard are one page */
   $("#navHome").textContent="📊 Dashboard";
+  /* teachers don't need the public disclosure page in their menu (it stays public for parents and visitors) */
+  $("#navDisc").style.display=office||admin||role==="principal"?"":"none";
   document.querySelector('nav a[data-v="analysis"]').style.display=office&&!(admin||role==="principal")?"none":"";
   if(office&&(location.hash==="#coordinator"||location.hash==="#teacher"&&acting)) location.hash="students";
   if(admin&&LOGIN_MODE==="admin"&&location.hash==="#adminlogin") location.hash="admin";
@@ -1931,7 +1933,7 @@ async function loadMe(u){
   if((role==="principal"||admin)&&(location.hash==="#principal"||location.hash===""||location.hash==="#teacher")) location.hash="home";
 }
 if(auth){
-  onAuthStateChanged(auth,u=>{ user=u; ME=null; canWrite=false; document.body.classList.remove("admin","staff","principal","office"); $("#navEntry").style.display=""; $("#navHome").textContent="Home"; document.querySelector('nav a[data-v="analysis"]').style.display="";
+  onAuthStateChanged(auth,u=>{ user=u; ME=null; canWrite=false; document.body.classList.remove("admin","staff","principal","office"); $("#navEntry").style.display=""; $("#navHome").textContent="Home"; $("#navDisc").style.display=""; document.querySelector('nav a[data-v="analysis"]').style.display="";
     if(!u){ authDone(); if(!window._settingUp&&!$("#gSetup").hidden&&$("#gateErr").textContent){ stopTeacherData(); stopStaffData(); return; } showGate("gSignin"); stopTeacherData(); stopStaffData(); renderStats(); renderRoleBar(); return; }
     if(!u.emailVerified){ authDone(); if(window._settingUp) return;
       onList(u.email).then(ok=>{ if(!ok){ $("#uEmail").textContent=u.email; showGate("gUnreg"); return; }
@@ -3309,7 +3311,7 @@ function renderPub(){ const box=$("#pubBody"); if(!box) return; const h=location
 function discHTML(){ const d=D_(), g=d.general, s=d.staff, lnk=(u,t)=>safeUrl(u)?`<a href="${esc(safeUrl(u))}" target="_blank" rel="noopener">${t||"View"} ↗</a>`:'<span class="hint">To be uploaded</span>';
   const tbl=(rows)=>`<div class="tbl-wrap"><table class="pt"><tbody>${rows.map(([k,v],i)=>`<tr><td style="width:40px">${i+1}</td><td style="text-align:left">${esc(k)}</td><td style="text-align:left"><b>${v}</b></td></tr>`).join("")}</tbody></table></div>`;
   const T=teachersPublic(), fees=String(d.fees||"").split("\n").map(l=>l.split("|").map(x=>x.trim())).filter(x=>x[0]);
-  return `<div class="title-row"><h2>📋 Mandatory Public Disclosure</h2>${isOffice()?`<button class="btn sec" data-discedit="1">✏️ Edit</button>`:""}</div>
+  return `<div class="title-row"><h2>📋 Mandatory Public Disclosure</h2>${isOffice()&&!isFull()?`<button class="btn sec" data-discedit="1">✏️ Edit and send for approval</button>`:""}</div>
    <p class="hint">As required by the CBSE Affiliation Bye-Laws (Appendix IX).${d.sample?" <b>The figures below are sample placeholders for the demo.</b>":""}</p>
    <h3>A. General information</h3>${tbl([["Name of the school",esc(g.name)],["Affiliation no.",esc(g.affNo)],["School code",esc(g.schoolCode)],["Complete address with PIN code",esc(g.address)],["Principal's name and qualification",esc(g.principal)+" · "+esc(g.principalQual)],["School email ID",esc(g.email)],["Contact details",esc(g.phone)]])}
    <h3>B. Documents and information</h3>${tbl(DISC_DOCS.map(([k,l])=>[l,lnk(d.docs[k])]))}
@@ -3327,7 +3329,7 @@ function discHTML(){ const d=D_(), g=d.general, s=d.staff, lnk=(u,t)=>safeUrl(u)
    <form id="tcForm" class="apick" style="align-items:flex-end"><label class="f">TC no.<input class="in" id="tcNo" required maxlength="30"></label><label class="f">Student name<input class="in" id="tcName" required maxlength="80"></label><button class="btn pri">🔍 Check</button></form><div id="tcOut"></div>`; }
 function discEditHTML(){ const d=D_(), g=d.general, s=d.staff, inp=(p,v,ph)=>`<input class="in" data-dk="${p}" value="${esc(v||"")}" placeholder="${esc(ph||"")}">`;
   const L=(lab,p,v,ph)=>`<label class="f">${esc(lab)}${inp(p,v,ph)}</label>`;
-  return `<div class="title-row"><h2>✏️ Edit public disclosure</h2><span><button class="btn sec" data-discedit="0">Cancel</button> <button class="btn pri" data-discsave="1">💾 Save</button></span></div>
+  return `<div class="title-row"><h2>✏️ Edit public disclosure</h2><span><button class="btn sec" data-discedit="0">Cancel</button> <button class="btn pri" data-discsave="1">📨 Send to the principal</button></span></div>
    <p class="hint">Documents must be links starting with https:// (for example a Google Drive file shared as "Anyone with the link"). Everything here is public.</p>
    <h3>A. General</h3><div class="grid g2">${L("Name of the school","general.name",g.name)}${L("Affiliation no.","general.affNo",g.affNo)}${L("School code","general.schoolCode",g.schoolCode)}${L("Address with PIN","general.address",g.address)}${L("Principal's name","general.principal",g.principal)}${L("Principal's qualification","general.principalQual",g.principalQual)}${L("School email","general.email",g.email)}${L("Phone","general.phone",g.phone)}</div>
    <h3>Privacy contact (shown on the Privacy page)</h3><div class="grid g2">${L("Name / designation","general.dpoName",g.dpoName)}${L("Email","general.dpoEmail",g.dpoEmail)}</div>
@@ -3339,7 +3341,7 @@ function discEditHTML(){ const d=D_(), g=d.general, s=d.staff, inp=(p,v,ph)=>`<i
    <h3>PTA members</h3><label class="f">One per line as <b>Name | Role</b><textarea class="in" data-dk="pta" style="min-height:120px">${esc(d.pta||"")}</textarea></label>
    <h3>Fees</h3><label class="f">One line per group as <b>Classes | Tuition fee | Other charges</b><textarea class="in" data-dk="fees" style="min-height:80px">${esc(d.fees||"")}</textarea></label>${L("Note under the fee table","feeNote",d.feeNote)}
    <h3>Committees</h3>${d.committees.map((c,i)=>`<div class="grid g3">${L("Committee","com."+i+".name",c.name)}${L("Members","com."+i+".members",c.members)}${L("Contact","com."+i+".contact",c.contact)}</div>`).join("")}
-   <div class="row"><button class="btn pri" data-discsave="1">💾 Save</button></div>`; }
+   <div class="row"><button class="btn pri" data-discsave="1">📨 Send to the principal</button></div>`; }
 function calDiscHTML(){ const pub=PCAL||CAL, y0=YEARS[0].slice(0,4); /* until the school publishes its calendar, show the official school-diary list */
   const C=pub||{start:y0+"-04-01",end:(+y0+1)+"-03-31",holidays:SUGGESTED_HOLIDAYS,exams:[]};
   const KL={"Vacation":"Vacation","Holiday":"Holiday","Holiday (R)":"Restricted holiday","Non-instructional day":"No classes","Important day":"Important day"};
@@ -3356,7 +3358,7 @@ function privacyHTML(){ const g=D_().general;
   <h3>Your rights</h3><p>You can ask to see, correct or erase your child's data, withdraw consent, or raise a complaint. The school replies within 30 days.</p>
   <div class="card" style="box-shadow:none;background:#f8f6ff"><b>Privacy contact:</b> ${esc(g.dpoName)} · <a href="mailto:${esc(g.dpoEmail)}">${esc(g.dpoEmail)}</a> · ${esc(g.phone)}<br><span class="hint">If you are not satisfied, you can complain to the Data Protection Board of India.</span></div>`; }
 document.addEventListener("click",async e=>{ const t=e.target.closest("[data-discedit],[data-discsave],[data-discfill]"); if(!t) return;
-  if(t.dataset.discedit){ discEdit=t.dataset.discedit==="1"; renderPub(); window.scrollTo(0,0); return; }
+  if(!ME||!isOffice()||isFull()) return; if(t.dataset.discedit){ discEdit=t.dataset.discedit==="1"; renderPub(); window.scrollTo(0,0); return; }
   if(t.dataset.discfill){ const L=Object.values(STAFF).filter(x=>x.role==="teacher").sort((a,b)=>String(a.name).localeCompare(String(b.name))).map(x=>`${x.name} | ${x.qualification||""} | ${x.coordinator?"Coordinator, PRT":(x.designation||"PRT")}${(x.classTeacher||[]).length?" (class teacher "+x.classTeacher.join(", ")+")":""}`); const ta=document.querySelector('[data-dk="staff.teachers"]'); if(ta) ta.value=L.join("\n");
     const se=Object.values(STAFF).find(x=>x.designation==="Special educator"), sp=document.querySelector('[data-dk="staff.special"]'); if(se&&sp) sp.value=`${se.name}, ${se.qualification||"special educator"}`;
     const co=Object.values(STAFF).find(x=>x.designation==="Counsellor"), cp=document.querySelector('[data-dk="staff.counsellor"]'); if(co&&cp) cp.value=`${co.name}, ${co.qualification||"counsellor"}`; return; }
