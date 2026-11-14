@@ -210,6 +210,15 @@ service cloud.firestore {
       allow delete: if isOffice();
     }
 
+    // ---- Fees: one record per child per year. Parents open only their own child's record by its hash
+    //      (year, class, roll, name and date of birth); nobody can browse. The office records payments. ----
+    match /fees/{key} {
+      allow get: if true;
+      allow list: if isOffice();
+      allow create, update: if isOffice() && request.resource.data.year is string && request.resource.data.q is map;
+      allow delete: if isOffice();
+    }
+
     // ---- Staff attendance: principal and coordinator only ----
     match /staffAtt/{id} {
       allow read, write: if isOffice();

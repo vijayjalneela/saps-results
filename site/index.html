@@ -528,6 +528,10 @@ nav.tabs a:hover{color:#fff}
 #homeFlash .card{background:#fff!important;border:1px solid var(--line)!important;border-top:5px solid #1d4f91!important}
 #homeFlash .card+.card{border-top-color:#ff9933!important}
 #homeFlash h3{text-transform:uppercase;letter-spacing:.6px}
+.brand{white-space:nowrap;flex:none}
+nav.tabs{min-width:0;overflow-x:auto;scrollbar-width:none}
+nav.tabs::-webkit-scrollbar{display:none}
+@media(max-width:1400px){body.staff .brand small{display:none}body.staff .brand{font-size:18px}body.staff nav.tabs a{padding:8px 11px;font-size:13px}}
 /* Ticker and footer */
 .ticker{background:var(--navy);border:1px solid #23344d}
 .ticker .tk-l{background:#ff9933;color:#1b1206}
@@ -649,7 +653,7 @@ footer{background:var(--navy);color:#c9cfbd!important;padding:22px 16px!importan
     <div class="doors">
       <a class="door t" href="#coordinator"><div class="ic" style="background:#fff4e0">🗂️</div><h3>Coordinator login</h3><p>For the school office.</p><span class="go" style="color:var(--saffron)">Log in →</span></a>
       <a class="door t" href="#teacher"><div class="ic">✏️</div><h3>Teacher login</h3><p>For school staff.</p><span class="go">Log in →</span></a>
-      <a class="door p" href="#results"><div class="ic">🎓</div><h3>Parents login</h3><p>See your child's report card.</p><span class="go">Check a result →</span></a>
+      <a class="door p" href="#results"><div class="ic">🎓</div><h3>Parents login</h3><p>Report card and fees.</p><span class="go">Log in →</span></a>
     </div>
   </div>
   <a class="card" href="#school" style="display:flex;gap:14px;align-items:center;margin-top:18px;text-decoration:none;color:inherit;background:#fff8ec;border:2px solid #ffd79a"><span style="font-size:34px">📋</span><span><b style="font-size:18px">Mandatory Public Disclosure (CBSE)</b><br><span class="hint">Affiliation, documents, staff, infrastructure, fees, committees and TC check · <span style="text-decoration:underline">Privacy notice</span> in the footer</span></span></a>
@@ -913,8 +917,8 @@ footer{background:var(--navy);color:#c9cfbd!important;padding:22px 16px!importan
 <!-- ================= PARENTS ================= -->
 <section class="view" id="v-results">
   <div class="p-hero"><div class="pals"><div data-animal="elephant"></div><div data-animal="lion"></div></div>
-    <h2>Parents login: check your child's result</h2>
-    <p>Choose the year, exam and class, then enter the roll number, your child's name and date of birth.</p>
+    <h2>Parents login</h2>
+    <p>Enter your child's class, roll number, name and date of birth to see the report card and fees.</p>
     <form class="lookup" id="lookup">
       <label class="f">Year<select class="in" id="qYear"></select></label>
       <label class="f">Term<select class="in" id="qTerm"><option value="UT-1">UT-I</option><option value="Term I" selected>Term I</option><option value="UT-2">UT-II</option><option value="Term II">Term II (Final Exam)</option></select></label>
@@ -923,7 +927,7 @@ footer{background:var(--navy);color:#c9cfbd!important;padding:22px 16px!importan
       <label class="f">Roll no.<input class="in" id="qRoll" type="number" min="1" required></label>
       <label class="f" style="grid-column:span 1">Student name<input class="in" id="qName" required placeholder="e.g. Riya Sharma" autocomplete="off"></label>
       <label class="f" style="grid-column:1/-1">Date of birth<input class="in" id="qDob" type="date" required></label>
-      <button class="btn pri" type="submit" style="grid-column:1/-1;justify-content:center">🔍 Show report card</button>
+      <button class="btn pri" type="submit" style="grid-column:1/-1;justify-content:center">🔐 Open</button>
       <p class="hint" style="grid-column:1/-1;margin:0;text-align:center">For the parent or guardian only. See how we protect your child's data: <a href="#privacy">Privacy notice</a>.</p>
     </form>
   </div>
@@ -1092,7 +1096,7 @@ function startTeacherData(year){
     const next={}; snap.forEach(d=>{ next[d.id]=fromStore(d.data(),d.id); }); RECORDS=next; refreshAll(); renderRoleBar();
   },err=>{ toast("Couldn't load results: "+errMsg(err)); });
 }
-function stopTeacherData(){ stopStu(); stopEDUT(); if(unsubResults){unsubResults();unsubResults=null;} RECORDS={}; LOAD={year:null,all:false,key:""}; refreshAll(); }
+function stopTeacherData(){ stopStu(); stopEDUT(); stopFees(); if(unsubResults){unsubResults();unsubResults=null;} RECORDS={}; LOAD={year:null,all:false,key:""}; refreshAll(); }
 function classLoaded(c){ return isOffice()||LOAD.all||myClasses().includes(c); }
 if(db){
   onSnapshot(doc(db,"config","home"),d=>{ if(d.exists()){ HOME={...DEFAULT_PR,...d.data()}; renderHome(); } },()=>{});
@@ -1486,12 +1490,15 @@ $("#lookup").addEventListener("submit",async e=>{
   if(!normName(q.name)) return toast("Please type the student's name");
   try{ const k=await reportKey(q); const d=k?await getDoc(doc(db,"reports",k)):null; if(d&&d.exists()) r=fromStore(d.data(),idFor(q)); }
   catch(err){ out.innerHTML=`<div class="card" style="margin-top:22px;text-align:center"><h3>Couldn't connect</h3><p style="color:var(--muted)">${esc(errMsg(err))}</p></div>`; }
-  finally{ if(btn){btn.disabled=false;btn.textContent="🔍 Show report card";} }
+  finally{ if(btn){btn.disabled=false;btn.textContent="🔐 Open";} }
+  let fd=null; try{ const fk=await feeKey(q); const d2=fk?await getDoc(doc(db,"fees",fk)):null; fd=d2&&d2.exists()?d2.data():null; }catch(_){}
+  const feeBox=(fd||r)?feePanelHTML(fd,{...q,name:(fd&&fd.name)||(r&&r.name)||capName(q.name)}):"";
+  if(!r&&fd){ out.innerHTML=feeBox+`<div class="card" style="margin-top:14px;text-align:center"><p style="color:var(--muted);margin:0">The report card for ${esc(q.term)} isn't published yet.</p></div>`; out.scrollIntoView({behavior:"smooth",block:"start"}); return; }
   if(!r){
     out.innerHTML=`<div class="card" style="margin-top:22px;text-align:center"><div style="font-size:40px">🔎</div><h3>No result found</h3><p style="color:var(--muted)">Please check the class, section, roll number, date of birth and the spelling of the name. If they're right, the result may not be published yet.</p></div>`;
     return;
   }
-  out.innerHTML=reportCard(r)+`<div style="text-align:center;margin:14px 0"><button class="btn sec" id="rcPrint">🖨 Print / Save PDF</button></div><div id="progOut"><div class="prog"><p class="sub">Loading progress across exams…</p></div></div>`;
+  out.innerHTML=feeBox+reportCard(r)+`<div style="text-align:center;margin:14px 0"><button class="btn sec" id="rcPrint">🖨 Print / Save PDF</button></div><div id="progOut"><div class="prog"><p class="sub">Loading progress across exams…</p></div></div>`;
   out.scrollIntoView({behavior:"smooth",block:"start"});
   loadProgress(r).then(list=>{ $("#progOut").innerHTML=progressHTML(r,list); });
 });
@@ -1778,7 +1785,7 @@ $("#delSample").onclick=()=>{ if(!isFull()) return asOffice("delSample","Delete 
     const rk=(await Promise.all(ids.map(id=>reportKey(RECORDS[id]._raw||RECORDS[id])))).filter(Boolean);
     let extra=[]; try{ const [lv,sb,tt]=await Promise.all([getDocs(collection(db,"leaves")),getDocs(collection(db,"subs")),getDocs(collection(db,"timetable"))]);
       try{ const du=await getDocs(collection(db,"duties")); du.forEach(d=>{ if(d.data().sample) extra.push(["duties",d.id]); }); }catch(_){}
-      for(const c of ["students","studentNotes","attendance","staffAtt","tcs","notices","achievements","eventDuties"]){ try{ const q=await getDocs(collection(db,c)); q.forEach(d=>{ if(d.data().sample) extra.push([c,d.id]); }); }catch(_){} }
+      for(const c of ["students","studentNotes","attendance","staffAtt","tcs","notices","achievements","eventDuties","fees"]){ try{ const q=await getDocs(collection(db,c)); q.forEach(d=>{ if(d.data().sample) extra.push([c,d.id]); }); }catch(_){} }
       lv.forEach(d=>{ if(d.data().sample) extra.push(["leaves",d.id]); }); sb.forEach(d=>{ if(d.data().sample) extra.push(["subs",d.id]); }); tt.forEach(d=>{ if(d.data().sample) extra.push(["timetable",d.id]); }); }catch(_){}
     const ops=[...ids.map(id=>["results",id]),...rk.map(k=>["reports",k]),...sids.map(id=>["staff",id]),...sids.map(id=>["staffHR",id]),...extra];
     for(let i=0;i<ops.length;i+=100){ const b=writeBatch(db); ops.slice(i,i+100).forEach(([c,id])=>b.delete(doc(db,c,id))); await b.commit(); }
@@ -2633,7 +2640,7 @@ async function runImport(text){
   staff=staff.filter(x=>x&&x.email&&x.role); 
   hr=hr.filter(x=>x&&x.email); let leaves=[]; try{ const j2=JSON.parse(text); leaves=Array.isArray(j2.leaves)?j2.leaves.filter(x=>x&&x.email&&x.from):[]; }catch(_){}
   if(leaves.length){ try{ const b=writeBatch(db); leaves.slice(0,300).forEach(x=>{ const em=String(x.email).toLowerCase(); b.set(doc(db,"leaves",("imp-"+em+"-"+x.from).replace(/[^A-Za-z0-9_\-]/g,"-")),{...x,email:em}); }); await b.commit(); if(!list.length&&!staff.length&&!hr.length) return toast(`Imported ${leaves.length} leave records ✓`); }catch(err){ return toast("Import of leave failed: "+errMsg(err)); } }
-  let extras=[]; try{ const j3=JSON.parse(text); [["students","students"],["notes","studentNotes"],["attendance","attendance"],["staffAtt","staffAtt"],["tcs","tcs"],["notices","notices"],["achievements","achievements"],["eventDuties","eventDuties"]].forEach(([k,c])=>(Array.isArray(j3[k])?j3[k]:[]).forEach(x=>{ if(x&&x.id){ const {id,...b}=x; extras.push([c,String(id),b]); } })); }catch(_){}
+  let extras=[]; try{ const j3=JSON.parse(text); if(j3&&j3.feeplan&&typeof j3.feeplan==="object") extras.push(["config","feeplan",j3.feeplan]); [["students","students"],["notes","studentNotes"],["attendance","attendance"],["staffAtt","staffAtt"],["tcs","tcs"],["notices","notices"],["achievements","achievements"],["eventDuties","eventDuties"],["fees","fees"]].forEach(([k,c])=>(Array.isArray(j3[k])?j3[k]:[]).forEach(x=>{ if(x&&x.id){ const {id,...b}=x; extras.push([c,String(id),b]); } })); }catch(_){}
   if(extras.length){ try{ for(let i=0;i<extras.length;i+=100){ const b=writeBatch(db); extras.slice(i,i+100).forEach(([c,id,d])=>b.set(doc(db,c,id),d)); await b.commit(); } toast(`Imported ${extras.length} attendance, student and notes records ✓`); if(!list.length&&!staff.length&&!hr.length) return; }catch(err){ return toast("Import of attendance/notes failed: "+errMsg(err)); } }
   if(!list.length&&!staff.length&&!hr.length&&!leaves.length) return toast("No results found in that file");
   if(hr.length){ try{ const b=writeBatch(db); hr.slice(0,400).forEach(x=>{ const {email,...h}=x; const em2=String(email).toLowerCase(); b.set(doc(db,"staffHR",em2),{role:(staff.find(y=>String(y.email).toLowerCase()===em2)||STAFF[em2]||{}).role||"teacher",...h}); }); await b.commit(); if(!list.length&&!staff.length) return toast(`Imported contract details for ${hr.length} staff ✓`); }catch(err){ return toast("Import of contract details failed: "+errMsg(err)); } }
@@ -2676,7 +2683,7 @@ const catTag=r=>r.category?`<span class="ctag" style="background:${r.category===
 const avatar=(r,sz)=>`<div class="av" style="width:${sz}px;height:${sz}px;flex:none;border-radius:12px;overflow:hidden;display:grid;place-items:center;background:#f2edff;font-weight:900;color:#5435c9">${r.photo&&safeImg(r.photo)?`<img src="${safeImg(r.photo)}" alt="" style="width:100%;height:100%;object-fit:cover">`:esc((r.name||"?").split(" ").map(w=>w[0]).slice(0,2).join(""))}</div>`;
 
 function renderStu(){ const box=$("#stuBody"); if(!box) return; if(!ME){ box.innerHTML=`<div class="empty">Please sign in.</div>`; return; } startStu();
-  const tabs=[["find","🔎 Find a student"]].concat(isOffice()?[["adm","🎒 Admissions"]]:[],[["att","✅ Class attendance"]],isOffice()?[["staff","👩‍🏫 Staff attendance"]]:[]);
+  const tabs=[["find","🔎 Find a student"]].concat(isOffice()?[["adm","🎒 Admissions"],["fees","💳 Fees"]]:[],[["att","✅ Class attendance"]],isOffice()?[["staff","👩‍🏫 Staff attendance"]]:[]);
   if(!tabs.some(t=>t[0]===stu.tab)) stu.tab="find";
   const head=`<div class="title-row"><h2>🧒 Students</h2><span class="hint">${esc(stuY())}${ME.office&&!isFull()?` · <b>${ME.coordinator?"Coordinator":"Acting coordinator"}</b>`:""}</span></div>
     <div class="atabs">${tabs.map(([k,l])=>`<button data-stab="${k}" class="${stu.tab===k?"on":""}">${l}</button>`).join("")}</div>`;
@@ -2684,6 +2691,7 @@ function renderStu(){ const box=$("#stuBody"); if(!box) return; if(!ME){ box.inn
   if(stu.tab==="find") body=stu.sel?profileHTML():findHTML();
   else if(stu.tab==="att") body=attHTML();
   else if(stu.tab==="adm") body=approvalsHTML()+admissionsHTML();
+  else if(stu.tab==="fees") body=feesHTML();
   else body=staffAttHTML();
   box.innerHTML=head+body;
   if(stu.tab==="find"&&!stu.sel) renderStuList();
@@ -2755,7 +2763,7 @@ function printConsent(s){ const g=D_().general, w=window.open("","_blank"); if(!
    <p style="margin-top:30px;font-size:12px">For office use: recorded on the website by <span class="ln" style="min-width:160px"></span> on <span class="ln" style="min-width:100px"></span></p><script>print()<\/script></body></html>`); w.document.close(); }
 async function eraseStu(s){ const b=writeBatch(db); let n=0;
   for(const r of s.recs){ const k=await reportKey(r._raw||r); b.delete(doc(db,"results",r.id)); if(k) b.delete(doc(db,"reports",k)); n++; }
-  b.delete(doc(db,"studentNotes",s.sid)); b.delete(doc(db,"students",s.sid));
+  b.delete(doc(db,"studentNotes",s.sid)); b.delete(doc(db,"students",s.sid)); if(FEES[s.sid]&&FEES[s.sid]._k) b.delete(doc(db,"fees",FEES[s.sid]._k));
   for(const g of segments(s)){ const L=await getDocs(query(collection(db,"attendance"),where("year","==",stuY()),where("cls","==",g.cls))); L.forEach(d=>{ const x=d.data(); let ch=false; Object.values(x.days||{}).forEach(v=>{ if((v.absent||[]).includes(s.sid)){ v.absent=v.absent.filter(k=>k!==s.sid); ch=true; } }); if(ch) b.set(doc(db,"attendance",d.id),x); }); }
   await b.commit(); ATTC={}; delete NOTES[s.sid]; return n; }
 function downloadStu(s){ const n=NOTES[s.sid]||null; const data={exported:new Date().toISOString(),school:D_().general.name,student:{name:s.name,class:s.cls,roll:s.roll,adm:s.r.adm,dob:s.r.dob,gender:s.r.gender,father:s.r.father,mother:s.r.mother,category:s.r.category,service:s.r.branch,rankGroup:s.r.rankGroup},register:{status:s.doc.status||"active",phone:s.doc.phone||"",consent:s.doc.consent||null,history:s.doc.history||[]},
@@ -2796,7 +2804,7 @@ async function transferStu(s,div,roll){ const cls=s.std+"-"+div;
     if(nid!==r.id) b.delete(doc(db,"results",r.id)); if(oldK&&oldK!==nk) b.delete(doc(db,"reports",oldK)); }
   b.set(doc(db,"students",s.sid),stuDoc(s,{std:s.std,div,cls,roll,history:[...(s.doc.history||[]),{on:todayISO(),from:s.cls,to:cls,what:`Moved from ${s.cls} (roll ${s.roll}) to ${cls} (roll ${roll})`,by:ME.email}]}));
   if(NOTES[s.sid]) b.set(doc(db,"studentNotes",s.sid),{year:stuY(),std:s.std,div,cls},{merge:true});
-  await b.commit(); ATTC={}; }
+  await b.commit(); ATTC={}; if(FEES[s.sid]){ const st2={...s,div,cls,roll}; await writeFee(st2,{}); } }
 
 /* ---- class attendance (class teacher marks daily) ---- */
 function closedMsg(date){ const wd=new Date(date+"T00:00:00").getDay(); if(wd===0||wd===6) return "It's a weekend: no school."; const h=holidayOn(date,calData().holidays); return h?`School closed: ${esc(h.name)}.`:""; }
@@ -2992,7 +3000,8 @@ function startEDUT(){ if(!db||!ME||unsubED) return; unsubED=onSnapshot(collectio
 function stopEDUT(){ if(unsubED){unsubED();unsubED=null;} EDUT={}; }
 function pubRefresh(){ renderFlash(); if(["#notices","#achievements"].includes(location.hash)) renderPub(); }
 const ntEnd=n=>n.until||n.to||n.date||"";
-const upNotices=()=>Object.values(NOTICES).filter(n=>ntEnd(n)>=todayISO()).sort((a,b)=>(b.pinned?1:0)-(a.pinned?1:0)||String(a.date||"").localeCompare(String(b.date||"")));
+const feeNotice=()=>{ const r=typeof feeReminder==="function"?feeReminder():null; return r?[{id:"_fee",type:"General",title:r.late?`School fee for ${r.q} (${r.label}) was due on ${fmtD(r.due).replace(/<[^>]*>/g,"")}: please pay if not done`:`School fee for ${r.q} (${r.label}) is due by ${fmtD(r.due).replace(/<[^>]*>/g,"")}`,date:"",until:r.due,text:"Pay by UPI, bank transfer or at the fee counter. Parents can see the fee status and payment details in the Parents login.",pinned:true,_auto:true}]:[]; };
+const upNotices=()=>[...feeNotice(),...Object.values(NOTICES)].filter(n=>ntEnd(n)>=todayISO()||n._auto).sort((a,b)=>(b.pinned?1:0)-(a.pinned?1:0)||String(a.date||"").localeCompare(String(b.date||"")));
 const achList=()=>Object.values(ACHS).sort((a,b)=>String(b.date||"").localeCompare(String(a.date||"")));
 /* the "flash" on the Home page */
 function renderFlash(){ const tk=$("#homeTicker"); if(tk){ const items=[...upNotices().slice(0,6).map(n=>`${ntIcon(n.type)} ${esc(n.title)}${n.date?" · "+fmtD(n.date):""}`),...achList().slice(0,3).map(a=>`🏆 ${esc(a.title)}${a.who?" · "+esc(a.who):""}`)];
@@ -3014,7 +3023,7 @@ function noticesHTML(){ const off=!!ME&&isOffice(), U=upNotices(), P=Object.valu
       <h3 style="margin:2px 0 6px">${esc(n.title)}</h3><div style="white-space:pre-line">${esc(n.text||"")}</div>
       ${safeUrl(n.link)?`<p style="margin:8px 0 0"><a href="${esc(safeUrl(n.link))}" target="_blank" rel="noopener">More details ↗</a></p>`:""}
       ${du.length?`<div style="margin-top:10px;background:#f8f6ff;border-radius:10px;padding:8px 12px"><b>👩‍🏫 Staff duties</b> <span class="hint">(staff only)</span>${du.map(d=>`<div>• <b>${esc(tName(d.email))}</b>: ${esc(d.task)}</div>`).join("")}</div>`:""}
-      ${off?`<div class="row" style="justify-content:flex-start;margin-top:8px"><button class="btn sec sm" data-nted="${esc(n.id)}">✏️ Edit</button><button class="btn warn sm" data-ntrm="${esc(n.id)}">🗑 Remove</button></div>`:""}</div></div></div>`; };
+      ${n._auto?`<p style="margin:8px 0 0"><a href="#results">💳 Check fee status in the Parents login →</a></p>`:""}${off&&!n._auto?`<div class="row" style="justify-content:flex-start;margin-top:8px"><button class="btn sec sm" data-nted="${esc(n.id)}">✏️ Edit</button><button class="btn warn sm" data-ntrm="${esc(n.id)}">🗑 Remove</button></div>`:""}</div></div></div>`; };
   return `<div class="title-row"><h2>📢 Notices</h2>${off?`<button class="btn pri" data-ntnew="1">➕ New notice or event</button>`:""}</div>
    <p class="hint">Admissions, exams, parent-teacher meetings, events and visits.${off&&!isFull()?" Your notices go live after the principal approves them.":""}</p>
    ${off&&ntEdit?ntFormHTML():""}
@@ -3117,6 +3126,80 @@ document.addEventListener("click",async e=>{ const b=e.target.closest("[data-ads
   if(b.dataset.admok){ await setDoc(doc(db,"students",sid),{...d,admission:"approved",approvedBy:ME.email,approvedAt:new Date().toISOString(),history:[...(d.history||[]),{on:todayISO(),what:"Admission approved",by:ME.email}]}); toast(`✅ ${d.name} admitted to ${d.cls}`); }
   else confirmBox("Send this admission back?",`${d.name} (${d.cls}) will be removed from the register so the coordinator can correct and resend it.`,"Send back",async()=>{ try{ await deleteDoc(doc(db,"students",sid)); toast("Sent back"); }catch(err){ toast("Couldn't: "+errMsg(err)); } });
   }catch(err){ toast("Couldn't save: "+errMsg(err)); } });
+
+/* ================= FEES: quarterly plan, payments, parents' view, reminders ================= */
+const QS=["Q1","Q2","Q3","Q4"];
+const DEF_FEEPLAN={sample:true,quarters:{Q1:{label:"Apr – Jun",start:"04-01",due:"04-10"},Q2:{label:"Jul – Sep",start:"07-01",due:"07-10"},Q3:{label:"Oct – Dec",start:"10-01",due:"10-10"},Q4:{label:"Jan – Mar",start:"01-01",due:"01-10"}},
+  amounts:{I:6300,II:6300,III:6900,IV:6900,V:6900},lateFee:"₹ 100 after the due date (sample)",
+  pay:{bank:"State Bank of India, Aundh (sample)",accName:"Shivneri APS School Fund (sample)",acc:"XXXXXXXX1234 (sample)",ifsc:"SBIN0XXXXXX (sample)",upi:"shivneriaps@sbi (sample)",counter:"Fee counter: Monday to Friday, 8:30 AM to 12:30 PM",note:"Write the child's name, class and roll no. in the payment remarks."}};
+let FEEPLAN=null, FEES={}, unsubFEES=null;
+if(db) onSnapshot(doc(db,"config","feeplan"),d=>{ FEEPLAN=d.exists()?d.data():null; renderFlash(); if(location.hash==="#students"&&stu.tab==="fees") renderStu(); },()=>{});
+const FP=()=>{ const f=FEEPLAN||{}; return {...DEF_FEEPLAN,...f,quarters:{...DEF_FEEPLAN.quarters,...(f.quarters||{})},amounts:{...DEF_FEEPLAN.amounts,...(f.amounts||{})},pay:{...DEF_FEEPLAN.pay,...(f.pay||{})}}; };
+/* calendar dates of a quarter in a session year like 2026-27 */
+const qDate=(y,q,md)=>(q==="Q4"?(+y.slice(0,4)+1):y.slice(0,4))+"-"+md;
+function curQuarter(y){ const t=todayISO(); let cur=null; QS.forEach(q=>{ if(qDate(y,q,FP().quarters[q].start)<=t) cur=q; }); return cur; }
+async function feeKey(r){ if(!r||!r.dob||!crypto.subtle) return null; const t=["fee",r.year,r.std,r.div,String(r.roll),normName(r.name),String(r.dob).trim()].join("|");
+  const h=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(t)); return [...new Uint8Array(h)].map(b=>b.toString(16).padStart(2,"0")).join(""); }
+const inr=n=>"₹ "+Number(n||0).toLocaleString("en-IN");
+/* the reminder that runs every quarter: from 15 days before a quarter starts until 45 days after its due date */
+function feeReminder(){ const y=YEARS[0], t=todayISO(), add=(d,n)=>{ const x=new Date(d+"T00:00:00"); x.setDate(x.getDate()+n); return x.toISOString().slice(0,10); };
+  for(const q of QS){ const P=FP().quarters[q], st=qDate(y,q,P.start), due=qDate(y,q,P.due); if(t>=add(st,-15)&&t<=add(due,45)) return {q,label:P.label,due,y,late:t>due}; } return null; }
+/* ---- parents' fee panel ---- */
+function feePanelHTML(f,q){ const P=FP(), y=q.year, amt=P.amounts[q.std]||0, t=todayISO();
+  const rows=QS.map(k=>{ const p=(f&&f.q&&f.q[k])||{}, due=qDate(y,k,P.quarters[k].due), st=p.paid?"paid":due<t?"over":qDate(y,k,P.quarters[k].start)<=t?"due":"later";
+    const tag={paid:'<span class="ctag perm">✓ Paid</span>',over:'<span class="ctag none" style="background:#ffe1d6;color:#a3330b">Overdue</span>',due:'<span class="ctag" style="background:#fff1d6;color:#8a5200">Due now</span>',later:'<span class="hint">Not yet due</span>'}[st];
+    return {k,st,html:`<tr><td style="text-align:left"><b>${k}</b> · ${esc(P.quarters[k].label)}</td><td>${fmtD(due)}</td><td>${inr(p.amount||amt)}</td><td>${tag}</td><td class="hint">${p.paid?`${fmtD(p.on)} · ${esc(p.mode||"")} · Rcpt ${esc(p.receipt||"")}`:""}</td></tr>`}; });
+  const pend=rows.filter(r=>r.st==="over"||r.st==="due"), sum=pend.length*amt;
+  return `<div class="card" style="margin-top:18px;border-top:5px solid #ff9933"><h3 style="margin:0 0 4px">💳 Fees ${esc(y)}: ${esc(q.name)} (${esc(q.std)}-${esc(q.div)})</h3>
+   ${pend.length?`<div class="banner on warn" style="margin:8px 0">🔔 ${pend.map(r=>r.k).join(", ")} ${pend.length>1?"are":"is"} due: <b>${inr(sum)}</b>${pend.some(r=>r.st==="over")?` · late fee ${esc(P.lateFee)}`:""}</div>`:`<div class="banner on" style="margin:8px 0;background:#eafaf0">✅ All fees due so far are paid. Thank you!</div>`}
+   <div class="tbl-wrap"><table class="pt"><thead><tr><th>Quarter</th><th>Due by</th><th>Amount</th><th>Status</th><th>Receipt</th></tr></thead><tbody>${rows.map(r=>r.html).join("")}</tbody></table></div>
+   ${f?"":`<p class="hint">No payments recorded online yet. If you have paid, please keep your receipt; the office will update it.</p>`}
+   <h4 style="margin:14px 0 6px">How to pay</h4><div class="grid g2" style="font-size:14px">
+    <div><b>Bank transfer</b><br>${esc(P.pay.accName)}<br>A/c ${esc(P.pay.acc)} · IFSC ${esc(P.pay.ifsc)}<br>${esc(P.pay.bank)}</div>
+    <div><b>UPI</b>: ${esc(P.pay.upi)}<br><b>Cash / cheque</b>: ${esc(P.pay.counter)}<br><span class="hint">${esc(P.pay.note)}</span></div></div></div>`; }
+/* ---- office: fee register, reminders and fee plan ---- */
+const fee={cls:"",mode:"UPI",edit:false};
+function startFees(){ if(!db||!ME||!isOffice()||unsubFEES) return; unsubFEES=onSnapshot(query(collection(db,"fees"),where("year","==",stuY())),s=>{ const n={}; s.forEach(d=>{ const x=d.data(); n[x.sid]={...x,_k:d.id}; }); FEES=n; if(location.hash==="#students"&&stu.tab==="fees") renderStu(); },()=>{}); }
+function stopFees(){ if(unsubFEES){unsubFEES();unsubFEES=null;} FEES={}; }
+function feesHTML(){ startFees(); const P=FP(), y=stuY(), cq=curQuarter(y), rem=feeReminder(), t=todayISO();
+  if(!ALLCLS.includes(fee.cls)) fee.cls=ALLCLS[0];
+  const S=allStudents().filter(s=>!s.left&&!s.pending), byQ=q=>S.filter(s=>!(FEES[s.sid]&&FEES[s.sid].q&&FEES[s.sid].q[q]&&FEES[s.sid].q[q].paid));
+  const dueQs=QS.filter(q=>qDate(y,q,P.quarters[q].start)<=t), L=S.filter(s=>s.cls===fee.cls);
+  const unpaid=cq?byQ(cq):[];
+  return `${rem?`<div class="banner on warn" style="margin:0 0 12px">🔔 <b>Quarterly fee reminder:</b> ${rem.q} (${esc(rem.label)}) ${rem.late?"was due on":"is due by"} <b>${fmtD(rem.due)}</b>. ${unpaid.length} student${unpaid.length===1?"":"s"} still to pay. Parents see this on the Home page and in their fee panel. <button class="btn sec sm" data-feecopy="1">📋 Copy reminder list</button></div>`:""}
+   <div class="grid g4" style="margin-bottom:12px">${dueQs.map(q=>{ const n=S.length-byQ(q).length; return `<div class="card" style="box-shadow:none;margin:0;padding:12px 14px"><div class="hint">${q} · ${esc(P.quarters[q].label)}</div><b style="font-size:22px">${n} / ${S.length}</b><div class="hint">paid${S.length-n?` · ${S.length-n} pending`:""}</div></div>`; }).join("")}</div>
+   <div class="apick" style="align-items:flex-end"><label class="f">Class<select class="in" id="feeCls">${ALLCLS.map(c=>`<option ${c===fee.cls?"selected":""}>${c}</option>`).join("")}</select></label>
+    <label class="f">Payment mode for new entries<select class="in" id="feeMode">${["UPI","Bank transfer","Cash","Cheque"].map(m=>`<option ${m===fee.mode?"selected":""}>${m}</option>`).join("")}</select></label>
+    <span class="hint">Tap a quarter to record a payment (today's date, next receipt no.). Tap a paid one to see or undo it.</span>
+    <button class="btn sec" data-feeplan="1">⚙️ Fee plan and payment details</button></div>
+   ${fee.edit?feePlanHTML():""}
+   <div class="tbl-wrap"><table class="pt"><thead><tr><th>Roll</th><th>Student</th>${QS.map(q=>`<th>${q}<br><small>${fmtD(qDate(y,q,P.quarters[q].due))}</small></th>`).join("")}</tr></thead><tbody>
+   ${L.map(s=>`<tr><td>${esc(s.roll)}</td><td style="text-align:left"><b>${esc(s.name)}</b>${s.r.dob?"":' <span class="hint">(no DOB: parents cannot see fees)</span>'}</td>${QS.map(q=>{ const p=FEES[s.sid]&&FEES[s.sid].q&&FEES[s.sid].q[q], due=qDate(y,q,P.quarters[q].due), started=qDate(y,q,P.quarters[q].start)<=t;
+      return `<td><button class="btn sm ${p&&p.paid?"ok":"sec"}" data-feeq="${q}" data-fsid="${esc(s.sid)}" title="${p&&p.paid?esc(`Paid ${p.on} · ${p.mode} · ${p.receipt}`):""}" style="${!p&&started&&due<t?"background:#ffe1d6;color:#a3330b":""}">${p&&p.paid?"✓ "+esc(p.receipt||"Paid"):started?(due<t?"Overdue":"Due"):"–"}</button></td>`; }).join("")}</tr>`).join("")}</tbody></table></div>`; }
+function feePlanHTML(){ const P=FP(); const L=(lab,id,v)=>`<label class="f">${lab}<input class="in" id="${id}" value="${esc(v)}"></label>`;
+  return `<div class="card" style="box-shadow:none;background:#f8f6ff"><h4 style="margin:0 0 8px">⚙️ Fee plan ${esc(stuY())} ${isFull()?"":"(sent to the principal for approval)"}</h4>
+   <div class="grid g4">${QS.map(q=>L(`${q} due date (MM-DD)`,"fpDue"+q,P.quarters[q].due)).join("")}${STDS.map(c=>L(`Class ${c}: fee per quarter (₹)`,"fpAmt"+c,P.amounts[c])).join("")}</div>
+   <div class="grid g2">${L("Late fee","fpLate",P.lateFee)}${L("Bank","fpBank",P.pay.bank)}${L("Account name","fpAccName",P.pay.accName)}${L("Account no.","fpAcc",P.pay.acc)}${L("IFSC","fpIfsc",P.pay.ifsc)}${L("UPI ID","fpUpi",P.pay.upi)}${L("Fee counter timings","fpCounter",P.pay.counter)}${L("Note for parents","fpNote",P.pay.note)}</div>
+   <div class="row"><button class="btn sec" data-feeplan="0">Cancel</button><button class="btn pri" data-fpsave="1">${isFull()?"💾 Save":"📨 Send to the principal"}</button></div></div>`; }
+async function writeFee(s,patch){ const k=await feeKey({...s.r,year:stuY(),std:s.std,div:s.div,roll:s.roll,name:s.name}); if(!k) throw {code:"This student has no date of birth on the register"};
+  const cur=FEES[s.sid]||{}; const d={year:stuY(),sid:s.sid,name:s.name,std:s.std,div:s.div,cls:s.cls,roll:s.roll,q:{...(cur.q||{}),...patch},updatedAt:new Date().toISOString(),updatedBy:ME.email};
+  await setDoc(doc(db,"fees",k),d); if(cur._k&&cur._k!==k) await deleteDoc(doc(db,"fees",cur._k)).catch(()=>{}); }
+function nextReceipt(){ let n=0; Object.values(FEES).forEach(f=>Object.values(f.q||{}).forEach(p=>{ const m=String(p.receipt||"").match(/(\d+)$/); if(m) n=Math.max(n,+m[1]); })); return `R/${stuY().slice(0,4)}/${String(n+1).padStart(4,"0")}`; }
+document.addEventListener("change",e=>{ if(e.target.id==="feeCls"){ fee.cls=e.target.value; renderStu(); } else if(e.target.id==="feeMode") fee.mode=e.target.value; });
+document.addEventListener("click",async e=>{ const b=e.target.closest("[data-feeq],[data-feeplan],[data-fpsave],[data-feecopy]"); if(!b||!ME||!isOffice()) return; const D=b.dataset;
+  try{
+  if(D.feeplan){ fee.edit=D.feeplan==="1"; renderStu(); return; }
+  if(D.fpsave){ const P=FP(), v=id=>$("#"+id).value.trim(); const d={quarters:Object.fromEntries(QS.map(q=>[q,{...P.quarters[q],due:v("fpDue"+q)}])),amounts:Object.fromEntries(STDS.map(c=>[c,num(v("fpAmt"+c))||0])),lateFee:v("fpLate"),
+      pay:{bank:v("fpBank"),accName:v("fpAccName"),acc:v("fpAcc"),ifsc:v("fpIfsc"),upi:v("fpUpi"),counter:v("fpCounter"),note:v("fpNote")},updatedAt:new Date().toISOString(),updatedBy:ME.email};
+    if(QS.some(q=>!/^\d{2}-\d{2}$/.test(d.quarters[q].due))) return toast("Due dates must look like 04-10 (month-day)");
+    await pubSet("config","feeplan",d,"Fee plan and payment details"); fee.edit=false; toast("Fee plan saved ✓"); renderStu(); return; }
+  if(D.feecopy){ const y=stuY(), q=curQuarter(y), P=FP(), L=allStudents().filter(s=>!s.left&&!s.pending&&!(FEES[s.sid]&&FEES[s.sid].q&&FEES[s.sid].q[q]&&FEES[s.sid].q[q].paid));
+    const txt=`Dear parent, this is a gentle reminder that the school fee for ${q} (${P.quarters[q].label}) of ${y} is due by ${qDate(y,q,P.quarters[q].due)}. Please pay by UPI (${P.pay.upi}), bank transfer or at the fee counter. If already paid, please ignore. – ${D_().general.name}\n\n`+L.map(s=>`${s.cls} · ${s.roll} · ${s.name}${s.doc.phone?" · "+s.doc.phone:""}`).join("\n");
+    try{ await navigator.clipboard.writeText(txt); toast(`📋 Copied the reminder and ${L.length} names; paste it into WhatsApp or SMS`); }catch(_){ toast("Couldn't copy here; please use a desktop browser"); } return; }
+  if(D.feeq){ const s=allStudents().find(x=>x.sid===D.fsid), q=D.feeq; if(!s) return; const p=FEES[s.sid]&&FEES[s.sid].q&&FEES[s.sid].q[q];
+    if(p&&p.paid){ confirmBox("Undo this payment?",`${s.name}: ${q} paid on ${p.on} by ${p.mode}, receipt ${p.receipt}. Undo only if it was entered by mistake.`,"Undo",async()=>{ try{ await writeFee(s,{[q]:{paid:false}}); toast("Payment removed"); }catch(err){ toast("Couldn't: "+(err.code||errMsg(err))); } }); return; }
+    const rc=nextReceipt(); await writeFee(s,{[q]:{paid:true,on:todayISO(),mode:fee.mode,receipt:rc,amount:FP().amounts[s.std]||0,by:ME.email}}); toast(`✓ ${s.name}: ${q} paid · receipt ${rc}`); return; }
+  }catch(err){ toast("Couldn't save: "+(err.code||errMsg(err))); } });
 
 /* init */
 renderStSubj(); renderCP(); resetSubjects(); resetNS(); renderClassList(); renderStats(); route(); showGate("gSignin");
