@@ -891,7 +891,6 @@ footer{background:var(--navy);color:#c9cfbd!important;padding:22px 16px!importan
   <div class="page-title"><div><h2 id="admTitle">Admin</h2><p id="admSub">Staff logins, subjects and classes, home page and data.</p></div><div class="title-btns"><button class="btn sec" data-chpw>🔑 Change password</button><button class="btn warn" data-signout>Sign out</button></div></div>
   <div class="card" id="adminLock"><div class="unauth" style="margin:0"><b class="t">⛔ Unauthorised access</b>This page is only for the school admin. <a href="#adminlogin">Go to Admin login</a></div></div>
   <div id="adminBody" class="admin-only" style="display:block">
-    <div id="admApprovals"></div>
     <div class="card">
       <div class="sec-h"><div class="dot" style="background:var(--violet)">👩‍🏫</div><div><h3>Add or edit staff</h3><p>After you add someone, they open the Teacher login (or Principal login) → “First time? Set up your password”.</p></div></div>
       <div class="grid g3">
@@ -1706,7 +1705,7 @@ function renderStats(){
     <label class="f">Exam<select class="in" id="sumExam">${EXAMS.map(t=>`<option value="${esc(t)}" ${t===SUM.exam?"selected":""}>${esc(lab(t))}${examsWith.includes(t)?"":" (no results yet)"}</option>`).join("")}</select></label></div>`;
   HOME_RECS=recs;
   if(ME.role==="teacher"&&!ME.office){ const T=homeTabs(); box.innerHTML=welcome+`<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;margin:4px 0 10px"><div class="atabs" style="margin:0">${T.map(([k,l])=>`<button data-htab="${k}" class="${HTAB===k?"on":""}">${l}</button>`).join("")}</div>${picker}</div><div id="homeMine">${mineHTML()}</div>`; return; }
-  box.innerHTML=welcome+`<div id="homeEvAch">${eventsAchHTML()}</div>`+`<div class="sec-h" style="justify-content:space-between;flex-wrap:wrap;gap:10px"><div style="display:flex;gap:10px;align-items:center"><div class="dot" style="background:var(--violet)">🏫</div><div><h3>School summary</h3><p>Only visible to staff. One exam at a time, so numbers are not mixed.</p></div></div>
+  box.innerHTML=welcome+`<div id="dashApprovals">${approvalsHTML()}</div><div id="homeEvAch">${eventsAchHTML()}</div>`+`<div class="sec-h" style="justify-content:space-between;flex-wrap:wrap;gap:10px"><div style="display:flex;gap:10px;align-items:center"><div class="dot" style="background:var(--violet)">🏫</div><div><h3>School summary</h3><p>Only visible to staff. One exam at a time, so numbers are not mixed.</p></div></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap"><label class="f">Year<select class="in" id="sumYear">${YEARS.map(y=>`<option ${y===SUM.year?"selected":""}>${y}</option>`).join("")}</select></label>
     <label class="f">Exam<select class="in" id="sumExam">${EXAMS.map(t=>`<option value="${esc(t)}" ${t===SUM.exam?"selected":""}>${esc(lab(t))}${examsWith.includes(t)?"":" (no results yet)"}</option>`).join("")}</select></label></div></div>
    <div class="kpis">${kpi("Students",recs.length,"#f2edff","#5435c9")}${kpi("Classes with results",rows.length,"#ffeef4","#b3164f")}${kpi("School average",(avg(allV)??"–")+(allV.length?"%":""),"#e8f7ff","#0b6c99")}${kpi("A+ students",allV.filter(x=>x>=91).length,"#e9fbf5","#0b7a64")}${kpi("Below 50%",allV.filter(x=>x<50).length,"#fff6ea","#a55a00")}</div>
@@ -2114,7 +2113,7 @@ function renderTT(){
   else if(ttS.tab==="setup"&&full){ body=wizardHTML()+`<details style="margin-top:14px"${ttS.adv?" open":""}><summary style="cursor:pointer;font-weight:800;font-size:16px" data-adv="1">⚙️ Change the rules (periods a week, timings, days, fixed periods)</summary><div style="margin-top:10px">${setupHTML()}</div></details>`; }
   else if(ttS.tab==="cal"){ body=calHTML(full); }
   else if(ttS.tab==="exam"){ body=examHTML(full); }
-  box.innerHTML=`<div class="title-row"><h2>🗓 Timetable & calendar</h2><span class="hint">${esc(TT_YEAR())}</span></div>${approvalsHTML()}${head}${body}`;
+  box.innerHTML=`<div class="title-row"><h2>🗓 Timetable & calendar</h2><span class="hint">${esc(TT_YEAR())}</span></div>${head}${body}`;
 }
 
 
@@ -2135,7 +2134,7 @@ async function pubSet(col,id,data,lab){ if(isFull()){ await writeLive(col,id,dat
   const key=col+"__"+id, label=lab||((DRAFT_LABEL[col]||col)+(col==="subs"?" for "+fmtD(id).replace(/<[^>]*>/g,""):""));
   await setDoc(doc(db,"drafts",key),{col,id,data,label,by:ME.email,at:new Date().toISOString()}); DRAFTS[key]={col,id,data,label,by:ME.email,at:new Date().toISOString()};
   window._draftMsg=`📨 Sent to the principal for approval: ${label}. It goes live when she approves it.`; return false; }
-function startDrafts(){ if(!db||!ME||unsubDR) return; unsubDR=onSnapshot(isOffice()?collection(db,"drafts"):query(collection(db,"drafts"),where("by","==",ME.email)),snap=>{ const n={}; snap.forEach(d=>n[d.id]=d.data()); DRAFTS=n; homeRefresh(); if(location.hash==="#timetable") renderTT(); if(location.hash==="#school") renderPub(); const aa=$("#admApprovals"); if(aa) aa.innerHTML=approvalsHTML(); if(onHome()&&isFull()&&typeof renderDash==="function") renderDash(); if(typeof renderClassList==="function"&&$("#clsList")) renderClassList(); if($("#stuBody")&&location.hash==="#students"&&!document.querySelector("#stuBody input:focus,#stuBody textarea:focus")) renderStu(); },()=>{}); }
+function startDrafts(){ if(!db||!ME||unsubDR) return; unsubDR=onSnapshot(isOffice()?collection(db,"drafts"):query(collection(db,"drafts"),where("by","==",ME.email)),snap=>{ const n={}; snap.forEach(d=>n[d.id]=d.data()); DRAFTS=n; homeRefresh(); if(location.hash==="#timetable") renderTT(); if(location.hash==="#school") renderPub(); const aa=$("#dashApprovals"); if(aa) aa.innerHTML=approvalsHTML(); if(onHome()&&isFull()&&typeof renderDash==="function") renderDash(); if(typeof renderClassList==="function"&&$("#clsList")) renderClassList(); if($("#stuBody")&&location.hash==="#students"&&!document.querySelector("#stuBody input:focus,#stuBody textarea:focus")) renderStu(); },()=>{}); }
 function stopDrafts(){ if(unsubDR){unsubDR();unsubDR=null;} DRAFTS={}; }
 /* ---------- Removals: teacher / coordinator recommends, the principal approves ---------- */
 const REM_TXT={result:"Remove exam result",left:"Mark as left the school",erase:"Erase all online data"};
@@ -2920,7 +2919,7 @@ let STUDOCS={}, unsubSTU=null, stuYearOn=null, ATTM={}, ATTC={}, SATTM={}, NOTES
 const stu={tab:"find",q:"",cls:"",status:"active",sel:null,date:"",acls:"",sdate:"",abs:null,absKey:"",sabs:null,sKey:""};
 function startStu(){ if(!db||!ME) return; const y=stuY(); if(unsubSTU&&stuYearOn===y) return; if(unsubSTU) unsubSTU(); stuYearOn=y;
   unsubSTU=onSnapshot(query(collection(db,"students"),where("year","==",y)),snap=>{ const n={}; snap.forEach(d=>n[d.id]={...d.data(),id:d.id}); STUDOCS=n; if(location.hash==="#students") renderStu(); else renderClassList(); refreshApprovals(); },()=>{}); }
-function refreshApprovals(){ const aa=$("#admApprovals"); if(aa) aa.innerHTML=approvalsHTML(); if(onHome()&&isFull()&&typeof renderDash==="function") renderDash(); if(location.hash==="#timetable") renderTT(); }
+function refreshApprovals(){ const ab=$("#dashApprovals"); if(ab&&!isFull()) ab.innerHTML=approvalsHTML(); if(onHome()&&isFull()&&typeof renderDash==="function") renderDash(); if(location.hash==="#timetable") renderTT(); }
 function stopStu(){ if(unsubSTU){unsubSTU();unsubSTU=null;} STUDOCS={}; stuYearOn=null; ATTM={}; ATTC={}; SATTM={}; NOTES={}; Object.assign(stu,{tab:"find",q:"",cls:"",sel:null,abs:null,absKey:"",sabs:null,sKey:""}); }
 const isLeft=r=>{ const d=STUDOCS[sidOf(r)]; return !!(d&&d.status==="left"); };
 function allStudents(){ const m={}, y=stuY();
@@ -2938,7 +2937,7 @@ const catTag=r=>r.category?`<span class="ctag" style="background:${r.category===
 const avatar=(r,sz)=>`<div class="av" style="width:${sz}px;height:${sz}px;flex:none;border-radius:12px;overflow:hidden;display:grid;place-items:center;background:#f2edff;font-weight:900;color:#5435c9">${r.photo&&safeImg(r.photo)?`<img src="${safeImg(r.photo)}" alt="" style="width:100%;height:100%;object-fit:cover">`:esc((r.name||"?").split(" ").map(w=>w[0]).slice(0,2).join(""))}</div>`;
 
 function renderStu(){ const box=$("#stuBody"); if(!box) return; if(!ME){ box.innerHTML=`<div class="empty">Please sign in.</div>`; return; } startStu();
-  const tabs=[["find","🔎 Find a student"]].concat(isOffice()?[["adm",isFull()?"📥 Admissions to approve":"🎒 Admissions"],["fees","💳 Fees"]]:(ME.classTeacher||[]).length?[["fees","💳 Fees of my class"]]:[],isFull()?[["attsum","📊 Attendance summary"]]:[["att","✅ Class attendance"]],isOffice()&&!isFull()?[["staff","👩‍🏫 Staff attendance"]]:[]);
+  const tabs=[["find","🔎 Find a student"]].concat(isOffice()?[["adm","🎒 Admissions"],["fees","💳 Fees"]]:(ME.classTeacher||[]).length?[["fees","💳 Fees of my class"]]:[],isFull()?[["attsum","📊 Attendance summary"]]:[["att","✅ Class attendance"]],isOffice()&&!isFull()?[["staff","👩‍🏫 Staff attendance"]]:[]);
   if(!tabs.some(t=>t[0]===stu.tab)) stu.tab="find";
   const head=`<div class="title-row"><h2>🧒 Students</h2><span class="hint">${esc(stuY())}${ME.office&&!isFull()?` · <b>${ME.coordinator?"Coordinator":"Acting coordinator"}</b>`:""}</span></div>
     <div class="atabs">${tabs.map(([k,l])=>`<button data-stab="${k}" class="${stu.tab===k?"on":""}">${l}</button>`).join("")}</div>`;
@@ -2946,7 +2945,7 @@ function renderStu(){ const box=$("#stuBody"); if(!box) return; if(!ME){ box.inn
   if(stu.tab==="find") body=stu.sel?profileHTML():findHTML();
   else if(stu.tab==="att") body=attHTML();
   else if(stu.tab==="attsum") body=attSumHTML();
-  else if(stu.tab==="adm") body=approvalsHTML()+admissionsHTML();
+  else if(stu.tab==="adm") body=admissionsHTML();
   else if(stu.tab==="fees") body=isOffice()?feesHTML():ctFeesHTML();
   else body=staffAttHTML();
   box.innerHTML=head+body;
@@ -3248,9 +3247,9 @@ function teachersPublic(){ const d=D_(); if(d.staff.teachers) return d.staff.tea
   return []; }
 function renderPub(){ const box=$("#pubBody"); if(!box) return; const h=location.hash;
   if(h==="#privacy"){ box.innerHTML=privacyHTML(); return; }
-  if(h==="#notices"){ box.innerHTML=approvalsHTML()+noticesHTML(); return; }
-  if(h==="#achievements"){ box.innerHTML=approvalsHTML()+achHTML(); return; }
-  box.innerHTML=approvalsHTML()+(discEdit&&isOffice()?discEditHTML():discHTML()); }
+  if(h==="#notices"){ box.innerHTML=noticesHTML(); return; }
+  if(h==="#achievements"){ box.innerHTML=achHTML(); return; }
+  box.innerHTML=(discEdit&&isOffice()?discEditHTML():discHTML()); }
 function discHTML(){ const d=D_(), g=d.general, s=d.staff, lnk=(u,t)=>safeUrl(u)?`<a href="${esc(safeUrl(u))}" target="_blank" rel="noopener">${t||"View"} ↗</a>`:'<span class="hint">To be uploaded</span>';
   const tbl=(rows)=>`<div class="tbl-wrap"><table class="pt"><tbody>${rows.map(([k,v],i)=>`<tr><td style="width:40px">${i+1}</td><td style="text-align:left">${esc(k)}</td><td style="text-align:left"><b>${v}</b></td></tr>`).join("")}</tbody></table></div>`;
   const T=teachersPublic(), fees=String(d.fees||"").split("\n").map(l=>l.split("|").map(x=>x.trim())).filter(x=>x[0]);
@@ -3432,7 +3431,7 @@ const secStrength=(std,div)=>allStudents().filter(s=>s.std===std&&s.div===div&&!
 function admissionsHTML(){ const std=adm.std, secs=secOf(std); if(!secs.includes(adm.div)) adm.div=secs.slice().sort((a,b)=>secStrength(std,a)-secStrength(std,b))[0];
   const L=Object.values(STUDOCS).filter(d=>d.admittedOn).sort((a,b)=>String(b.admittedOn).localeCompare(String(a.admittedOn)));
   /* the coordinator admits; the principal only approves (her waiting admissions are in the box above) */
-  return `${isFull()?(Object.values(STUDOCS).some(d=>d.admission==="pending")?"":`<p class="hint">No admissions are waiting for your approval. The coordinator prepares new admissions and sends them to you.</p>`):`<div class="card" style="box-shadow:none;background:#f8f6ff;margin:0 0 14px"><h3 style="margin:0 0 4px">🎒 New admission</h3><p class="hint" style="margin:0 0 10px">${isFull()?"Admissions you save are confirmed straight away.":"The admission is sent to the principal; once she approves it, the class teacher can enter the child's marks."} Only the category is kept for serving parents (Officer / JCO / OR).</p>
+  return `${isFull()?`<p class="hint">The coordinator prepares new admissions and sends them to you. ${Object.values(STUDOCS).some(d=>d.admission==="pending")?`<b>${Object.values(STUDOCS).filter(d=>d.admission==="pending").length} waiting</b>: approve them on your <a href="#home">📊 Dashboard</a>.`:"None are waiting for your approval."}</p>`:`<div class="card" style="box-shadow:none;background:#f8f6ff;margin:0 0 14px"><h3 style="margin:0 0 4px">🎒 New admission</h3><p class="hint" style="margin:0 0 10px">${isFull()?"Admissions you save are confirmed straight away.":"The admission is sent to the principal; once she approves it, the class teacher can enter the child's marks."} Only the category is kept for serving parents (Officer / JCO / OR).</p>
    <div class="grid g3"><label class="f">Admission date<input class="in" type="date" id="adOn" value="${esc(todayISO())}"></label><label class="f">Admission no.<input class="in" id="adNo" value="${nextAdmNo()}"></label>
     <label class="f">Student's full name<input class="in" id="adName" maxlength="80"></label><label class="f">Date of birth<input class="in" type="date" id="adDob"></label>
     <label class="f">Gender<select class="in" id="adGen"><option value="">Select</option><option>Boy</option><option>Girl</option></select></label>
