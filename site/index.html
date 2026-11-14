@@ -2930,27 +2930,28 @@ function allStudents(){ const m={}, y=stuY();
     .filter(s=>!ME||ME.role!=="teacher"||ME.office||myClasses().includes(s.cls)||(ME.classTeacher||[]).includes(s.cls))
     .sort((a,b)=>ALLCLS.indexOf(a.cls)-ALLCLS.indexOf(b.cls)||a.roll-b.roll); }
 const canCT=cls=>isOffice()||(!!ME&&(ME.classTeacher||[]).includes(cls));
-const canMarkAtt=cls=>canCT(cls)||(!!ME&&myClasses().includes(cls)); /* class teacher, or any teacher of that class when she is away */
+const canMarkAtt=cls=>!isFull()&&(canCT(cls)||(!!ME&&myClasses().includes(cls))); /* class teacher, or any teacher of that class when she is away */
 const canSeeNotes=cls=>isOffice()||myClasses().includes(cls);
 const ctName=cls=>{ const t=Object.values(STAFF).find(x=>(x.classTeacher||[]).includes(cls)); return t?t.name:""; };
 const catTag=r=>r.category?`<span class="ctag" style="background:${r.category==="Serving"?"#dcf7f0":r.category==="Retired"?"#ffefdc":"#dff4ff"};color:#333">${esc(r.category)}${r.category==="Serving"&&r.rankGroup?" · "+esc(r.rankGroup):""}</span>`:"";
 const avatar=(r,sz)=>`<div class="av" style="width:${sz}px;height:${sz}px;flex:none;border-radius:12px;overflow:hidden;display:grid;place-items:center;background:#f2edff;font-weight:900;color:#5435c9">${r.photo&&safeImg(r.photo)?`<img src="${safeImg(r.photo)}" alt="" style="width:100%;height:100%;object-fit:cover">`:esc((r.name||"?").split(" ").map(w=>w[0]).slice(0,2).join(""))}</div>`;
 
 function renderStu(){ const box=$("#stuBody"); if(!box) return; if(!ME){ box.innerHTML=`<div class="empty">Please sign in.</div>`; return; } startStu();
-  const tabs=[["find","🔎 Find a student"]].concat(isOffice()?[["adm","🎒 Admissions"],["fees","💳 Fees"]]:(ME.classTeacher||[]).length?[["fees","💳 Fees of my class"]]:[],[["att","✅ Class attendance"]],isOffice()?[["staff","👩‍🏫 Staff attendance"]]:[]);
+  const tabs=[["find","🔎 Find a student"]].concat(isOffice()?[["adm","🎒 Admissions"],["fees","💳 Fees"]]:(ME.classTeacher||[]).length?[["fees","💳 Fees of my class"]]:[],isFull()?[["attsum","📊 Attendance summary"]]:[["att","✅ Class attendance"]],isOffice()&&!isFull()?[["staff","👩‍🏫 Staff attendance"]]:[]);
   if(!tabs.some(t=>t[0]===stu.tab)) stu.tab="find";
   const head=`<div class="title-row"><h2>🧒 Students</h2><span class="hint">${esc(stuY())}${ME.office&&!isFull()?` · <b>${ME.coordinator?"Coordinator":"Acting coordinator"}</b>`:""}</span></div>
     <div class="atabs">${tabs.map(([k,l])=>`<button data-stab="${k}" class="${stu.tab===k?"on":""}">${l}</button>`).join("")}</div>`;
   let body="";
   if(stu.tab==="find") body=stu.sel?profileHTML():findHTML();
   else if(stu.tab==="att") body=attHTML();
+  else if(stu.tab==="attsum") body=attSumHTML();
   else if(stu.tab==="adm") body=approvalsHTML()+admissionsHTML();
   else if(stu.tab==="fees") body=isOffice()?feesHTML():ctFeesHTML();
   else body=staffAttHTML();
   box.innerHTML=head+body;
   if(stu.tab==="find"&&!stu.sel) renderStuList();
   if(stu.tab==="find"&&stu.sel) fillProfileAsync();
-  if(stu.tab==="att") fillAtt(); if(stu.tab==="staff") fillStaffAtt();
+  if(stu.tab==="att") fillAtt(); if(stu.tab==="staff") fillStaffAtt(); if(stu.tab==="attsum") fillAttSum();
 }
 function findHTML(){ const opts=ALLCLS.filter(c=>classLoaded(c));
   return `<div class="apick" style="align-items:flex-end">
@@ -3114,6 +3115,31 @@ async function fillAtt(){ const out=$("#atOut"); if(!out) return; const cls=stu.
     ${mdays.length?`<div class="tbl-wrap"><table class="pt"><thead><tr><th>Student</th><th>Days absent</th><th>Reasons</th><th>Attendance</th></tr></thead><tbody>${L.map(s=>({s,a:cnt[s.sid]||0})).sort((x,y)=>y.a-x.a||x.s.roll-y.s.roll).map(({s,a})=>{ const p=r1((mdays.length-a)/mdays.length*100); return `<tr><td>${esc(s.roll)}. <b>${esc(s.name)}</b></td><td>${a}</td><td class="hint" style="text-align:left">${rs[s.sid]?Object.entries(rs[s.sid]).map(([k,v])=>`${esc(k)} ${v}`).join(", "):""}</td><td class="p" style="color:${p>=90?"#0b7a64":p>=75?"#a55a00":"#b3164f"}"><b>${p}%</b></td></tr>`; }).join("")}</tbody></table></div>`:""}</div>`; }
 
 /* ---- staff attendance (principal / coordinator) ---- */
+/* ---- principal: attendance summary only (class teachers mark students, the coordinator marks staff) ---- */
+function attSumHTML(){ if(!stu.date) stu.date=todayISO(); const cm=closedMsg(stu.date);
+  return `<div class="apick" style="align-items:flex-end"><label class="f">Date<input class="in" type="date" id="asDate" value="${esc(stu.date)}" max="${esc(todayISO())}"></label><span class="hint">View only. Class teachers mark their class; the coordinator marks the staff.</span></div>${cm?`<div class="banner on warn">${cm}</div>`:""}<div id="asOut" class="hint">Loading…</div>`; }
+async function fillAttSum(){ const out=$("#asOut"); if(!out) return; const d=stu.date, m=monthOf(d);
+  try{ await Promise.all(ALLCLS.map(async c=>{ const k=attKey(c,m); if(!(k in ATTM)){ const x=await getDoc(doc(db,"attendance",k)); ATTM[k]=x.exists()?x.data():null; } }));
+    const sk=`${YEARS[0]}_${m}`; if(!(sk in SATTM)){ const x=await getDoc(doc(db,"staffAtt",sk)); SATTM[sk]=x.exists()?x.data():null; } }catch(err){ out.textContent="Couldn't load: "+errMsg(err); return; }
+  if(!$("#asOut")||stu.date!==d) return;
+  const why={}, rows=ALLCLS.map(c=>{ const S=allStudents().filter(s=>s.cls===c&&!s.pending&&!(s.left&&(s.doc.leftOn||"")<=d)), M=ATTM[attKey(c,m)], day=M&&M.days&&M.days[d];
+    const mdays=Object.keys((M&&M.days)||{}).filter(x=>x<=d), absM=mdays.reduce((a,x)=>a+((M.days[x].absent||[]).length),0), pctM=mdays.length&&S.length?r1(100-absM/(mdays.length*S.length)*100):null;
+    const r={}; if(day) (day.absent||[]).forEach(k=>{ const w=(day.reasons||{})[k]||"Not informed"; r[w]=(r[w]||0)+1; why[w]=(why[w]||0)+1; });
+    return {c,n:S.length,marked:!!day,abs:day?(day.absent||[]).length:null,r,pctM,ct:ctName(c)}; }).filter(x=>x.n);
+  const mk=rows.filter(x=>x.marked), tot=mk.reduce((a,x)=>a+x.n,0), ab=mk.reduce((a,x)=>a+x.abs,0);
+  const sM=SATTM[`${YEARS[0]}_${m}`], sd=sM&&sM.days&&sM.days[d], T=Object.values(STAFF).filter(x=>x.role==="teacher"), onLv=leavesOnly(d);
+  const lvE=new Set([...(sd?sd.leave||[]:[]),...onLv.map(l=>l.email)]), sAbs=sd?(sd.absent||[]):[], sLate=sd?(sd.late||[]):[];
+  const k=(l,v,bg,fg)=>`<div style="background:${bg};color:${fg};border-radius:12px;padding:10px 12px"><div style="font-size:12px;font-weight:700">${l}</div><b style="font-size:22px">${v}</b></div>`;
+  const names=L=>L.map(e=>esc(tName(e))).join(", ");
+  out.innerHTML=`<div style="color:var(--ink)"><h3 style="margin:8px 0">🧒 Students · ${fmtD(d)}</h3>
+   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:10px">${k("Classes marked",`${mk.length} / ${rows.length}`,"#f2edff","#5435c9")}${k("Present",tot-ab,"#e9fbf5","#0b7a64")}${k("Absent",ab,"#ffeef4","#b3164f")}${k("Attendance",tot?r1((tot-ab)/tot*100)+"%":"–","#e8f7ff","#0b6c99")}</div>
+   ${Object.keys(why).length?`<p style="margin:0 0 8px"><b>Reasons for absence:</b> ${Object.entries(why).sort((a,b)=>b[1]-a[1]).map(([w,n])=>`${esc(w)} <b>${n}</b>`).join(" · ")}</p>`:""}
+   <div class="tbl-wrap"><table class="pt"><thead><tr><th>Class</th><th>Class teacher</th><th>Students</th><th>Present</th><th>Absent</th><th>Reasons</th><th>This month</th></tr></thead><tbody>
+   ${rows.map(x=>`<tr><td><b>${esc(x.c)}</b></td><td style="text-align:left">${esc(x.ct||"–")}</td><td>${x.n}</td>${x.marked?`<td>${x.n-x.abs}</td><td>${x.abs||"–"}</td><td style="text-align:left;font-size:13px">${Object.entries(x.r).map(([w,n])=>`${esc(w)} ${n}`).join(", ")||"–"}</td>`:`<td colspan="3" style="color:#a55a00">Not marked</td>`}<td>${x.pctM!=null?x.pctM+"%":"–"}</td></tr>`).join("")}</tbody></table></div>
+   <h3 style="margin:18px 0 8px">👩‍🏫 Staff · ${fmtD(d)}</h3>
+   ${sd?`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:10px">${k("Teachers",T.length,"#f2edff","#5435c9")}${k("Present",T.length-sAbs.length-lvE.size,"#e9fbf5","#0b7a64")}${k("Absent",sAbs.length,"#ffeef4","#b3164f")}${k("On leave",lvE.size,"#e8f7ff","#0b6c99")}${k("Late",sLate.length,"#fff6ea","#a55a00")}</div>
+    ${sAbs.length?`<p style="margin:2px 0">❌ <b>Absent:</b> ${names(sAbs)}</p>`:""}${lvE.size?`<p style="margin:2px 0">🏖 <b>On leave:</b> ${[...lvE].map(e=>{ const l=onLv.find(x=>x.email===e); return esc(tName(e))+(l&&l.type?` (${esc(l.type)})`:""); }).join(", ")}</p>`:""}${sLate.length?`<p style="margin:2px 0">⏰ <b>Late:</b> ${names(sLate)}</p>`:""}`
+   :`<p class="hint">The coordinator has not marked staff attendance for this day yet.${onLv.length?` Approved leave: ${onLv.map(l=>esc(tName(l.email))).join(", ")}.`:""}</p>`}</div>`; }
 function staffAttHTML(){ if(!stu.sdate) stu.sdate=todayISO(); const cm=closedMsg(stu.sdate);
   return `<div class="apick" style="align-items:flex-end"><label class="f">Date<input class="in" type="date" id="saDate" value="${esc(stu.sdate)}" max="${esc(todayISO())}"></label><span class="hint">Tap a name to switch: Present → Absent → Late. Approved leave is filled in automatically.</span></div>${cm?`<div class="banner on warn">${cm}</div>`:""}<div id="saOut" class="hint">Loading…</div>`; }
 async function fillStaffAtt(){ const out=$("#saOut"); if(!out) return; const m=monthOf(stu.sdate), key=`${YEARS[0]}_${m}`;
@@ -3135,6 +3161,7 @@ document.addEventListener("change",e=>{ const id=e.target.id;
   if(id==="stuCls"){ stu.cls=e.target.value; renderStuList(); } else if(id==="stuSt"){ stu.status=e.target.value; renderStuList(); }
   else if(id==="atDate"||id==="atCls"){ if(id==="atDate") stu.date=e.target.value||todayISO(); else stu.acls=e.target.value; renderStu(); }
   else if(id==="saDate"){ stu.sdate=e.target.value||todayISO(); renderStu(); }
+  else if(id==="asDate"){ stu.date=e.target.value||todayISO(); renderStu(); }
   else if(id==="trDiv"){ const s=allStudents().find(x=>x.sid===stu.sel); if(s) $("#trRoll").value=nextRoll(s.std+"-"+e.target.value); } });
 document.addEventListener("click",async e=>{ const t=e.target.closest("[data-stucls],[data-cnsave],[data-cnwd],[data-cnprint],[data-studl],[data-sterase],[data-nocon],[data-stab],[data-sid],[data-stuback],[data-stucard],[data-stuadd],[data-stuphone],[data-stutr],[data-stuleft],[data-sturead],[data-ntmed],[data-ntadd],[data-ntdel],[data-atk],[data-atall],[data-atsave],[data-sak],[data-sasave]"); if(!t||!$("#stuBody")||!$("#stuBody").contains(t)) return;
   const D=t.dataset, s=stu.sel?allStudents().find(x=>x.sid===stu.sel):null;

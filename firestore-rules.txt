@@ -246,8 +246,10 @@ service cloud.firestore {
     }
 
     // ---- Staff attendance: principal and coordinator only ----
+    // Staff attendance: marked by the coordinator (or acting coordinator); the principal only views it.
     match /staffAtt/{id} {
-      allow read, write: if isOffice();
+      allow read: if isOffice();
+      allow write: if isCoord();
     }
 
     // ---- Home page: school photo and principal's message (principal or admin) ----
