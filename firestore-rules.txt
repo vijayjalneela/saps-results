@@ -152,7 +152,7 @@ service cloud.firestore {
       // Staff see their own requests; the office sees all.
       allow read: if isOffice() || (anyStaff() && resource.data.by == myEmail());
       allow create, update: if key == request.resource.data.col + '__' + request.resource.data.id
-        && ((isCoord() && request.resource.data.col in ['timetable', 'calendar', 'duties', 'subs', 'config', 'staff', 'staffHR', 'import', 'action', 'notices', 'achievements', 'removal'])
+        && ((isCoord() && request.resource.data.col in ['timetable', 'calendar', 'duties', 'subs', 'config', 'staff', 'staffHR', 'import', 'action', 'notices', 'achievements', 'removal', 'publish'])
             // A class teacher may only recommend a removal for her own class; the principal decides.
             || (request.resource.data.col == 'removal' && request.resource.data.by == myEmail()
                 && isClassTeacherOf(request.resource.data.data)));
