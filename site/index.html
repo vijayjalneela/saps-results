@@ -2749,7 +2749,24 @@ function findHTML(){ const opts=ALLCLS.filter(c=>classLoaded(c));
     ${isOffice()?`<button class="btn pri" data-stab="adm">🎒 New admission</button>`:""}</div>
     ${ME.role==="teacher"&&!ME.office&&!LOAD.all?`<p class="hint">Showing students of your classes. <button class="btn sec sm" data-loadall="1">Show all classes</button></p>`:""}
     <div id="stuList"></div>`; }
+/* a small donut chart: parts=[[label,value,colour]] */
+function sDonut(parts,size=170,title=""){ const tot=parts.reduce((a,p)=>a+p[1],0)||1, r=size/2-10, c=size/2, C=2*Math.PI*r; let off=0;
+  const segs=parts.filter(p=>p[1]>0).map(([l,v,col])=>{ const len=v/tot*C, el=`<circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="${col}" stroke-width="26" stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${-off}" transform="rotate(-90 ${c} ${c})"><title>${esc(l)}: ${v}</title></circle>`; off+=len; return el; }).join("");
+  return `<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap"><svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" role="img" aria-label="${esc(title)}">${segs}<text x="${c}" y="${c-2}" text-anchor="middle" font-size="28" font-weight="800" fill="#18200f">${tot}</text><text x="${c}" y="${c+18}" text-anchor="middle" font-size="11" fill="#5b6350">${esc(title)}</text></svg>
+   <div style="display:grid;gap:4px;font-size:13px">${parts.map(([l,v,col])=>`<div><span style="display:inline-block;width:11px;height:11px;border-radius:3px;background:${col};margin-right:6px"></span><b>${v}</b> ${esc(l)}</div>`).join("")}</div></div>`; }
+const STD_COL={I:"#ff9933",II:"#4b5320",III:"#1d4f91",IV:"#138808",V:"#c0392b"};
+function stuOverviewHTML(all){ const act=all.filter(s=>!s.left&&!s.pending), byStd=STDS.map(x=>[`Class ${x}`,act.filter(s=>s.std===x).length,STD_COL[x]||"#888"]);
+  const isB=s=>/^(boy|male)$/i.test(s.r.gender||s.doc.gender||""), isG=s=>/^(girl|female)$/i.test(s.r.gender||s.doc.gender||""), g=k=>act.filter(k==="Male"?isB:isG).length, cat=k=>act.filter(s=>(s.r.category||s.doc.category||"")===k).length;
+  const noCon=act.filter(s=>!(s.doc.consent&&s.doc.consent.given)).length, left=all.filter(s=>s.left).length, pend=all.filter(s=>s.pending).length;
+  return `<div class="grid g3" style="margin:6px 0 14px;align-items:stretch">
+    <div class="card" style="box-shadow:none;margin:0"><h4 style="margin:0 0 8px">Students by class</h4>${sDonut(byStd,170,"students")}</div>
+    <div class="card" style="box-shadow:none;margin:0"><h4 style="margin:0 0 8px">Boys and girls</h4>${sDonut([["Boys",g("Male"),"#1d4f91"],["Girls",g("Female"),"#ff9933"],["Not recorded",act.length-g("Male")-g("Female"),"#c9c4b0"]],170,"students")}</div>
+    <div class="card" style="box-shadow:none;margin:0"><h4 style="margin:0 0 8px">Parents' category</h4>${sDonut([["Serving",cat("Serving"),"#4b5320"],["Retired",cat("Retired"),"#c9b98c"],["Civilian",cat("Civilian"),"#1d4f91"],["Not recorded",act.length-cat("Serving")-cat("Retired")-cat("Civilian"),"#e2dfd2"]],170,"students")}</div></div>
+   <div class="hint" style="margin:0 0 8px">${left} left the school this year${pend?` · ${pend} admission${pend>1?"s":""} awaiting approval`:""}${noCon?` · ${noCon} without a consent form`:""}</div>
+   <h4 style="margin:6px 0 8px">Classes <span class="hint">(tap a class to see its students)</span></h4>
+   <div class="dir-grid">${ALLCLS.map(c=>{ const L=act.filter(s=>s.cls===c), b=L.filter(isB).length, gi=L.filter(isG).length; return `<div class="dcard" data-stucls="${c}" style="border-left:5px solid ${STD_COL[c.split("-")[0]]||"#888"}"><span style="font-family:'Barlow Condensed';font-size:26px;font-weight:700;min-width:54px">${c}</span><span><b>${L.length} students</b><small>${b} boys · ${gi} girls<br>${esc(ctName(c)||"No class teacher")}</small></span></div>`; }).join("")}</div>`; }
 function renderStuList(){ const out=$("#stuList"); if(!out) return; const q=normName(stu.q);
+  if(!q&&!stu.cls&&stu.status==="active"){ out.innerHTML=stuOverviewHTML(allStudents()); return; }
   const all=allStudents(), noCon=all.filter(s=>!s.left&&!(s.doc.consent&&s.doc.consent.given)).length;
   const L=all.filter(s=>(!stu.cls||s.cls===stu.cls)&&(stu.status==="all"||(stu.status==="nocon"?(!s.left&&!(s.doc.consent&&s.doc.consent.given)):(stu.status==="left")===s.left))
     &&(!q||[s.name,s.r.father,s.r.mother,s.r.adm].some(x=>normName(x).includes(q))||String(s.roll)===stu.q.trim()));
@@ -2896,10 +2913,11 @@ document.addEventListener("change",e=>{ const id=e.target.id;
   else if(id==="atDate"||id==="atCls"){ if(id==="atDate") stu.date=e.target.value||todayISO(); else stu.acls=e.target.value; renderStu(); }
   else if(id==="saDate"){ stu.sdate=e.target.value||todayISO(); renderStu(); }
   else if(id==="trDiv"){ const s=allStudents().find(x=>x.sid===stu.sel); if(s) $("#trRoll").value=nextRoll(s.std+"-"+e.target.value); } });
-document.addEventListener("click",async e=>{ const t=e.target.closest("[data-cnsave],[data-cnwd],[data-cnprint],[data-studl],[data-sterase],[data-nocon],[data-stab],[data-sid],[data-stuback],[data-stucard],[data-stuadd],[data-stuphone],[data-stutr],[data-stuleft],[data-sturead],[data-ntmed],[data-ntadd],[data-ntdel],[data-atk],[data-atall],[data-atsave],[data-sak],[data-sasave]"); if(!t||!$("#stuBody")||!$("#stuBody").contains(t)) return;
+document.addEventListener("click",async e=>{ const t=e.target.closest("[data-stucls],[data-cnsave],[data-cnwd],[data-cnprint],[data-studl],[data-sterase],[data-nocon],[data-stab],[data-sid],[data-stuback],[data-stucard],[data-stuadd],[data-stuphone],[data-stutr],[data-stuleft],[data-sturead],[data-ntmed],[data-ntadd],[data-ntdel],[data-atk],[data-atall],[data-atsave],[data-sak],[data-sasave]"); if(!t||!$("#stuBody")||!$("#stuBody").contains(t)) return;
   const D=t.dataset, s=stu.sel?allStudents().find(x=>x.sid===stu.sel):null;
   if(D.stab){ stu.tab=D.stab; stu.sel=null; renderStu(); return; }
   if(D.sid){ stu.sel=D.sid; renderStu(); window.scrollTo(0,0); return; }
+  if(D.stucls){ stu.cls=D.stucls; renderStu(); return; }
   if(D.stuback){ stu.sel=null; renderStu(); return; }
   if(D.nocon){ e.preventDefault(); stu.status="nocon"; renderStu(); return; }
   if(D.cnprint&&s){ printConsent(s); return; }
@@ -3144,7 +3162,7 @@ function admissionsHTML(){ const std=adm.std, secs=secOf(std); if(!secs.includes
   return `<div class="card" style="box-shadow:none;background:#f8f6ff;margin:0 0 14px"><h3 style="margin:0 0 4px">🎒 New admission</h3><p class="hint" style="margin:0 0 10px">${isFull()?"Admissions you save are confirmed straight away.":"The admission is sent to the principal; once she approves it, the class teacher can enter the child's marks."} Only the category is kept for serving parents (Officer / JCO / OR).</p>
    <div class="grid g3"><label class="f">Admission date<input class="in" type="date" id="adOn" value="${esc(todayISO())}"></label><label class="f">Admission no.<input class="in" id="adNo" value="${nextAdmNo()}"></label>
     <label class="f">Student's full name<input class="in" id="adName" maxlength="80"></label><label class="f">Date of birth<input class="in" type="date" id="adDob"></label>
-    <label class="f">Gender<select class="in" id="adGen"><option value="">Select</option><option>Male</option><option>Female</option></select></label>
+    <label class="f">Gender<select class="in" id="adGen"><option value="">Select</option><option>Boy</option><option>Girl</option></select></label>
     <label class="f">Class<select class="in" id="adStd">${STDS.map(x=>`<option ${x===std?"selected":""}>${x}</option>`).join("")}</select></label>
     <label class="f">Section<select class="in" id="adDiv">${secs.map(x=>`<option value="${x}" ${x===adm.div?"selected":""}>${x} (${secStrength(std,x)} students)</option>`).join("")}</select></label>
     <label class="f">Roll no.<input class="in" type="number" min="1" id="adRoll" value="${nextRoll(std+"-"+adm.div)}"></label>
