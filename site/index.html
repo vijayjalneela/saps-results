@@ -281,6 +281,10 @@ body.principal .edit-only,body.office .edit-only{display:inline-flex!important}
 body:not(.admin):not(.office) .admin-only{display:none!important}
 body:not(.admin) .admin-strict{display:none!important}
 body:not(.staff) .staff-only{display:none!important}
+/* while the saved sign-in is being restored after a refresh, show "loading" instead of the login box or "unauthorised" */
+body.authwait #gate,body.authwait #dashLock,body.authwait #aLock,body.authwait #adminLock{display:none!important}
+#authLoad{display:none;text-align:center;padding:40px 10px;color:var(--muted);font-weight:700}
+body.authwait #authLoad{display:block}
 body:not(.parent) .parent-only{display:none!important}
 body.staff .parent-only{display:none!important}
 body:not(.principal) .pr-only{display:none!important}
@@ -574,6 +578,7 @@ footer{background:var(--navy);color:#c9cfbd!important;padding:22px 16px!importan
 </header>
 
 <main class="wrap">
+<div id="authLoad">⏳ Loading…</div>
 <div class="banner warn" id="setupBanner" style="margin-top:16px">⚙️ This website isn't connected to its database yet. Open <b>config.js</b> and paste your Firebase settings (see the setup guide, step 3).</div>
 
 <!-- ================= HOME ================= -->
@@ -1048,7 +1053,7 @@ let db=null, auth=null, canWrite=false, user=null, unsubResults=null;
 const CFG=window.FIREBASE_CONFIG||{};
 const configured=!!(CFG.apiKey&&!String(CFG.apiKey).includes("PASTE"));
 if(configured){
-  try{ const app=initializeApp(CFG); db=getFirestore(app); auth=initializeAuth(app,{persistence:[browserSessionPersistence,inMemoryPersistence]}); /* sign-in survives a refresh but ends when the tab is closed; idle sign-out below */ }
+  try{ document.body.classList.add("authwait"); setTimeout(authDone,6000); const app=initializeApp(CFG); db=getFirestore(app); auth=initializeAuth(app,{persistence:[browserSessionPersistence,inMemoryPersistence]}); /* sign-in survives a refresh but ends when the tab is closed; idle sign-out below */ }
   catch(e){ console.error(e); }
 }
 function errMsg(err){ const c=(err&&err.code)||String(err); if(c.includes("permission-denied")) return "⛔ Unauthorised: you don't have permission to make this change."; if(c.includes("unavailable")) return "No internet connection. Please try again."; if(c.includes("resource-exhausted")) return "Today's free database limit is used up. Please try again after 1:30 PM (India time) tomorrow; nothing is lost."; return c; }
@@ -1122,7 +1127,7 @@ if(db){
 function route(){
   if(window._actionMode){ document.querySelectorAll(".view").forEach(s=>s.classList.toggle("on",s.id==="v-action")); return; }
   const v=(location.hash||"#home").slice(1);
-  const name=["home","teacher","principal","coordinator","adminlogin","results","admin","analysis","dashboard","timetable","students","school","privacy","notices","achievements"].includes(v)?v:"home"; if((name==="teacher"||name==="coordinator")&&ME&&ME.coordinator&&!ME.acting){ location.hash="students"; return; } if(["school","privacy","notices","achievements"].includes(name)) setTimeout(renderPub,0); if(name==="students"){ if(!ME){ location.hash="teacher"; return; } startTT(); setTimeout(renderStu,0); } if(name==="timetable"){ if(!ME){ location.hash="teacher"; return; } startTT(); setTimeout(renderTT,0); } if(name==="dashboard") setTimeout(()=>renderDash(),0); if(name==="analysis") setTimeout(renderAnalysis,0);
+  const name=["home","teacher","principal","coordinator","adminlogin","results","admin","analysis","dashboard","timetable","students","school","privacy","notices","achievements"].includes(v)?v:"home"; if((name==="teacher"||name==="coordinator")&&ME&&ME.coordinator&&!ME.acting){ location.hash="students"; return; } if(["school","privacy","notices","achievements"].includes(name)) setTimeout(renderPub,0); if(name==="students"){ if(!ME){ if(document.body.classList.contains("authwait")) return; location.hash="teacher"; return; } startTT(); setTimeout(renderStu,0); } if(name==="timetable"){ if(!ME){ location.hash="teacher"; return; } startTT(); setTimeout(renderTT,0); } if(name==="dashboard") setTimeout(()=>renderDash(),0); if(name==="analysis") setTimeout(renderAnalysis,0);
   if(name==="teacher"||name==="principal"||name==="coordinator"||name==="adminlogin") setLoginMode(name==="adminlogin"?"admin":name);
   if(name==="adminlogin"&&ME&&ME.role==="admin"){ location.hash="admin"; return; }
   const view=(name==="principal"||name==="coordinator"||name==="adminlogin")?"teacher":["school","privacy","notices","achievements"].includes(name)?"pub":name;
@@ -1592,6 +1597,7 @@ $("#prSave").onclick=async()=>{const d={name:$("#prNameIn").value.trim()||DEFAUL
 
 /* ---------- Staff sign-in, roles and permissions ---------- */
 let ME=null, STAFF={}, unsubStaff=null;
+function authDone(){ if(!document.body.classList.contains("authwait")) return; document.body.classList.remove("authwait"); if(typeof route==="function") route(); }
 const tms=t=>!t?0:t.toMillis?t.toMillis():t.seconds?t.seconds*1000:new Date(t).getTime();
 const ADMIN=String(window.ADMIN_EMAIL||"").toLowerCase();
 const isFull=()=>!!ME&&(ME.role==="admin"||ME.role==="principal");
@@ -1724,11 +1730,11 @@ async function loadMe(u){
 }
 if(auth){
   onAuthStateChanged(auth,u=>{ user=u; ME=null; canWrite=false; document.body.classList.remove("admin","staff","principal","office"); $("#navEntry").style.display="";
-    if(!u){ if(!window._settingUp&&!$("#gSetup").hidden&&$("#gateErr").textContent){ stopTeacherData(); stopStaffData(); return; } showGate("gSignin"); stopTeacherData(); stopStaffData(); renderStats(); renderRoleBar(); return; }
-    if(!u.emailVerified){ if(window._settingUp) return;
+    if(!u){ authDone(); if(!window._settingUp&&!$("#gSetup").hidden&&$("#gateErr").textContent){ stopTeacherData(); stopStaffData(); return; } showGate("gSignin"); stopTeacherData(); stopStaffData(); renderStats(); renderRoleBar(); return; }
+    if(!u.emailVerified){ authDone(); if(window._settingUp) return;
       onList(u.email).then(ok=>{ if(!ok){ $("#uEmail").textContent=u.email; showGate("gUnreg"); return; }
         $("#vEmail").textContent=u.email; showGate("gVerify"); if(!window._vsent){ window._vsent=true; sendVerify(u).catch(()=>{}); } }); return; }
-    loadMe(u); });
+    loadMe(u).catch(()=>{}).finally(authDone); });
 }
 /* Contract / HR details live in "staffHR", readable only by the principal and admin. */
 let HR={}, unsubHR=null;
