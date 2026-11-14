@@ -231,7 +231,7 @@ table.rct td:first-child,table.rct th:first-child{text-align:left;font-weight:80
 .ticker{display:flex;align-items:center;gap:10px;margin:14px 0 0;padding:9px 14px;border-radius:14px;background:#1f1a3d;color:#fff;text-decoration:none;overflow:hidden;font-weight:700;font-size:14px}
 .ticker .tk-l{flex:none;background:#ff5a7a;border-radius:8px;padding:2px 10px;font-weight:900}
 .ticker .tk-w{overflow:hidden;flex:1;white-space:nowrap}
-.ticker .tk-m{display:inline-block;padding-left:100%;animation:tk 28s linear infinite}
+.ticker .tk-m{display:inline-block;padding-left:100%;animation:tk 60s linear infinite}
 .ticker:hover .tk-m{animation-play-state:paused}
 @keyframes tk{to{transform:translateX(-100%)}}
 @media (prefers-reduced-motion:reduce){.ticker .tk-m{animation:none;padding-left:0}}
@@ -284,6 +284,9 @@ body:not(.staff) .staff-only{display:none!important}
 /* while the saved sign-in is being restored after a refresh, show "loading" instead of the login box or "unauthorised" */
 body.authwait #gate,body.authwait #dashLock,body.authwait #aLock,body.authwait #adminLock{display:none!important}
 #entry.subjonly .ct-only{display:none!important}
+body.staff #v-home>*:not(#homeStats):not(#homeTicker){display:none!important}
+body.staff #v-home.on{display:flex;flex-direction:column}
+body.staff #homeTicker{order:-1;margin:0 0 14px}
 #authLoad{display:none;text-align:center;padding:40px 10px;color:var(--muted);font-weight:700}
 body.authwait #authLoad{display:block}
 body:not(.parent) .parent-only{display:none!important}
@@ -1527,6 +1530,31 @@ $("#lookup").addEventListener("submit",async e=>{
 
 /* ---------- Home stats ---------- */
 let SUM={year:null,exam:null};
+/* ---------- "Coming up for you": what matters to this person in the next days ---------- */
+let SUBS_HOME={}, homeT=0;
+function homeRefresh(){ clearTimeout(homeT); homeT=setTimeout(()=>{ if(ME&&(location.hash==="#home"||location.hash===""||location.hash==="#")){ const b=$("#homeComing"); if(b) b.innerHTML=comingHTML(); } },300); }
+async function loadHomeSubs(){ const t=todayISO(), d2=new Date(t+"T00:00:00"); d2.setDate(d2.getDate()+1); const tm=d2.toISOString().slice(0,10);
+  for(const d of [t,tm]){ if(d in SUBS_HOME) continue; SUBS_HOME[d]=null; try{ const x=await getDoc(doc(db,"subs",d)); SUBS_HOME[d]=x.exists()?x.data():null; }catch(_){} } homeRefresh(); }
+function comingHTML(){ if(!ME) return ""; const t=todayISO(), lim=(n)=>{ const x=new Date(t+"T00:00:00"); x.setDate(x.getDate()+n); return x.toISOString().slice(0,10); }, in14=lim(14), in21=lim(21), it=[], me=ME.email;
+  const add=(date,icon,text,cls)=>it.push({date,icon,text,cls:cls||""});
+  Object.values(SUBS_HOME).forEach(sd=>{ if(!sd) return; (sd.plan||[]).filter(p=>p.sub===me).forEach(p=>add(sd.date,"🔁",`Substitution: <b>P${p.p} ${esc(p.c)}</b> ${esc(p.s)} (for ${esc(tName(p.absent))})`,"hot")); });
+  Object.entries(EDUT||{}).forEach(([id,e])=>(e.duties||[]).filter(d=>d.email===me&&(e.date||"")>=t&&e.date<=in21).forEach(d=>add(e.date,"🎭",`Event duty: <b>${esc(e.title)}</b> · ${esc(d.task)}`)));
+  if(DUTY) Object.entries(DUTY).forEach(([k,v])=>{ if(!v||!v.dates||(!v.published&&!isOffice())) return; Object.entries(v.dates).forEach(([d,m])=>{ if(d<t||d>in21) return; Object.entries(m).forEach(([c,em])=>{ if(em===me&&!c.startsWith("_")) add(d,"📝",`Invigilation: <b>${esc(c)}</b> · ${esc(k)}${v.time?" · "+esc(v.time):""}`); }); if(m._reserve===me) add(d,"📝",`Reserve invigilator · ${esc(k)}`); }); });
+  Object.values(LEAVES||{}).filter(l=>l.email===me&&(l.to||l.from)>=t).forEach(l=>add(l.from,"🏖",`Your leave ${fmtD(l.from)}${l.to&&l.to!==l.from?" – "+fmtD(l.to):""}: <b>${esc(l.status==="Recommended"?"recommended, waiting for the principal":l.status)}</b>`));
+  if(ME.acting) add(ME.acting.from,"🗂️",`You are acting coordinator until ${fmtD(ME.acting.to)}`,"hot");
+  (ME.classTeacher||[]).forEach(c=>{ const N=(typeof ABSN!=="undefined"&&ABSN[c])||[]; N.filter(n=>(n.to||n.from)>=t&&n.from<=lim(3)).forEach(n=>add(n.from,"📝",`Parent's note: <b>${esc(n.name)}</b> (${esc(c)}) absent ${fmtD(n.from)}${n.to&&n.to!==n.from?" – "+fmtD(n.to):""} · ${esc(n.reason)}`)); });
+  if(isOffice()){ const dr=Object.values(DRAFTS||{}).filter(d=>d.col!=="import"||d.data.part===0).length, adm=Object.values(typeof STUDOCS!=="undefined"?STUDOCS:{}).filter(d=>d.admission==="pending").length;
+    if(isFull()&&(dr||adm)) add(t,"📥",`<b>${dr+adm}</b> item${dr+adm>1?"s":""} waiting for your approval <a href="#dashboard">Open →</a>`,"hot");
+    if(!isFull()&&(dr||adm)) add(t,"⏳",`${dr+adm} item${dr+adm>1?"s":""} sent to the principal, waiting for approval`);
+    const req=Object.values(LEAVES||{}).filter(l=>l.status==="Requested"&&(l.to||l.from)>=t).length; if(req) add(t,"🏖",`<b>${req}</b> leave request${req>1?"s":""} to ${isFull()?"decide":"recommend"} <a href="#timetable">Open →</a>`,"hot");
+    const away=leavesOnly(t).map(l=>tName(l.email)); if(away.length) add(t,"👩‍🏫",`On leave today: ${esc(away.join(", "))}`);
+    const fr=typeof feeReminder==="function"?feeReminder():null; if(fr) add(t,"💳",`Fee ${fr.q} ${fr.late?"was due":"is due"} ${fmtD(fr.due)} <a href="#students">Fees →</a>`); }
+  const C=CAL||(typeof PCAL!=="undefined"?PCAL:null); ((C&&C.exams)||[]).filter(e=>(e.to||e.from)>=t&&e.from<=in21).forEach(e=>add(e.from,"📝",`Exam: <b>${esc(e.label)}</b> ${fmtD(e.from)}${e.to&&e.to!==e.from?" – "+fmtD(e.to):""}`));
+  ((C&&C.holidays)||SUGGESTED_HOLIDAYS).filter(h=>CLOSED_KINDS.includes(h.kind||"Holiday")&&(h.to||h.from)>=t&&h.from<=in14).forEach(h=>add(h.from,"🎉",`${esc(h.name)} (school closed)`));
+  Object.values(typeof NOTICES!=="undefined"?NOTICES:{}).filter(n=>n.date&&n.date>=t&&n.date<=in14).forEach(n=>add(n.date,ntIcon(n.type),esc(n.title)));
+  it.sort((a,b)=>(b.cls==="hot")-(a.cls==="hot")||String(a.date).localeCompare(String(b.date)));
+  const day=d=>d===t?"Today":d===lim(1)?"Tomorrow":fmtD(d).replace(/ \d{4}$/,"");
+  return `<div class="card" style="box-shadow:none;margin:0 0 14px;border-left:5px solid #ff9933"><h3 style="margin:0 0 8px">🔔 Coming up for you</h3>${it.length?it.slice(0,12).map(x=>`<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line)${x.cls==="hot"?";font-weight:700":""}"><span style="min-width:78px;color:${x.cls==="hot"?"#c4610d":"var(--muted)"};font-weight:800">${day(x.date)}</span><span>${x.icon} ${x.text}</span></div>`).join(""):'<p class="hint" style="margin:0">Nothing due in the next two weeks.</p>'}</div>`; }
 /* Designation shown to everyone: Principal, Coordinator, Class teacher I-A, Special educator, Subject teacher */
 function desigOf(x){ if(!x) return ""; if(x.role==="admin") return "Admin"; if(x.role==="principal") return "Principal"; const ct=(x.classTeacher||[]);
   const parts=[]; if(x.coordinator) parts.push("Coordinator"); if(ct.length) parts.push("Class teacher "+ct.join(", ")); if(x.designation&&x.designation!=="PRT") parts.push(x.designation);
@@ -1544,7 +1572,7 @@ function myStatsHTML(recs){ const me=ME, cls=[...new Set([...(me.classes||[]),..
       <div class="tbl-wrap" style="margin-top:8px"><table class="pt"><thead><tr><th>Subject</th><th>Taught by</th><th>Class average</th></tr></thead><tbody>${st.map(x=>`<tr style="${x.mine?"background:#eef0e3;font-weight:800":""}"><td style="text-align:left">${esc(x.sub)}${x.mine?" (you)":""}</td><td style="text-align:left">${esc(x.who)}</td><td><div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:8px;background:#ecebe2;border-radius:6px"><div style="width:${Math.max(2,x.avg)}%;height:8px;border-radius:6px;background:${x.mine?"#ff9933":"#4b5320"}"></div></div><b>${x.avg}%</b></div></td></tr>`).join("")}</tbody></table></div></div>`; }).join("");
   return blocks||'<div class="empty">You have no classes yet.</div>'; }
 function renderStats(){
-  const box=$("#homeStats"); if(!ME){ box.innerHTML=""; return; }
+  const box=$("#homeStats"); if(!ME){ box.innerHTML=""; return; } startTT(); startEDUT(); loadHomeSubs(); (ME.classTeacher||[]).forEach(c=>{ if(typeof absNotes==="function") absNotes(c).then(homeRefresh); });
   const all=Object.values(RECORDS);
   if(!SUM.year) SUM.year=YEARS[0];
   const inYear=all.filter(r=>r.year===SUM.year);
@@ -1555,7 +1583,8 @@ function renderStats(){
   const order=c=>{ const [st,dv]=c.split("-"); return STDS.indexOf(st)*10+DIVS.indexOf(dv); };
   const rows=Object.keys(byCls).sort((a,b)=>order(a)-order(b)).map(c=>{ const v=byCls[c].map(pctOf).filter(x=>x!=null); return {c,n:byCls[c].length,avg:avg(v),hi:v.length?Math.max(...v):null,ap:v.filter(x=>x>=91).length,low:v.filter(x=>x<50).length}; });
   const allV=recs.map(pctOf).filter(x=>x!=null);
-  const welcome=`<div style="margin:0 0 14px;padding:14px 18px;border-radius:14px;background:linear-gradient(110deg,#0e1a2b,#2c3318);color:#fff"><div style="font-family:'Barlow Condensed';font-size:26px;font-weight:700">👋 Welcome, ${esc(ME.name)}</div><div style="color:#ffd9ad;font-weight:700">${esc(desigOf(ME))}${ME.role==="teacher"&&(ME.classes||[]).length?` · teaches ${esc([...new Set((ME.classes||[]).flatMap(c=>teachesIn(ME,c)))].join(", "))}`:""}</div></div>`;
+  const welcome0=`<div style="margin:0 0 14px;padding:14px 18px;border-radius:14px;background:linear-gradient(110deg,#0e1a2b,#2c3318);color:#fff"><div style="font-family:'Barlow Condensed';font-size:26px;font-weight:700">👋 Welcome, ${esc(ME.name)}</div><div style="color:#ffd9ad;font-weight:700">${esc(desigOf(ME))}${ME.role==="teacher"&&(ME.classes||[]).length?` · teaches ${esc([...new Set((ME.classes||[]).flatMap(c=>teachesIn(ME,c)))].join(", "))}`:""}</div></div>`;
+  const welcome=welcome0+`<div id="homeComing">${comingHTML()}</div>`;
   const picker=`<div style="display:flex;gap:10px;flex-wrap:wrap"><label class="f">Year<select class="in" id="sumYear">${YEARS.map(y=>`<option ${y===SUM.year?"selected":""}>${y}</option>`).join("")}</select></label>
     <label class="f">Exam<select class="in" id="sumExam">${EXAMS.map(t=>`<option value="${esc(t)}" ${t===SUM.exam?"selected":""}>${esc(lab(t))}${examsWith.includes(t)?"":" (no results yet)"}</option>`).join("")}</select></label></div>`;
   if(ME.role==="teacher"&&!ME.office){ box.innerHTML=welcome+`<div class="sec-h" style="justify-content:space-between;flex-wrap:wrap;gap:10px"><div style="display:flex;gap:10px;align-items:center"><div class="dot" style="background:var(--violet)">📊</div><div><h3>My summary</h3><p>Your subjects compared with the other subjects of the same class. Only you can see this.</p></div></div>${picker}</div>`+myStatsHTML(recs); return; }
@@ -1883,12 +1912,12 @@ function leavesOn(date){ const L=leavesOnly(date), seen=new Set(L.map(l=>l.email
 let ACTING=null, unsubACT=null;
 function startTT(){ if(!db||!ME) return; startDrafts();
   if(isOffice()&&!unsubSATT) unsubSATT=onSnapshot(query(collection(db,"staffAtt"),where("year","==",YEARS[0])),sn=>{ const n={}; sn.forEach(d=>{ const x=d.data(); n[x.month]=x; }); SATT_ALL=n; if(location.hash==="#timetable") renderTT(); },()=>{});
-  if(!unsubACT) unsubACT=onSnapshot(doc(db,"office","acting"),d=>{ ACTING=d.exists()?d.data():null; if(location.hash==="#timetable") renderTT(); },()=>{});
+  if(!unsubACT) unsubACT=onSnapshot(doc(db,"office","acting"),d=>{ ACTING=d.exists()?d.data():null; homeRefresh(); if(location.hash==="#timetable") renderTT(); },()=>{});
   if(!unsubTT) unsubTT=onSnapshot(doc(db,"timetable",TT_YEAR()),d=>{ TT=d.exists()?d.data():null; if(location.hash==="#timetable") renderTT(); },()=>{});
-  if(!unsubDUTY) unsubDUTY=onSnapshot(doc(db,"duties",TT_YEAR()),d=>{ DUTY=d.exists()?d.data():null; if(location.hash==="#timetable"&&ttS.tab==="exam"&&!dutyDraft) renderTT(); },()=>{});
-  if(!unsubCAL) unsubCAL=onSnapshot(doc(db,"calendar",TT_YEAR()),d=>{ CAL=d.exists()?d.data():null; if(location.hash==="#timetable"&&!calDraft) renderTT(); },()=>{});
+  if(!unsubDUTY) unsubDUTY=onSnapshot(doc(db,"duties",TT_YEAR()),d=>{ DUTY=d.exists()?d.data():null; homeRefresh(); if(location.hash==="#timetable"&&ttS.tab==="exam"&&!dutyDraft) renderTT(); },()=>{});
+  if(!unsubCAL) unsubCAL=onSnapshot(doc(db,"calendar",TT_YEAR()),d=>{ CAL=d.exists()?d.data():null; homeRefresh(); if(location.hash==="#timetable"&&!calDraft) renderTT(); },()=>{});
   if(!unsubLV){ const q=isOffice()?collection(db,"leaves"):query(collection(db,"leaves"),where("email","==",ME.email));
-    unsubLV=onSnapshot(q,snap=>{ const n={}; snap.forEach(d=>n[d.id]={...d.data(),id:d.id}); LEAVES=n; if(location.hash==="#timetable") renderTT(); },()=>{}); } }
+    unsubLV=onSnapshot(q,snap=>{ const n={}; snap.forEach(d=>n[d.id]={...d.data(),id:d.id}); LEAVES=n; homeRefresh(); if(location.hash==="#timetable") renderTT(); },()=>{}); } }
 function stopTT(){ stopDrafts(); if(unsubSATT){unsubSATT();unsubSATT=null;} SATT_ALL={}; if(unsubACT){unsubACT();unsubACT=null;} ACTING=null; if(unsubDUTY){unsubDUTY();unsubDUTY=null;} DUTY=null; dutyDraft=null; ttS.tab=""; ttS.teacher=""; ttS.cls="I-A"; ttS.setup=null; if(unsubCAL){unsubCAL();unsubCAL=null;} calDraft=null; if(unsubTT){unsubTT();unsubTT=null;} if(unsubLV){unsubLV();unsubLV=null;} TT=null; LEAVES={}; SUBDOC=null; SUBPLAN=null; }
 
 function ttTable(set,cell){ // cell(dayIdx,periodIdx) -> html
@@ -1981,7 +2010,7 @@ async function pubSet(col,id,data,lab){ if(isFull()){ await writeLive(col,id,dat
   const key=col+"__"+id, label=lab||((DRAFT_LABEL[col]||col)+(col==="subs"?" for "+fmtD(id).replace(/<[^>]*>/g,""):""));
   await setDoc(doc(db,"drafts",key),{col,id,data,label,by:ME.email,at:new Date().toISOString()}); DRAFTS[key]={col,id,data,label,by:ME.email,at:new Date().toISOString()};
   window._draftMsg=`📨 Sent to the principal for approval: ${label}. It goes live when she approves it.`; return false; }
-function startDrafts(){ if(!db||!isOffice()||unsubDR) return; unsubDR=onSnapshot(collection(db,"drafts"),snap=>{ const n={}; snap.forEach(d=>n[d.id]=d.data()); DRAFTS=n; if(location.hash==="#timetable") renderTT(); if(location.hash==="#school") renderPub(); const aa=$("#admApprovals"); if(aa) aa.innerHTML=approvalsHTML(); if(location.hash==="#dashboard"&&typeof renderDash==="function") renderDash(); },()=>{}); }
+function startDrafts(){ if(!db||!isOffice()||unsubDR) return; unsubDR=onSnapshot(collection(db,"drafts"),snap=>{ const n={}; snap.forEach(d=>n[d.id]=d.data()); DRAFTS=n; homeRefresh(); if(location.hash==="#timetable") renderTT(); if(location.hash==="#school") renderPub(); const aa=$("#admApprovals"); if(aa) aa.innerHTML=approvalsHTML(); if(location.hash==="#dashboard"&&typeof renderDash==="function") renderDash(); },()=>{}); }
 function stopDrafts(){ if(unsubDR){unsubDR();unsubDR=null;} DRAFTS={}; }
 function approvalsHTML(){ if(!ME||!isOffice()) return ""; const L=Object.entries(DRAFTS).filter(([,d])=>d.col!=="import"||d.data.part===0).sort((a,b)=>String(a[1].at).localeCompare(String(b[1].at)));
   const AD=Object.entries(typeof STUDOCS==="undefined"?{}:STUDOCS).filter(([,d])=>d.admission==="pending"); if(!L.length&&!AD.length) return "";
@@ -3108,7 +3137,7 @@ let NOTICES={}, ACHS={}, EDUT={}, unsubED=null, PCAL=null;
 if(db){ onSnapshot(collection(db,"notices"),s=>{ const n={}; s.forEach(d=>n[d.id]={...d.data(),id:d.id}); NOTICES=n; pubRefresh(); },()=>{});
   onSnapshot(collection(db,"achievements"),s=>{ const n={}; s.forEach(d=>n[d.id]={...d.data(),id:d.id}); ACHS=n; pubRefresh(); },()=>{});
   getDoc(doc(db,"calendar",YEARS[0])).then(d=>{ PCAL=d.exists()?d.data():null; pubRefresh(); }).catch(()=>{}); }
-function startEDUT(){ if(!db||!ME||unsubED) return; unsubED=onSnapshot(collection(db,"eventDuties"),s=>{ const n={}; s.forEach(d=>n[d.id]=d.data()); EDUT=n; pubRefresh(); },()=>{}); }
+function startEDUT(){ if(!db||!ME||unsubED) return; unsubED=onSnapshot(collection(db,"eventDuties"),s=>{ const n={}; s.forEach(d=>n[d.id]=d.data()); EDUT=n; pubRefresh(); homeRefresh(); },()=>{}); }
 function stopEDUT(){ if(unsubED){unsubED();unsubED=null;} EDUT={}; }
 function pubRefresh(){ renderFlash(); if(["#notices","#achievements"].includes(location.hash)) renderPub(); }
 const ntEnd=n=>n.until||n.to||n.date||"";
