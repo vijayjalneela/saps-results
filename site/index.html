@@ -8,7 +8,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Shivneri APS – Results Portal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700;800&family=Baloo+2:wght@600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
   --saffron:#ff8a1f; --pink:#ff4f8b; --violet:#7b5cff; --sky:#22b8ff; --teal:#14c3a2; --lime:#8fd14f; --sun:#ffc93c;
@@ -461,6 +461,78 @@ td.ttc.canswap{cursor:pointer}td.ttc.sel{outline:3px solid #7b5cff;outline-offse
 @media print{table.tt{min-width:0;font-size:10px}}
 tr.past td{opacity:.55}
 table.pt.duty td{font-size:13px;padding:6px 6px}
+/* ===== ARMY THEME (overrides) ===== */
+:root{ --saffron:#ff9933; --pink:#d9541e; --violet:#4b5d2a; --sky:#1d4f91; --teal:#138808; --lime:#7c9a3d; --sun:#f2b134;
+  --ink:#18200f; --muted:#5b6350; --line:#e2dfd2; --bg:#f5f3ec; --card:#ffffff; --olive:#4b5320; --olive-d:#2c3318; --navy:#0e1a2b; --khaki:#c9b98c; --r:14px }
+body{font-family:Barlow,system-ui,sans-serif;background:var(--bg);background-image:linear-gradient(180deg,#efece2 0,#f5f3ec 320px)}
+h1,h2,h3,h4,.brand{font-family:"Barlow Condensed",Barlow,sans-serif;letter-spacing:.2px}
+header.top{background:linear-gradient(90deg,var(--navy),#16263b 55%,var(--olive-d));border-bottom:0;box-shadow:0 4px 18px rgba(0,0,0,.25)}
+header.top::after{content:"";position:absolute;left:0;right:0;bottom:-4px;height:4px;background:linear-gradient(90deg,#ff9933 0 33.3%,#fff 33.3% 66.6%,#138808 66.6%)}
+.brand{color:#fff;font-weight:700;font-size:22px;text-transform:uppercase;letter-spacing:.6px}
+.brand small{color:#c9b98c;font-family:Barlow;letter-spacing:.3px;text-transform:none;font-weight:600}
+.logo{border:2px solid #c9b98c;box-shadow:0 0 0 3px rgba(201,185,140,.25)}
+nav.tabs{background:rgba(255,255,255,.08)}
+nav.tabs a{color:#dfe3d4;font-weight:700}
+nav.tabs a.on{background:#ff9933;color:#1b1206;box-shadow:none}
+nav.tabs a:hover{color:#fff}
+.btn{border-radius:10px;font-weight:700;letter-spacing:.2px}
+.btn.pri{background:linear-gradient(120deg,#4b5320,#2f6b1f);box-shadow:0 8px 18px rgba(75,83,32,.28)}
+.btn.pri:hover{filter:brightness(1.08)}
+.btn.sec{background:#ecebe2}
+.in:focus{border-color:#4b5320;box-shadow:0 0 0 4px rgba(75,83,32,.14)}
+.card{border-radius:14px;box-shadow:0 2px 10px rgba(24,32,15,.05)}
+.page-title h2,.title-row h2{text-transform:uppercase;letter-spacing:.6px}
+.head-sticky{background:linear-gradient(110deg,#eef0e3,#f6efe1);border-color:#dcd8c4}
+[data-animal]{display:none!important}
+.parade{display:none!important}
+
+/* Hero: night sky over the hills, tricolour fly-past, flag and personnel silhouettes */
+.hero.home-hero{background:linear-gradient(180deg,#0b1626 0%,#1b2b3a 38%,#5a4a2a 72%,#c77a2a 100%);padding:46px 40px 190px;border-radius:20px;box-shadow:0 18px 40px rgba(14,26,43,.35)}
+.hero.home-hero .bubbles{display:none}
+.hero-art{position:absolute;left:0;right:0;bottom:0;width:100%;height:auto;pointer-events:none}
+.hero-sky{position:absolute;top:6px;left:24%;width:40%;max-width:480px;height:auto;pointer-events:none;opacity:.95}
+.hero.home-hero h1{text-transform:uppercase;font-weight:700;font-size:clamp(32px,5.2vw,58px);letter-spacing:.5px;text-shadow:0 2px 18px rgba(0,0,0,.35)}
+.hero.home-hero h1 .tc{background:linear-gradient(90deg,#ff9933,#fff 50%,#4cc15a);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero.home-hero p{font-size:18px;color:#e9e4d2}
+.school-line{background:rgba(255,153,51,.18);border:1px solid rgba(255,153,51,.55);color:#ffd9ad;text-transform:uppercase;letter-spacing:1px;font-size:12px}
+.hero .motto{margin-top:22px;display:flex;gap:10px;flex-wrap:wrap}
+.hero .motto span{border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:6px 14px;font-weight:700;font-size:13px;color:#fff;background:rgba(255,255,255,.06);letter-spacing:.6px;text-transform:uppercase}
+.school-photo{background:linear-gradient(135deg,#1c2a1a,#0e1a2b)!important;border:3px solid #c9b98c!important;box-shadow:0 18px 40px rgba(0,0,0,.4)!important;transform:none!important;z-index:2}
+.school-photo .cap{background:#0e1a2b!important;color:#ffd9ad!important}
+@media(max-width:820px){.hero.home-hero{padding:34px 22px 140px}.hero-sky{width:80%;right:-6%;top:auto;bottom:140px;opacity:.5}}
+
+/* Values strip in place of the cartoon animals */
+.values{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:20px 0 4px}
+@media(max-width:820px){.values{grid-template-columns:repeat(2,1fr)}}
+.val{background:#fff;border:1px solid var(--line);border-top:4px solid var(--c);border-radius:14px;padding:16px 18px;display:flex;gap:12px;align-items:center}
+.val svg{width:40px;height:40px;flex:none;color:var(--c)}
+.val b{font-family:"Barlow Condensed";font-size:22px;text-transform:uppercase;letter-spacing:.6px;display:block;line-height:1}
+.val span{color:var(--muted);font-size:13px;font-weight:600}
+
+/* Login doors */
+.door{border-radius:14px;border-left:5px solid var(--olive)}
+.door h3{font-size:24px;text-transform:uppercase;letter-spacing:.5px}
+.door.t .ic{background:#eef0e3}.door.t .go{color:var(--olive)}
+.door.p{border-left-color:#ff9933}.door.p .ic{background:#fff1e0}.door.p .go{color:#c4610d}
+.door[href="#coordinator"]{border-left-color:#1d4f91}
+
+/* Principal's message */
+.pmsg{background:linear-gradient(135deg,#fffdf7,#f6f1e2)!important;border:1px solid #e4dcc3!important}
+
+/* Parents' page header */
+.p-hero{background:linear-gradient(120deg,#0e1a2b,#2c3318 70%,#4b5320);color:#fff;border-radius:18px}
+.p-hero p{opacity:.9}
+.p-hero::after{content:"";position:absolute;left:0;right:0;bottom:0;height:5px;background:linear-gradient(90deg,#ff9933 0 33.3%,#fff 33.3% 66.6%,#138808 66.6%)}
+
+/* Notices / achievers flash cards */
+#homeFlash .card{background:#fff!important;border:1px solid var(--line)!important;border-top:5px solid #1d4f91!important}
+#homeFlash .card+.card{border-top-color:#ff9933!important}
+#homeFlash h3{text-transform:uppercase;letter-spacing:.6px}
+/* Ticker and footer */
+.ticker{background:var(--navy);border:1px solid #23344d}
+.ticker .tk-l{background:#ff9933;color:#1b1206}
+footer{background:var(--navy);color:#c9cfbd!important;padding:22px 16px!important;margin-top:30px;border-top:4px solid transparent;border-image:linear-gradient(90deg,#ff9933 0 33.3%,#fff 33.3% 66.6%,#138808 66.6%) 1}
+
 </style>
 </head>
 <body>
@@ -491,15 +563,57 @@ table.pt.duty td{font-size:13px;padding:6px 6px}
 <section class="view" id="v-home">
   <a id="homeTicker" href="#notices" class="ticker" style="display:none"></a>
   <div class="hero home-hero">
+    <svg class="hero-sky" viewBox="0 0 520 260" aria-hidden="true">
+      <defs><linearGradient id="trS" x1="0" x2="1"><stop offset="0" stop-color="#ff9933" stop-opacity="0"/><stop offset="1" stop-color="#ff9933" stop-opacity=".9"/></linearGradient>
+        <linearGradient id="trW" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity=".9"/></linearGradient>
+        <linearGradient id="trG" x1="0" x2="1"><stop offset="0" stop-color="#2fb34a" stop-opacity="0"/><stop offset="1" stop-color="#2fb34a" stop-opacity=".9"/></linearGradient>
+        <symbol id="jet" viewBox="-30 -12 60 24"><path d="M28 0 L6 -3 L-4 -11 L-9 -11 L-3 -3 L-18 -2 L-24 -8 L-28 -8 L-25 0 L-28 8 L-24 8 L-18 2 L-3 3 L-9 11 L-4 11 L6 3 Z" fill="#0d141d"/></symbol></defs>
+      <g transform="rotate(-18 260 130)">
+        <path d="M10 92 Q200 96 392 92" stroke="url(#trS)" stroke-width="9" fill="none" stroke-linecap="round"/>
+        <path d="M10 118 Q200 122 392 118" stroke="url(#trW)" stroke-width="9" fill="none" stroke-linecap="round"/>
+        <path d="M10 144 Q200 148 392 144" stroke="url(#trG)" stroke-width="9" fill="none" stroke-linecap="round"/>
+        <use href="#jet" x="380" y="80" width="46" height="24"/><use href="#jet" x="380" y="106" width="46" height="24"/><use href="#jet" x="380" y="132" width="46" height="24"/>
+      </g>
+      <g fill="#fff" opacity=".7"><circle cx="40" cy="30" r="1.4"/><circle cx="120" cy="14" r="1"/><circle cx="210" cy="40" r="1.2"/><circle cx="480" cy="22" r="1.3"/><circle cx="300" cy="10" r="1"/></g>
+    </svg>
+    <svg class="hero-art" viewBox="0 0 1200 230" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+      <defs>
+        <symbol id="salute" viewBox="0 0 70 160"><circle cx="30" cy="24" r="11"/><path d="M17 20 Q24 6 42 11 Q47 16 44 20 Z"/><path d="M20 36 L42 36 L46 84 L16 84 Z"/><path d="M40 37 L58 30 L46 15 L39 18 L49 29 L37 42Z"/><path d="M16 38 L11 76 L17 77 L23 42Z"/><path d="M16 84 L46 84 L44 152 L34 152 L31 102 L28 152 L18 152 Z"/><rect x="15" y="150" width="15" height="7" rx="2"/><rect x="32" y="150" width="15" height="7" rx="2"/></symbol>
+        <symbol id="rifle" viewBox="0 0 70 160"><circle cx="32" cy="24" r="11"/><path d="M19 17 L45 17 L45 21 L50 23 L19 23 Z"/><path d="M21 36 L43 36 L47 84 L17 84 Z"/><path d="M43 38 L49 70 L43 72 L39 44Z"/><path d="M21 38 L15 72 L21 73 L25 44Z"/><path d="M17 84 L47 84 L45 152 L35 152 L32 102 L29 152 L19 152 Z"/><rect x="16" y="150" width="15" height="7" rx="2"/><rect x="33" y="150" width="15" height="7" rx="2"/><path d="M50 14 L54 14 L54 96 L50 96 Z"/><path d="M47 70 L57 70 L57 98 L47 98 Z"/></symbol>
+        <symbol id="sailor" viewBox="0 0 70 160"><circle cx="31" cy="25" r="11"/><ellipse cx="31" cy="15" rx="15" ry="5"/><path d="M19 37 L43 37 L47 86 L15 86 Z"/><path d="M19 38 L13 74 L19 75 L24 42Z"/><path d="M43 38 L49 74 L43 75 L38 42Z"/><path d="M15 86 L47 86 L45 152 L35 152 L31 104 L27 152 L17 152 Z"/><rect x="14" y="150" width="15" height="7" rx="2"/><rect x="33" y="150" width="15" height="7" rx="2"/></symbol>
+      </defs>
+      <path d="M0 150 L80 118 L150 136 L240 92 L320 128 L420 86 L520 122 L600 98 L700 132 L800 90 L900 124 L1000 96 L1100 128 L1200 104 L1200 230 L0 230Z" fill="#2a2a1a" opacity=".55"/>
+      <path d="M0 176 L120 150 L230 166 L360 140 L480 168 L620 146 L760 170 L900 148 L1040 168 L1200 150 L1200 230 L0 230Z" fill="#1c2012" opacity=".8"/>
+      <rect x="0" y="198" width="1200" height="32" fill="#10140a"/>
+      <g fill="#0b0e07">
+        <rect x="596" y="40" width="5" height="160"/><circle cx="598.5" cy="38" r="5"/>
+      </g>
+      <g transform="translate(601 44)">
+        <path d="M0 0 C30 -8 60 8 96 0 L96 22 C60 30 30 14 0 22Z" fill="#ff9933"/>
+        <path d="M0 22 C30 14 60 30 96 22 L96 44 C60 52 30 36 0 44Z" fill="#fff"/>
+        <path d="M0 44 C30 36 60 52 96 44 L96 66 C60 74 30 58 0 66Z" fill="#138808"/>
+        <circle cx="48" cy="33" r="8" fill="none" stroke="#000080" stroke-width="2"/><circle cx="48" cy="33" r="1.6" fill="#000080"/>
+        <g stroke="#000080" stroke-width=".8"><path d="M48 25 V41 M40 33 H56 M42.3 27.3 L53.7 38.7 M53.7 27.3 L42.3 38.7"/></g>
+      </g>
+      <g fill="#0b0e07">
+        <use href="#salute" x="470" y="76" width="70" height="160" transform="scale(1)"/>
+        <use href="#salute" x="660" y="76" width="70" height="160" transform="translate(1390 0) scale(-1 1)"/>
+        <use href="#rifle" x="140" y="96" width="56" height="128"/><use href="#rifle" x="200" y="96" width="56" height="128"/><use href="#rifle" x="260" y="96" width="56" height="128"/>
+        <use href="#sailor" x="360" y="100" width="52" height="120"/>
+        <use href="#salute" x="790" y="100" width="52" height="120"/>
+        <use href="#rifle" x="900" y="96" width="56" height="128"/><use href="#rifle" x="960" y="96" width="56" height="128"/><use href="#rifle" x="1020" y="96" width="56" height="128"/>
+      </g>
+    </svg>
     <div class="bubbles"><span style="width:220px;height:220px;left:-70px;bottom:-90px"></span><span style="width:70px;height:70px;left:44%;top:18px"></span></div>
     <div style="position:relative">
       <div class="school-line">★ CBSE · Classes I to V · Aundh Military Station, Pune</div>
-      <h1>Every child's progress, bright and clear.</h1>
+      <h1>Discipline. Courage.<br><span class="tc">Excellence.</span></h1>
       <p>Nurturing confident, caring and curious young learners in the Army Public School tradition.</p>
+      <div class="motto"><span>🇮🇳 Service before self</span><span>Classes I to V</span><span>CBSE</span></div>
       
     </div>
     <div class="school-photo" id="schoolPhoto">
-      <div class="ph-empty" id="schoolPhEmpty"><svg viewBox="0 0 300 170" aria-hidden="true"><rect x="40" y="70" width="220" height="90" rx="8" fill="#fff" opacity=".95"/><polygon points="30,74 150,20 270,74" fill="#ffc93c"/><rect x="128" y="104" width="44" height="56" rx="6" fill="#7b5cff"/><g fill="#22b8ff"><rect x="62" y="90" width="34" height="26" rx="5"/><rect x="204" y="90" width="34" height="26" rx="5"/><rect x="62" y="124" width="34" height="26" rx="5"/><rect x="204" y="124" width="34" height="26" rx="5"/></g><circle cx="150" cy="58" r="11" fill="#fff"/><line x1="150" y1="20" x2="150" y2="0" stroke="#fff" stroke-width="3"/><polygon points="150,0 172,6 150,12" fill="#ff4f8b"/><rect x="0" y="158" width="300" height="12" rx="6" fill="#8fd14f"/></svg><div>School photo goes here</div></div>
+      <div class="ph-empty" id="schoolPhEmpty"><svg viewBox="0 0 24 24" fill="none" stroke="#c9b98c" stroke-width="1.4" style="width:64px"><path d="M3 8h3l2-3h8l2 3h3v11H3z"/><circle cx="12" cy="13" r="4"/></svg><span style="color:#e9e4d2;font-weight:700;letter-spacing:.5px">School photo</span></div></div>
       <img id="schoolImg" alt="Shivneri Army Public School" style="display:none">
       <div class="cap">Shivneri Army Public School, Aundh</div>
       <button type="button" class="btn sec sm edit-only" id="schoolPhotoBtn">📷 Change photo</button>
@@ -508,6 +622,12 @@ table.pt.duty td{font-size:13px;padding:6px 6px}
   </div>
 
   <div id="homeFlash"></div>
+  <div class="values">
+    <div class="val" style="--c:#ff9933"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l3 6 6.5.9-4.7 4.6 1.1 6.5L12 17l-5.9 3 1.1-6.5L2.5 8.9 9 8z"/></svg><div><b>Discipline</b><span>Order, punctuality, respect</span></div></div>
+    <div class="val" style="--c:#4b5320"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l8 3v6c0 5-3.4 9.4-8 11-4.6-1.6-8-6-8-11V5z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg><div><b>Courage</b><span>Brave hearts, bold minds</span></div></div>
+    <div class="val" style="--c:#1d4f91"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-2zm0 0a2 2 0 0 1 2-2h12"/><path d="M9 7h6M9 11h6"/></svg><div><b>Learning</b><span>Curious, confident learners</span></div></div>
+    <div class="val" style="--c:#138808"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21s-7-4.4-9.3-9A5.5 5.5 0 0 1 12 6a5.5 5.5 0 0 1 9.3 6c-2.3 4.6-9.3 9-9.3 9z"/></svg><div><b>Service</b><span>Care for nation and community</span></div></div>
+  </div>
   <div class="parade">
     <div class="pal"><div data-animal="lion"></div><b>Leo says</b><span>Be brave, ask questions!</span></div>
     <div class="pal"><div data-animal="elephant"></div><b>Ellie says</b><span>Read a little every day.</span></div>
@@ -795,7 +915,7 @@ table.pt.duty td{font-size:13px;padding:6px 6px}
 <!-- ================= PARENTS ================= -->
 <section class="view" id="v-results">
   <div class="p-hero"><div class="pals"><div data-animal="elephant"></div><div data-animal="lion"></div></div>
-    <h2>Parents login: check your child's result 🎉</h2>
+    <h2>Parents login: check your child's result</h2>
     <p>Choose the year, exam and class, then enter the roll number, your child's name and date of birth.</p>
     <form class="lookup" id="lookup">
       <label class="f">Year<select class="in" id="qYear"></select></label>
