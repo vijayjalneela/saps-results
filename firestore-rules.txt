@@ -243,7 +243,9 @@ service cloud.firestore {
         && (isClassTeacherOf(request.resource.data) || isOffice());
       allow update: if request.resource.data.year is string && request.resource.data.q is map
         && ((isClassTeacherOf(resource.data) && isClassTeacherOf(request.resource.data))
-            || (isOffice() && request.resource.data.q == resource.data.q));
+            || (isOffice() && request.resource.data.q == resource.data.q)
+            // the principal / admin loading a backup or data file
+            || (isPrincipal() && request.resource.data.get('importedBy', '') == myEmail()));
       allow delete: if isOffice();
     }
 
@@ -263,7 +265,9 @@ service cloud.firestore {
     // Staff attendance: marked by the coordinator (or acting coordinator); the principal only views it.
     match /staffAtt/{id} {
       allow read: if isOffice();
-      allow write: if isCoord();
+      // (the principal / admin may write it only when loading a backup or data file)
+      allow create, update: if isCoord() || (isPrincipal() && request.resource.data.get('importedBy', '') == myEmail());
+      allow delete: if isPrincipal();
     }
 
     // ---- Home page: school photo and principal's message (principal or admin) ----
