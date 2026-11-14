@@ -1557,7 +1557,7 @@ function renderHome(){
   $("#prName").textContent=HOME.name||DEFAULT_PR.name;
   const pp=$("#prPhoto"); pp.classList.toggle("has",!!HOME.photo); pp.innerHTML=HOME.photo?`<img src="${safeImg(HOME.photo)}" alt="Principal">`:"Passport<br>photo";
   /* the principal's uploaded photo wins; otherwise the school gate photo shipped with the site */
-  $("#schoolImg").style.display="block"; $("#schoolImg").src=SCHOOL_PHOTO?safeImg(SCHOOL_PHOTO):"school.jpg";
+  $("#schoolImg").style.display="block"; $("#schoolImg").src=SCHOOL_PHOTO?safeImg(SCHOOL_PHOTO):"school.jpg?v=3";
   $("#schoolPhEmpty").style.display="none";
 }
 async function writeConfig(id,data){ await setDoc(doc(db,"config",id),data); }
