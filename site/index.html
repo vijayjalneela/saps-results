@@ -1643,7 +1643,16 @@ function classDashHTML(){ const cts=ME.classTeacher||[]; if(!cts.length) return 
       <div><h4 style="margin:0 0 4px">⚠️ Needs more attention</h4>${need.length?need.slice(0,8).map(x=>li(x,`<br><small style="color:#b3164f">${esc(x.why.join(" · "))}</small>`)).join("")+(need.length>8?`<p class="hint">and ${need.length-8} more</p>`:""):`<p class="hint">Nobody below 50%, failing a subject, under 75% attendance or slipping by 10 points. 👍</p>`}</div>
       <div><h4 style="margin:0 0 4px">📈 Most improved${prevEx?" since "+esc(lab(prevEx)):""}</h4>${imp.length?imp.map(x=>li(x,` <b style="color:#0b7a64">▲ ${x.ch}</b>`)).join(""):`<p class="hint">${prevEx?"No earlier exam to compare yet.":"This is the first exam of the year."}</p>`}
        <h4 style="margin:10px 0 4px">📚 Subjects (class average)</h4>${subs.map((x,i)=>`<div style="display:flex;justify-content:space-between;padding:2px 0"><span>${esc(x.n)}${i===0?" 💪":i===subs.length-1&&subs.length>1?" 🔻 weakest":""}</span><b>${x.a}%</b></div>`).join("")}</div></div></div>`; }).join(""); }
-function mineHTML(){ if(!ME||ME.role!=="teacher"||ME.office) return ""; loadSubsAll(); loadCtFees(); return classDashHTML()+myClassHTML()+engageHTML()+achMineHTML(); }
+/* Teacher home is split into tabs so she picks what to see; the Year / Exam picker on the same row applies to all of them */
+let HTAB=null; try{ HTAB=sessionStorage.getItem("saps_htab"); }catch(_){}
+function homeTabs(){ const ct=(ME.classTeacher||[]).length; const T=(ct?[["class","📋 My class"]]:[]).concat([["summary","📊 My summary"],["engage","🗓 My engagements"],["ach","🏆 Achievements & toppers"]]);
+  if(!T.some(t=>t[0]===HTAB)) HTAB=T[0][0]; return T; }
+function mineHTML(){ if(!ME||ME.role!=="teacher"||ME.office) return ""; loadSubsAll(); loadCtFees(); homeTabs();
+  if(HTAB==="class") return classDashHTML()+myClassHTML();
+  if(HTAB==="engage") return engageHTML();
+  if(HTAB==="ach") return achMineHTML();
+  return `<p class="hint" style="margin:0 0 10px">Your subjects compared with the other subjects of the same class. Only you can see this.</p>`+myStatsHTML(HOME_RECS); }
+document.addEventListener("click",e=>{ const b=e.target.closest("[data-htab]"); if(!b) return; HTAB=b.dataset.htab; try{ sessionStorage.setItem("saps_htab",HTAB); }catch(_){} renderStats(); });
 function ctFeesHTML(){ loadCtFees(); const P=FP(), y=stuY(), cts=ME.classTeacher||[];
   const tag={paid:'<span class="ctag perm">✓ Paid</span>',over:'<span class="ctag none" style="background:#ffe1d6;color:#a3330b">Overdue</span>',due:'<span class="ctag" style="background:#fff1d6;color:#8a5200">Due</span>',later:'<span class="hint">–</span>'};
   return `<p class="hint">Fee status of your class, ${esc(y)}. View only: payments are recorded by the office. Amounts and receipts are not shown here.</p>`+cts.map(c=>{ const S=allStudents().filter(x=>x.cls===c&&!x.left&&!x.pending).sort((a,b)=>a.roll-b.roll);
@@ -1683,7 +1692,7 @@ function renderStats(){
   const picker=`<div style="display:flex;gap:10px;flex-wrap:wrap"><label class="f">Year<select class="in" id="sumYear">${YEARS.map(y=>`<option ${y===SUM.year?"selected":""}>${y}</option>`).join("")}</select></label>
     <label class="f">Exam<select class="in" id="sumExam">${EXAMS.map(t=>`<option value="${esc(t)}" ${t===SUM.exam?"selected":""}>${esc(lab(t))}${examsWith.includes(t)?"":" (no results yet)"}</option>`).join("")}</select></label></div>`;
   HOME_RECS=recs;
-  if(ME.role==="teacher"&&!ME.office){ box.innerHTML=welcome+`<div id="homeMine">${mineHTML()}</div>`+`<div class="sec-h" style="justify-content:space-between;flex-wrap:wrap;gap:10px"><div style="display:flex;gap:10px;align-items:center"><div class="dot" style="background:var(--violet)">📊</div><div><h3>My summary</h3><p>Your subjects compared with the other subjects of the same class. Only you can see this.</p></div></div>${picker}</div>`+myStatsHTML(recs); return; }
+  if(ME.role==="teacher"&&!ME.office){ const T=homeTabs(); box.innerHTML=welcome+`<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;margin:4px 0 10px"><div class="atabs" style="margin:0">${T.map(([k,l])=>`<button data-htab="${k}" class="${HTAB===k?"on":""}">${l}</button>`).join("")}</div>${picker}</div><div id="homeMine">${mineHTML()}</div>`; return; }
   box.innerHTML=welcome+`<div class="sec-h" style="justify-content:space-between;flex-wrap:wrap;gap:10px"><div style="display:flex;gap:10px;align-items:center"><div class="dot" style="background:var(--violet)">🏫</div><div><h3>School summary</h3><p>Only visible to staff. One exam at a time, so numbers are not mixed.</p></div></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap"><label class="f">Year<select class="in" id="sumYear">${YEARS.map(y=>`<option ${y===SUM.year?"selected":""}>${y}</option>`).join("")}</select></label>
     <label class="f">Exam<select class="in" id="sumExam">${EXAMS.map(t=>`<option value="${esc(t)}" ${t===SUM.exam?"selected":""}>${esc(lab(t))}${examsWith.includes(t)?"":" (no results yet)"}</option>`).join("")}</select></label></div></div>
