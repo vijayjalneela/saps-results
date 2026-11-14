@@ -1676,15 +1676,15 @@ function eventsAchHTML(){ if(!ME||!isOffice()) return ""; const t=todayISO();
    <div><h3 style="margin:0 0 6px">🗓 Upcoming events and competitions</h3>${up.length?up.map(x=>row(fmtD(x.date).replace(/ \d{4}$/,""),x.icon,`<b>${esc(x.title)}</b>`,`${esc(x.kind)}${x.to&&x.to!==x.date?" · till "+fmtD(x.to):""}${x.duty?` · ${x.duty} staff duties`:""}`)).join(""):`<p class="hint">Nothing posted yet. Add events and competitions in Notices.</p>`}</div>
    <div><h3 style="margin:0 0 6px">🏆 Achievements this year (${A.length})</h3><div style="max-height:420px;overflow:auto">${A.length?A.map(a=>row(a.date?fmtD(a.date).replace(/ \d{4}$/,""):"–","🏅",`<b>${esc(a.title)}</b>`,`${esc(a.who||"")}${a.category?" · "+esc(a.category):""}`)).join(""):`<p class="hint">No achievements posted yet.</p>`}</div></div></div></div>`; }
 /* Coordinator: seats, admissions in progress and children leaving */
-const SEAT_CAP=40;
+const SEAT_CAP=30; /* maximum students in one section */
 function seatsHTML(){ if(!ME||!isOffice()) return ""; const A=allStudents(), t=todayISO(), d30=new Date(Date.now()-30*864e5).toISOString().slice(0,10);
   const strength=c=>A.filter(x=>x.cls===c&&!x.left).length;
   const pend=A.filter(x=>x.pending), leaving=Object.values(DRAFTS||{}).filter(d=>d.col==="removal"&&d.data.kind==="left"), left=A.filter(x=>x.left&&(x.doc.leftOn||"")>=d30);
   const rows=STDS.map(sd=>{ const secs=secOf(sd).map(dv=>{ const c=sd+"-"+dv, n=strength(c); return {c,n,free:Math.max(0,SEAT_CAP-n)}; }); return {sd,secs,free:secs.reduce((a,x)=>a+x.free,0)}; });
   const tot=rows.reduce((a,r)=>a+r.free,0);
   return `<div class="card" style="box-shadow:none;margin:0 0 14px;border-left:5px solid #0b7a64"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px">
-   <div><h3 style="margin:0 0 6px">🪑 Seats available · ${tot} free <span class="hint" style="font-weight:600">(${SEAT_CAP} a section)</span></h3>
-    <div class="tbl-wrap"><table class="pt"><thead><tr><th>Class</th><th style="text-align:left">Sections (students / free)</th><th>Free</th></tr></thead><tbody>${rows.map(r=>`<tr><td><b>${esc(r.sd)}</b></td><td style="text-align:left">${r.secs.map(x=>`${esc(x.c.split("-")[1])}: ${x.n} / <b style="color:${x.free?"#0b7a64":"#b3164f"}">${x.free}</b>`).join(" · ")}</td><td><b>${r.free}</b></td></tr>`).join("")}</tbody></table></div></div>
+   <div><h3 style="margin:0 0 6px">🪑 Seats available · ${tot} free <span class="hint" style="font-weight:600">(maximum ${SEAT_CAP} a section)</span></h3>
+    <div class="tbl-wrap"><table class="pt"><thead><tr><th>Class</th><th style="text-align:left">Sections (students / free)</th><th>Free</th></tr></thead><tbody>${rows.map(r=>`<tr><td><b>${esc(r.sd)}</b></td><td style="text-align:left">${r.secs.map(x=>`${esc(x.c.split("-")[1])}: ${x.n} / <b style="color:${x.free?"#0b7a64":"#b3164f"}">${x.n>SEAT_CAP?`full, ${x.n-SEAT_CAP} over`:x.free}</b>`).join(" · ")}</td><td><b>${r.free}</b></td></tr>`).join("")}</tbody></table></div></div>
    <div><h3 style="margin:0 0 6px">🎒 Under admission (${pend.length})</h3>${pend.length?pend.map(x=>`<div style="padding:4px 0;border-bottom:1px dashed var(--line)"><b>${esc(x.name)}</b> → ${esc(x.cls)} <span class="hint">· waiting for the principal</span></div>`).join(""):`<p class="hint">None waiting.</p>`}
     <h3 style="margin:14px 0 6px">🚪 Moving out (${leaving.length+left.length})</h3>${leaving.map(d=>`<div style="padding:4px 0;border-bottom:1px dashed var(--line)"><b>${esc(d.data.name)}</b> (${esc(d.data.std)}-${esc(d.data.div)}) <span class="hint">· leaving ${d.data.on?fmtD(d.data.on):""}: ${esc(d.data.leftWhy||"")} · waiting for the principal</span></div>`).join("")}${left.map(x=>`<div style="padding:4px 0;border-bottom:1px dashed var(--line)"><b>${esc(x.name)}</b> (${esc(x.cls)}) <span class="hint">· left ${fmtD(x.doc.leftOn)}: ${esc(x.doc.leftReason||"")}${x.doc.tc?" · TC "+esc(x.doc.tc):""}</span></div>`).join("")||(leaving.length?"":`<p class="hint">Nobody is leaving (last 30 days).</p>`)}</div></div></div>`; }
 /* Designation shown to everyone: Principal, Coordinator, Class teacher I-A, Special educator, Subject teacher */
@@ -3121,7 +3121,8 @@ async function saveNotes(s,patch){ const cur=NOTES[s.sid]||{}; const d={medical:
   await setDoc(doc(db,"studentNotes",s.sid),d); NOTES[s.sid]=d; fillProfileAsync(); }
 function stuDoc(s,patch){ const d=s.doc||{}; return {year:stuY(),name:s.name,std:s.std,div:s.div,cls:s.cls,roll:s.roll,status:d.status||"active",phone:d.phone||"",history:d.history||[],...patch,updatedAt:new Date().toISOString(),updatedBy:ME.email}; }
 async function transferStu(s,div,roll){ const cls=s.std+"-"+div;
-  if(allStudents().some(x=>x.cls===cls&&x.roll===roll&&!x.left)) throw {code:"Roll "+roll+" is already taken in "+cls+". Please pick another roll no."};
+  if(allStudents().some(x=>x.cls===cls&&x.roll===roll&&!x.left)) throw {mine:true,code:"Roll "+roll+" is already taken in "+cls+". Please pick another roll no."};
+  if(allStudents().filter(x=>x.cls===cls&&!x.left).length>=SEAT_CAP) throw {mine:true,code:cls+" is full ("+SEAT_CAP+" students). Please pick another section."};
   const b=writeBatch(db), b2=writeBatch(db), ct=ctName(cls);
   for(const r of s.recs){ const raw=JSON.parse(JSON.stringify(r._raw||r)); const oldK=await reportKey(raw);
     const n={...raw,div,cls,roll,updatedAt:new Date().toISOString(),updatedBy:ME.email}; if(ct) n.teacher=ct.toUpperCase(); delete n.id;
@@ -3229,7 +3230,7 @@ document.addEventListener("click",async e=>{ const t=e.target.closest("[data-stu
   try{
     if(D.stuphone&&s){ const v=$("#stuPhone").value.trim(); if(v&&!/^[+0-9 \-]{6,15}$/.test(v)) return toast("Please type a valid phone number"); await setDoc(doc(db,"students",s.sid),stuDoc(s,{phone:v})); toast("Phone saved ✓"); return; }
     if(D.stutr&&s){ const div=$("#trDiv").value, roll=+$("#trRoll").value; if(!(roll>=1)) return toast("Please type the new roll no.");
-      confirmBox("Transfer section?",`Move ${s.name} from ${s.cls} to ${s.std}-${div} with roll no. ${roll}? All ${s.recs.length} results of ${stuY()} move too.`,"Transfer",async()=>{ try{ await transferStu(s,div,roll); stu.sel=s.sid; toast(`✅ ${s.name} is now in ${s.std}-${div}, roll ${roll}`); }catch(err){ toast(err.code&&err.code.startsWith("Roll")?err.code:"Couldn't transfer: "+errMsg(err)); } }); return; }
+      confirmBox("Transfer section?",`Move ${s.name} from ${s.cls} to ${s.std}-${div} with roll no. ${roll}? All ${s.recs.length} results of ${stuY()} move too.`,"Transfer",async()=>{ try{ await transferStu(s,div,roll); stu.sel=s.sid; toast(`✅ ${s.name} is now in ${s.std}-${div}, roll ${roll}`); }catch(err){ toast(err.mine?err.code:"Couldn't transfer: "+errMsg(err)); } }); return; }
     if(D.stuleft&&s){ const on=$("#lfDate").value||todayISO(), why=$("#lfWhy").value, tc=$("#lfTc").value.trim();
       if(!isFull()){ askRemoval("left",s.sid,{name:s.name,std:s.std,div:s.div,roll:s.roll,on,leftWhy:why,tc}); return; }
       confirmBox("Mark as left?",`${s.name} (${s.cls}) will be marked as left the school on ${on}. Results stay saved, and you can re-admit later.`,"Mark as left",async()=>{ try{ await markLeft(s,on,why,tc); toast("Marked as left ✓"); }catch(err){ toast("Couldn't save: "+errMsg(err)); } }); return; }
@@ -3469,7 +3470,7 @@ function admissionsHTML(){ const std=adm.std, secs=secOf(std); if(!secs.includes
     <label class="f">Student's full name<input class="in" id="adName" maxlength="80"></label><label class="f">Date of birth<input class="in" type="date" id="adDob"></label>
     <label class="f">Gender<select class="in" id="adGen"><option value="">Select</option><option>Boy</option><option>Girl</option></select></label>
     <label class="f">Class<select class="in" id="adStd">${STDS.map(x=>`<option ${x===std?"selected":""}>${x}</option>`).join("")}</select></label>
-    <label class="f">Section<select class="in" id="adDiv">${secs.map(x=>`<option value="${x}" ${x===adm.div?"selected":""}>${x} (${secStrength(std,x)} students)</option>`).join("")}</select></label>
+    <label class="f">Section<select class="in" id="adDiv">${secs.map(x=>`<option value="${x}" ${x===adm.div?"selected":""}>${x} (${secStrength(std,x)} / ${SEAT_CAP}${secStrength(std,x)>=SEAT_CAP?", full":""})</option>`).join("")}</select></label>
     <label class="f">Roll no.<input class="in" type="number" min="1" id="adRoll" value="${nextRoll(std+"-"+adm.div)}"></label>
     <label class="f">Father's name<input class="in" id="adFa" maxlength="80"></label><label class="f">Mother's name<input class="in" id="adMo" maxlength="80"></label>
     <label class="f">Category<select class="in" id="adCat"><option value="">Select</option><option>Serving</option><option>Retired</option><option>Civilian</option></select></label>
@@ -3483,6 +3484,7 @@ document.addEventListener("change",e=>{ if(e.target.id==="adStd"){ adm.std=e.tar
 document.addEventListener("click",async e=>{ const b=e.target.closest("[data-adsave],[data-admok],[data-admno]"); if(!b||!ME) return; if(b.dataset.adsave&&isFull()) return toast("The coordinator prepares admissions; you approve them");
   try{
   if(b.dataset.adsave){ if(!isOffice()) return; const name=capName($("#adName").value.trim()), dob=$("#adDob").value, std=$("#adStd").value, div=$("#adDiv").value, roll=+$("#adRoll").value, cat=$("#adCat").value, con=$("#adCon").value;
+    if(secStrength(std,div)>=SEAT_CAP){ const free=secOf(std).filter(x=>secStrength(std,x)<SEAT_CAP); return toast(`${std}-${div} is full (${SEAT_CAP} students). `+(free.length?`Seats are free in ${free.map(x=>std+"-"+x).join(", ")}.`:`Every section of class ${std} is full.`)); }
     if(!name||!dob) return toast("Name and date of birth are needed"); if(!(roll>=1)) return toast("Please type the roll no."); if(!cat) return toast("Please choose the parents' category");
     const ph=$("#adPh").value.trim(); if(ph&&!/^[+0-9 \-]{6,15}$/.test(ph)) return toast("Please type a valid phone number");
     const cls=std+"-"+div; if(allStudents().some(x=>x.cls===cls&&x.roll===roll&&!x.left)) return toast(`Roll ${roll} is already taken in ${cls}`);
