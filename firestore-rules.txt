@@ -245,7 +245,7 @@ service cloud.firestore {
         && ((isClassTeacherOf(resource.data) && isClassTeacherOf(request.resource.data))
             || (isOffice() && request.resource.data.q == resource.data.q)
             // the principal / admin loading a backup or data file
-            || (isPrincipal() && request.resource.data.get('importedBy', '') == myEmail()));
+            || (isPrincipal() && (request.resource.data.get('importedBy', '') == myEmail() || request.resource.data.get('sample', false) == true)));
       allow delete: if isOffice();
     }
 
@@ -266,7 +266,7 @@ service cloud.firestore {
     match /staffAtt/{id} {
       allow read: if isOffice();
       // (the principal / admin may write it only when loading a backup or data file)
-      allow create, update: if isCoord() || (isPrincipal() && request.resource.data.get('importedBy', '') == myEmail());
+      allow create, update: if isCoord() || (isPrincipal() && (request.resource.data.get('importedBy', '') == myEmail() || request.resource.data.get('sample', false) == true));
       allow delete: if isPrincipal();
     }
 
