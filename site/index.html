@@ -201,7 +201,7 @@ table.rct td:first-child,table.rct th:first-child{text-align:left;font-weight:80
 /* toast & modal */
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(120px);background:var(--ink);color:#fff;padding:12px 20px;border-radius:14px;font-weight:800;z-index:60;transition:transform .25s;max-width:90vw}
 .toast.on{transform:translateX(-50%) translateY(0)}
-.modal{position:fixed;inset:0;background:rgba(31,29,58,.45);display:none;place-items:center;z-index:70;padding:20px}
+.modal{position:fixed;inset:0;background:rgba(31,29,58,.45);display:none;place-items:center;z-index:70;padding:20px}#modal{z-index:90}
 .modal.on{display:grid}
 .modal .box{background:#fff;border-radius:20px;padding:22px;max-width:420px;width:100%}
 .modal h3{font-size:22px}
@@ -962,7 +962,7 @@ footer{background:var(--navy);color:#c9cfbd!important;padding:22px 16px!importan
 <footer>Shivneri Army Public School · Aundh Mil. Station, Pune 411027 · Tel 020-27400042 · <a href="guide.html" style="color:inherit;font-weight:800">📖 How to use</a></footer>
 
 <div class="toast" id="toast"></div>
-<div class="modal" id="modal"><div class="box"><h3 id="mTitle"></h3><p id="mText"></p><div class="row"><button class="btn sec" id="mNo">Cancel</button><button class="btn warn" id="mYes">Delete</button></div></div></div>
+<div class="modal" id="modal"><div class="box"><h3 id="mTitle"></h3><p id="mText"></p><textarea class="in" id="mWhy" rows="2" maxlength="200" style="display:none;width:100%;margin:0 0 6px" placeholder="Reason (required)"></textarea><div class="row"><button class="btn sec" id="mNo">Cancel</button><button class="btn warn" id="mYes">Delete</button></div></div></div>
 <div class="modal" id="prModal"><div class="box" style="max-width:520px">
   <h3>Principal's message</h3>
   <div class="pr-row" style="margin-top:12px">
@@ -1355,7 +1355,7 @@ $("#entry").addEventListener("submit",async e=>{
   $("#saveBtn").disabled=true;
   try{
     await saveRecord(newId,store);
-    if(details&&editingId&&editingId!==newId) await deleteRecord(editingId);
+    if(details&&editingId&&editingId!==newId){ await setDoc(doc(db,"results",editingId),{movedTo:newId},{merge:true}); await deleteRecord(editingId); }
     editingId=newId; openedAt=store.updatedAt||""; staleOK=null; toast(`Saved ✓ ${r.name} (Roll ${r.roll})`);
     renderClassList(); renderMarks();
   }catch(err){ toast("Couldn't save: "+errMsg(err)); }
@@ -1380,19 +1380,34 @@ function renderClassList(){
     <div class="av">${r.photo?`<img src="${safeImg(r.photo)}" alt="">`:esc(r.roll)}</div>
     <div><div class="nm">${esc(r.name)}${r.sample?'<span class="sample-tag">sample</span>':""}${ME&&isLeft(r)?' <span class="ctag none">Left</span>':""}</div><div class="mt">Roll ${esc(r.roll)}${r.category?" · "+esc(r.category):""}</div></div>
     <div class="pc" style="color:${GCOL[grade(p)]||"var(--muted)"}">${p!=null?p+"%":"–"}</div>
-    ${canEditDetails(r.std+"-"+r.div)?`<button type="button" class="btn warn sm" data-del="${esc(r.id)}" title="Delete">✕</button>`:""}</div>`}).join(""):`<div class="empty">No students saved for this class yet.</div>`;
+    ${remPending("result",r.id)?`<span class="ctag none" title="Waiting for the principal">⏳ Removal sent</span>`:canEditDetails(r.std+"-"+r.div)||isFull()?`<button type="button" class="btn warn sm" data-del="${esc(r.id)}" title="${isFull()?"Delete":"Ask the principal to remove"}">✕</button>`:""}</div>`}).join(""):`<div class="empty">No students saved for this class yet.</div>`;
 }
 $("#clsSearch").addEventListener("input",renderClassList);
 $("#clsList").addEventListener("click",e=>{
-  const d=e.target.closest("[data-del]"); if(d){ e.stopPropagation(); askDelete(d.dataset.del); return; }
+  const d=e.target.closest("[data-del]"); if(d){ e.stopPropagation(); const r=RECORDS[d.dataset.del]; if(!r) return; if(isFull()) askDelete(d.dataset.del); else askRemoval("result",r.id,{name:r.name,std:r.std,div:r.div,roll:r.roll,term:r.term}); return; }
   const li=e.target.closest(".li"); if(li&&RECORDS[li.dataset.id]) loadIntoForm(RECORDS[li.dataset.id]);
 });
 let pendingDel=null;
-function askDelete(id){const r=RECORDS[id];pendingDel=id;$("#mYes").textContent="Delete";$("#mTitle").textContent="Delete this result?";$("#mText").textContent=`${r.name} · Roll ${r.roll} · ${r.std}-${r.div} · ${r.term}. This can't be undone.`;$("#modal").classList.add("on");}
+function askDelete(id){const r=RECORDS[id]; $("#mWhy").style.display="none"; window._confirmFn=null; pendingDel=id;$("#mYes").textContent="Delete";$("#mTitle").textContent="Delete this result?";$("#mText").textContent=`${r.name} · Roll ${r.roll} · ${r.std}-${r.div} · ${r.term}. This can't be undone.`;$("#modal").classList.add("on");}
 $("#mNo").onclick=()=>{ window._confirmFn=null; $("#modal").classList.remove("on"); };
-function confirmBox(title,text,label,fn){ $("#mTitle").textContent=title; $("#mText").textContent=text; $("#mYes").textContent=label; window._confirmFn=fn; $("#modal").classList.add("on"); }
-$("#mYes").onclick=async()=>{$("#modal").classList.remove("on"); if(window._confirmFn){const f=window._confirmFn; window._confirmFn=null; return f();} if(!pendingDel) return; try{await deleteRecord(pendingDel); if(editingId===pendingDel) clearForm(true); toast("Deleted");}catch(err){toast("Couldn't delete: "+errMsg(err))} pendingDel=null;};
+function confirmBox(title,text,label,fn,opt){ $("#mTitle").textContent=title; $("#mText").textContent=text; $("#mYes").textContent=label; window._confirmFn=fn; const w=$("#mWhy"); w.value=""; w.style.display=opt&&opt.reason?"block":"none"; w.placeholder=(opt&&opt.reason)||""; $("#modal").classList.add("on"); if(opt&&opt.reason) setTimeout(()=>w.focus(),50); }
+$("#mYes").onclick=async()=>{ const w=$("#mWhy"), why=w.value.trim(); if(w.style.display==="block"&&why.length<3){ toast("Please write the reason"); w.focus(); return; } w.style.display="none"; $("#modal").classList.remove("on"); if(window._confirmFn){const f=window._confirmFn; window._confirmFn=null; return f(why);} if(!pendingDel) return; try{await deleteRecord(pendingDel); if(editingId===pendingDel) clearForm(true); toast("Deleted");}catch(err){toast("Couldn't delete: "+errMsg(err))} pendingDel=null;};
 
+/* ---------- "Are you sure?" before every remove / delete / withdraw ---------- */
+const ASK_SURE=[
+  ['[data-lv="del"]',()=>["Are you sure?","Delete this leave entry? It cannot be undone.","Delete"]],
+  ['[data-drok]',el=>{ const d=DRAFTS[el.dataset.drok]; return d&&d.col==="removal"?["Approve this removal?",d.label+". Reason: "+(d.data.why||"")+". This cannot be undone.","Approve removal"]:null; }],
+  ['[data-drno]',el=>{ const d=DRAFTS[el.dataset.drno]||{}; return isFull()?(d.col==="removal"?["Reject this removal?","Nothing will be removed. "+(d.label||""),"Reject"]:["Send this back?",(d.label||"")+" goes back to the coordinator and is not published.","Send back"]):["Withdraw this request?",(d.label||"")+" will be cancelled.","Withdraw"]; }],
+  ['[data-act="end"]',()=>["End acting coordinator now?","The acting coordinator loses the coordinator's powers straight away.","End now"]],
+  ['[data-ntdel]',()=>["Are you sure?","Delete this entry from the discipline log? It cannot be undone.","Delete"]],
+  ['#photoRm,#prPhotoRm,#stPhotoDel,[data-acphrm]',()=>["Are you sure?","Remove this photo?","Remove"]],
+  ['[data-pwdel],[data-fxdel],[data-hdel],[data-ndrm]',()=>["Are you sure?","Remove this entry?","Remove"]],
+  ['#hClear',()=>["Are you sure?","Clear the whole holiday list?","Clear"]],
+  ['#ttUndo',()=>["Are you sure?","Discard the changes you haven't saved?","Discard"]]];
+function selOf(el){ if(el.id) return "#"+CSS.escape(el.id); return [...el.attributes].filter(a=>a.name.startsWith("data-")).map(a=>`[${a.name}="${CSS.escape(a.value)}"]`).join("")||null; }
+document.addEventListener("click",e=>{ if(window._sureOK) return; for(const [sel,fn] of ASK_SURE){ const el=e.target.closest(sel); if(!el) continue; const m=fn(el); if(!m) return;
+    e.preventDefault(); e.stopImmediatePropagation(); const key=selOf(el);
+    confirmBox(m[0],m[1],m[2],()=>{ const t=el.isConnected?el:(key&&document.querySelector(key)); if(!t) return toast("That item has changed. Please try again."); window._sureOK=true; try{ t.click(); }finally{ window._sureOK=false; } }); return; } },true);
 /* Preview */
 $("#previewBtn").onclick=()=>{ $("#pvOut").innerHTML=reportCard(collect()); $("#pvModal").classList.add("on"); };
 $("#pvClose").onclick=()=>$("#pvModal").classList.remove("on");
@@ -1543,6 +1558,7 @@ function comingHTML(){ if(!ME) return ""; const t=todayISO(), lim=(n)=>{ const x
   Object.values(LEAVES||{}).filter(l=>l.email===me&&(l.to||l.from)>=t).forEach(l=>add(l.from,"🏖",`Your leave ${fmtD(l.from)}${l.to&&l.to!==l.from?" – "+fmtD(l.to):""}: <b>${esc(l.status==="Recommended"?"recommended, waiting for the principal":l.status)}</b>`));
   if(ME.acting) add(ME.acting.from,"🗂️",`You are acting coordinator until ${fmtD(ME.acting.to)}`,"hot");
   (ME.classTeacher||[]).forEach(c=>{ const N=(typeof ABSN!=="undefined"&&ABSN[c])||[]; N.filter(n=>(n.to||n.from)>=t&&n.from<=lim(3)).forEach(n=>add(n.from,"📝",`Parent's note: <b>${esc(n.name)}</b> (${esc(c)}) absent ${fmtD(n.from)}${n.to&&n.to!==n.from?" – "+fmtD(n.to):""} · ${esc(n.reason)}`)); });
+  if(!isOffice()){ const mr=Object.values(DRAFTS||{}).filter(d=>d.col==="removal"); if(mr.length) add(t,"⏳",`${mr.length} removal request${mr.length>1?"s":""} sent to the principal, waiting for approval`); }
   if(isOffice()){ const dr=Object.values(DRAFTS||{}).filter(d=>d.col!=="import"||d.data.part===0).length, adm=Object.values(typeof STUDOCS!=="undefined"?STUDOCS:{}).filter(d=>d.admission==="pending").length;
     if(isFull()&&(dr||adm)) add(t,"📥",`<b>${dr+adm}</b> item${dr+adm>1?"s":""} waiting for your approval <a href="#dashboard">Open →</a>`,"hot");
     if(!isFull()&&(dr||adm)) add(t,"⏳",`${dr+adm} item${dr+adm>1?"s":""} sent to the principal, waiting for approval`);
@@ -2010,25 +2026,38 @@ async function pubSet(col,id,data,lab){ if(isFull()){ await writeLive(col,id,dat
   const key=col+"__"+id, label=lab||((DRAFT_LABEL[col]||col)+(col==="subs"?" for "+fmtD(id).replace(/<[^>]*>/g,""):""));
   await setDoc(doc(db,"drafts",key),{col,id,data,label,by:ME.email,at:new Date().toISOString()}); DRAFTS[key]={col,id,data,label,by:ME.email,at:new Date().toISOString()};
   window._draftMsg=`📨 Sent to the principal for approval: ${label}. It goes live when she approves it.`; return false; }
-function startDrafts(){ if(!db||!isOffice()||unsubDR) return; unsubDR=onSnapshot(collection(db,"drafts"),snap=>{ const n={}; snap.forEach(d=>n[d.id]=d.data()); DRAFTS=n; homeRefresh(); if(location.hash==="#timetable") renderTT(); if(location.hash==="#school") renderPub(); const aa=$("#admApprovals"); if(aa) aa.innerHTML=approvalsHTML(); if(location.hash==="#dashboard"&&typeof renderDash==="function") renderDash(); },()=>{}); }
+function startDrafts(){ if(!db||!ME||unsubDR) return; unsubDR=onSnapshot(isOffice()?collection(db,"drafts"):query(collection(db,"drafts"),where("by","==",ME.email)),snap=>{ const n={}; snap.forEach(d=>n[d.id]=d.data()); DRAFTS=n; homeRefresh(); if(location.hash==="#timetable") renderTT(); if(location.hash==="#school") renderPub(); const aa=$("#admApprovals"); if(aa) aa.innerHTML=approvalsHTML(); if(location.hash==="#dashboard"&&typeof renderDash==="function") renderDash(); if(typeof renderClassList==="function"&&$("#clsList")) renderClassList(); if($("#stuBody")&&location.hash==="#students"&&!document.querySelector("#stuBody input:focus,#stuBody textarea:focus")) renderStu(); },()=>{}); }
 function stopDrafts(){ if(unsubDR){unsubDR();unsubDR=null;} DRAFTS={}; }
+/* ---------- Removals: teacher / coordinator recommends, the principal approves ---------- */
+const REM_TXT={result:"Remove exam result",left:"Mark as left the school",erase:"Erase all online data"};
+function remPending(kind,target){ return (DRAFTS||{})["removal__"+kind+"_"+target]||null; }
+function askRemoval(kind,target,info){ const who=`${info.name} (${info.std}-${info.div}, roll ${info.roll})`;
+  confirmBox("Are you sure? Send for the principal's approval",`${REM_TXT[kind]}: ${who}${info.term?" · "+(EXLONG[info.term]||info.term):""}. Nothing is removed until the principal approves it.`,"Send for approval",async why=>{
+    const id=kind+"_"+target, key="removal__"+id, d={col:"removal",id,data:{kind,target,...info,why:why.slice(0,200),recBy:ME.email,recRole:isOffice()?"Coordinator":"Class teacher"},label:`${REM_TXT[kind]}: ${who}`,by:ME.email,at:new Date().toISOString()};
+    try{ await setDoc(doc(db,"drafts",key),d); DRAFTS[key]=d; toast("📨 Sent to the principal for approval"); refreshAll&&refreshAll(); if(typeof renderStu==="function"&&$("#stuBody")) renderStu(); }catch(err){ toast("Couldn't send: "+errMsg(err)); } },{reason:"Reason for removal (required)"}); }
+async function runRemoval(d){ const x=d.data;
+  if(x.kind==="result"){ if(!RECORDS[x.target]) throw {message:"That result is no longer there"}; await deleteRecord(x.target); return; }
+  const s=allStudents().find(y=>y.sid===x.target); if(!s) throw {message:"That child is no longer on the register"};
+  if(x.kind==="left") await markLeft(s,x.on||todayISO(),x.leftWhy||"Other",x.tc||"",x.recBy);
+  if(x.kind==="erase") await eraseStu(s); }
 function approvalsHTML(){ if(!ME||!isOffice()) return ""; const L=Object.entries(DRAFTS).filter(([,d])=>d.col!=="import"||d.data.part===0).sort((a,b)=>String(a[1].at).localeCompare(String(b[1].at)));
   const AD=Object.entries(typeof STUDOCS==="undefined"?{}:STUDOCS).filter(([,d])=>d.admission==="pending"); if(!L.length&&!AD.length) return "";
   const P=isFull();
   return `<div class="card" style="box-shadow:none;background:#fff8ec;border:2px solid #ffd79a;margin:0 0 14px"><h4 style="margin:0 0 8px">${P?"📥 Waiting for your approval":"⏳ Sent to the principal, waiting for approval"} (${L.length+AD.length})</h4>
    ${AD.map(([sid,d])=>`<div class="dcard" style="cursor:default;flex-wrap:wrap;gap:8px;margin-bottom:6px"><span style="flex:1;min-width:200px"><b>🎒 Admission: ${esc(d.name)} → ${esc(d.cls)} (roll ${esc(d.roll)})</b><small>Adm. no. ${esc(d.adm||"–")} · DOB ${fmtD(d.dob)} · ${esc(d.category||"")}${d.rankGroup?" · "+esc(d.rankGroup):""} · prepared by ${esc(tName(d.updatedBy))}</small></span>${P?`<button class="btn pri sm" data-admok="${esc(sid)}">✅ Approve admission</button><button class="btn sec sm" data-admno="${esc(sid)}">↩ Send back</button>`:""}</div>`).join("")}
-   ${L.map(([k,d])=>`<div class="dcard" style="cursor:default;flex-wrap:wrap;gap:8px;margin-bottom:6px"><span style="flex:1;min-width:200px"><b>${esc(d.label)}</b><small>Prepared by ${esc(tName(d.by))} · ${esc(new Date(d.at).toLocaleString("en-IN",{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"}))}${d.col==="subs"?` · ${(d.data.plan||[]).length} periods covered`:""}${d.col==="duties"?` · ${Object.keys(d.data).filter(x=>d.data[x]&&d.data[x].dates).join(", ")}`:""}</small></span>
-     ${P?`<button class="btn pri sm" data-drok="${esc(k)}">✅ Approve and publish</button><button class="btn sec sm" data-drno="${esc(k)}">↩ Send back</button>`:`<button class="btn sec sm" data-drno="${esc(k)}">Withdraw</button>`}</div>`).join("")}
+   ${L.map(([k,d])=>`<div class="dcard" style="cursor:default;flex-wrap:wrap;gap:8px;margin-bottom:6px"><span style="flex:1;min-width:200px"><b>${esc(d.label)}</b><small>Prepared by ${esc(tName(d.by))} · ${esc(new Date(d.at).toLocaleString("en-IN",{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"}))}${d.col==="removal"?` · ${esc(d.data.recRole)} recommends · Reason: <i>${esc(d.data.why)}</i>`:""}${d.col==="subs"?` · ${(d.data.plan||[]).length} periods covered`:""}${d.col==="duties"?` · ${Object.keys(d.data).filter(x=>d.data[x]&&d.data[x].dates).join(", ")}`:""}</small></span>
+     ${P?`<button class="btn pri sm" data-drok="${esc(k)}">✅ ${d.col==="removal"?"Approve removal":"Approve and publish"}</button><button class="btn sec sm" data-drno="${esc(k)}">${d.col==="removal"?"✖ Reject":"↩ Send back"}</button>`:`<button class="btn sec sm" data-drno="${esc(k)}">Withdraw</button>`}</div>`).join("")}
    ${P?`<p class="hint" style="margin:4px 0 0">Approving replaces what teachers (or the public) see now with this version.</p>`:""}</div>`; }
 document.addEventListener("click",async e=>{ const b=e.target.closest("[data-drok],[data-drno]"); if(!b) return; const k=b.dataset.drok||b.dataset.drno, d=DRAFTS[k]; if(!d) return;
   try{ if(b.dataset.drok){ if(!isFull()) return; let data=d.data;
+      if(d.col==="removal"){ await runRemoval(d); await deleteDoc(doc(db,"drafts",k)); toast(`✅ Done: ${d.label}`); return; }
       if(d.col==="action"){ await deleteDoc(doc(db,"drafts",k)); $(d.id==="delOld"?"#delOld":"#delSample").click(); return; }
       if(d.col==="import"){ const parts=Object.entries(DRAFTS).filter(([,x])=>x.col==="import"&&x.data.batch===d.data.batch).sort((a,b)=>a[1].data.part-b[1].data.part);
         if(parts.length<d.data.parts) return toast("Part of the file is still uploading. Please try again in a moment.");
         const text=parts.map(([,x])=>x.data.chunk).join(""); for(const [kk] of parts) await deleteDoc(doc(db,"drafts",kk)); await runImport(text,d.fileName||"data file"); return; }
       if(data&&data.__delete){ await writeLive(d.col,d.id,data); await deleteDoc(doc(db,"drafts",k)); toast(`✅ Done: ${d.label}`); return; } if(d.col==="duties") data=Object.fromEntries(Object.entries(data).map(([x,v])=>[x,v&&v.dates?{...v,published:true}:v]));
       await writeLive(d.col,d.id,{...data,approvedBy:ME.email,approvedAt:new Date().toISOString()}); await deleteDoc(doc(db,"drafts",k)); toast(`✅ Published: ${d.label}`); }
-    else { const ks=d.col==="import"?Object.keys(DRAFTS).filter(x=>DRAFTS[x].col==="import"&&DRAFTS[x].data.batch===d.data.batch):[k]; for(const kk of ks) await deleteDoc(doc(db,"drafts",kk)); toast(isFull()?"Sent back to the coordinator":"Withdrawn"); } }catch(err){ toast("Couldn't do that: "+errMsg(err)); } });
+    else { const ks=d.col==="import"?Object.keys(DRAFTS).filter(x=>DRAFTS[x].col==="import"&&DRAFTS[x].data.batch===d.data.batch):[k]; for(const kk of ks) await deleteDoc(doc(db,"drafts",kk)); toast(isFull()?(d.col==="removal"?"Rejected: nothing was removed":"Sent back to the coordinator"):"Withdrawn"); if(!isOffice()&&typeof renderStu==="function"&&$("#stuBody")) renderStu(); } }catch(err){ toast("Couldn't do that: "+errMsg(err)); } });
 document.addEventListener("click",e=>{ const b=e.target.closest("[data-relief]"); if(!b) return; ttS.tab="today"; ttS.date=b.dataset.relief; if(location.hash!=="#timetable") location.hash="timetable"; else renderTT(); window.scrollTo(0,0); toast("Relief plan for "+b.dataset.relief+": check the substitutes and publish"); });
 /* ---------- Coordinator relief: who acts as coordinator while she is on leave ---------- */
 function reliefPick(l){ const grid=TT&&TT.grid, busy=grid?teacherSlots(grid):{};
@@ -2869,18 +2898,22 @@ function profileHTML(){ const s=allStudents().find(x=>x.sid===stu.sel); if(!s){ 
       <label class="f">New roll no.<input class="in" type="number" min="1" id="trRoll" value="${nextRoll(s.std+"-"+(secOf(s.std).find(x=>x!==s.div)||s.div))}"></label>
       <div class="f" style="justify-content:flex-end"><button class="btn sec" data-stutr="1" ${secOf(s.std).length>1?"":"disabled"}>🔀 Transfer section</button></div></div>
     <p class="hint" style="margin:4px 0 12px">All this year's results move with the student. Parents then use the new section and roll no.</p>
-    <div class="grid g3"><label class="f">Leaving date<input class="in" type="date" id="lfDate" value="${esc(todayISO())}"></label>
+    ${leftFormHTML(s)}`}</div>`:""}
+  ${!off&&ct&&!s.left?`<div class="card" style="box-shadow:none;margin:14px 0 0;background:#fff8ec"><h4 style="margin:0 0 4px">🚪 Child leaving the school</h4><p class="hint" style="margin:0 0 8px">As class teacher you recommend it; the principal approves before the child is taken off the register.</p>${leftFormHTML(s)}</div>`:""}
+  ${hist.length?`<div class="card" style="box-shadow:none;margin:14px 0 0"><h4 style="margin:0 0 6px">🕘 History</h4>${hist.map(h=>`<div class="hint" style="padding:3px 0">${fmtD(h.on)} · ${esc(h.what)}</div>`).join("")}</div>`:""}`; }
+function leftFormHTML(s){ const pend=remPending("left",s.sid);
+  if(pend) return `<div class="banner on" style="margin:0">⏳ Sent to the principal: mark as left (${esc(pend.data.why||"")}) · recommended by ${esc(tName(pend.data.recBy))}. ${pend.by===ME.email?`<button class="btn sec sm" data-drno="${esc("removal__left_"+s.sid)}">Withdraw</button>`:""}</div>`;
+  return `<div class="grid g3"><label class="f">Leaving date<input class="in" type="date" id="lfDate" value="${esc(todayISO())}"></label>
       <label class="f">Reason<select class="in" id="lfWhy">${["Parent posted out (transfer)","Admission elsewhere","Moved city","Other"].map(x=>`<option>${x}</option>`).join("")}</select></label>
       <label class="f">TC no. (optional)<input class="in" id="lfTc" maxlength="30"></label></div>
-    <div class="row" style="justify-content:flex-start"><button class="btn warn" data-stuleft="1">🚪 Mark as left the school</button></div>`}</div>`:""}
-  ${hist.length?`<div class="card" style="box-shadow:none;margin:14px 0 0"><h4 style="margin:0 0 6px">🕘 History</h4>${hist.map(h=>`<div class="hint" style="padding:3px 0">${fmtD(h.on)} · ${esc(h.what)}</div>`).join("")}</div>`:""}`; }
+    <div class="row" style="justify-content:flex-start"><button class="btn warn" data-stuleft="1">${isFull()?"🚪 Mark as left the school":"📨 Recommend: left the school"}</button></div>`; }
 function consentHTML(s){ const c=s.doc.consent||{}, ed=canCT(s.cls);
   return `<div class="card" style="box-shadow:none;margin:14px 0 0;background:${c.given?"#f2fcf8":"#fff8ec"}"><h4 style="margin:0 0 6px">🔒 Parent's consent and data</h4>
    <p style="margin:0 0 8px">${c.given?`✅ Consent given by the <b>${esc(c.by||"parent")}</b> on ${fmtD(c.on)} (${esc(c.how||"signed form")}). Photo on report card: <b>${c.photo?"yes":"no"}</b>.`:"⚠️ No consent form recorded yet. Until then the photo is not shown on the parents' report card."}</p>
    ${ed?`<div class="grid g4"><label class="f">Given by<select class="in" id="cnBy">${["Father","Mother","Guardian"].map(x=>`<option ${c.by===x?"selected":""}>${x}</option>`).join("")}</select></label><label class="f">Date<input class="in" type="date" id="cnOn" value="${esc(c.on||todayISO())}"></label>
      <label class="f">How<select class="in" id="cnHow">${["Signed paper form","Signed at admission","Email from registered parent"].map(x=>`<option ${c.how===x?"selected":""}>${x}</option>`).join("")}</select></label><label class="f">Photo on report card<select class="in" id="cnPhoto"><option value="no">No</option><option value="yes" ${c.photo?"selected":""}>Yes</option></select></label></div>
    <div class="row" style="justify-content:flex-start"><button class="btn pri sm" data-cnsave="1">💾 Record consent</button>${c.given?`<button class="btn warn sm" data-cnwd="1">Consent withdrawn</button>`:""}<button class="btn sec sm" data-cnprint="1">🖨 Print consent form</button><button class="btn sec sm" data-studl="1">⬇ Download this child's data</button></div>`:""}
-   ${isOffice()&&s.left?`<div class="row" style="justify-content:flex-start"><button class="btn warn sm" data-sterase="1">🗑 Erase all online data of this child</button><span class="hint">For children who have left (or on a parent's request). Keep the paper records the law requires.</span></div>`:""}</div>`; }
+   ${isOffice()&&s.left?`<div class="row" style="justify-content:flex-start">${remPending("erase",s.sid)?`<span class="ctag none">⏳ Erase sent to the principal</span>`:`<button class="btn warn sm" data-sterase="1">${isFull()?"🗑 Erase all online data of this child":"📨 Ask the principal to erase this child's data"}</button>`}<span class="hint">For children who have left (or on a parent's request). Keep the paper records the law requires.</span></div>`:""}</div>`; }
 async function rewriteReports(s){ const b=writeBatch(db); for(const r of s.recs){ const raw=r._raw||r, k=await reportKey(raw); if(k) b.set(doc(db,"reports",k),publicCopy(raw)); } await b.commit(); }
 function printConsent(s){ const g=D_().general, w=window.open("","_blank"); if(!w) return toast("Please allow pop-ups to print the form");
   w.document.write(`<!DOCTYPE html><html><head><title>Consent form · ${esc(s.name)}</title><style>body{font-family:Georgia,serif;max-width:720px;margin:30px auto;line-height:1.55;color:#111}h1{font-size:20px;text-align:center}h2{font-size:15px;margin:18px 0 4px}.ln{border-bottom:1px solid #000;display:inline-block;min-width:220px}td{padding:4px 8px;vertical-align:top}.box{display:inline-block;width:14px;height:14px;border:1px solid #000;margin-right:6px;vertical-align:-2px}</style></head><body>
@@ -2891,6 +2924,8 @@ function printConsent(s){ const g=D_().general, w=window.open("","_blank"); if(!
    <h2>My choices</h2><p><span class="box"></span>I agree that the school may keep my child's data on its website as described above.<br><span class="box"></span>I agree that my child's photo may appear on the report card.<br>I know I can see, correct or erase this data, or withdraw consent, by writing to ${esc(g.dpoName)} (${esc(g.dpoEmail)}).</p>
    <p style="margin-top:40px">Name of parent / guardian: <span class="ln"></span> &nbsp; Relation: <span class="ln" style="min-width:120px"></span></p><p>Signature: <span class="ln"></span> &nbsp; Date: <span class="ln" style="min-width:120px"></span></p>
    <p style="margin-top:30px;font-size:12px">For office use: recorded on the website by <span class="ln" style="min-width:160px"></span> on <span class="ln" style="min-width:100px"></span></p><script>print()<\/script></body></html>`); w.document.close(); }
+async function markLeft(s,on,why,tc,rec){ if(tc) await setDoc(doc(db,"tcs",await tcKey(tc,s.name)),{tc:tc.toUpperCase(),name:s.name,cls:s.cls,issued:on});
+  await setDoc(doc(db,"students",s.sid),stuDoc(s,{status:"left",leftOn:on,leftReason:why,tc,history:[...(s.doc.history||[]),{on,what:"Left the school: "+why+(tc?" (TC "+tc+")":"")+(rec?" · recommended by "+tName(rec)+", approved by the principal":""),by:ME.email}]})); }
 async function eraseStu(s){ const b=writeBatch(db); let n=0;
   for(const r of s.recs){ const k=await reportKey(r._raw||r); b.delete(doc(db,"results",r.id)); if(k) b.delete(doc(db,"reports",k)); n++; }
   b.delete(doc(db,"studentNotes",s.sid)); b.delete(doc(db,"students",s.sid)); if(FEES[s.sid]&&FEES[s.sid]._k) b.delete(doc(db,"fees",FEES[s.sid]._k));
@@ -2927,14 +2962,14 @@ async function saveNotes(s,patch){ const cur=NOTES[s.sid]||{}; const d={medical:
 function stuDoc(s,patch){ const d=s.doc||{}; return {year:stuY(),name:s.name,std:s.std,div:s.div,cls:s.cls,roll:s.roll,status:d.status||"active",phone:d.phone||"",history:d.history||[],...patch,updatedAt:new Date().toISOString(),updatedBy:ME.email}; }
 async function transferStu(s,div,roll){ const cls=s.std+"-"+div;
   if(allStudents().some(x=>x.cls===cls&&x.roll===roll&&!x.left)) throw {code:"Roll "+roll+" is already taken in "+cls+". Please pick another roll no."};
-  const b=writeBatch(db), ct=ctName(cls);
+  const b=writeBatch(db), b2=writeBatch(db), ct=ctName(cls);
   for(const r of s.recs){ const raw=JSON.parse(JSON.stringify(r._raw||r)); const oldK=await reportKey(raw);
     const n={...raw,div,cls,roll,updatedAt:new Date().toISOString(),updatedBy:ME.email}; if(ct) n.teacher=ct.toUpperCase(); delete n.id;
     const nid=idFor(n), nk=await reportKey(n); b.set(doc(db,"results",nid),n); if(nk) b.set(doc(db,"reports",nk),publicCopy(n));
-    if(nid!==r.id) b.delete(doc(db,"results",r.id)); if(oldK&&oldK!==nk) b.delete(doc(db,"reports",oldK)); }
+    if(nid!==r.id){ b.set(doc(db,"results",r.id),{movedTo:nid},{merge:true}); b2.delete(doc(db,"results",r.id)); } if(oldK&&oldK!==nk) b2.delete(doc(db,"reports",oldK)); }
   b.set(doc(db,"students",s.sid),stuDoc(s,{std:s.std,div,cls,roll,history:[...(s.doc.history||[]),{on:todayISO(),from:s.cls,to:cls,what:`Moved from ${s.cls} (roll ${s.roll}) to ${cls} (roll ${roll})`,by:ME.email}]}));
   if(NOTES[s.sid]) b.set(doc(db,"studentNotes",s.sid),{year:stuY(),std:s.std,div,cls},{merge:true});
-  await b.commit(); ATTC={}; if(FEES[s.sid]){ const st2={...s,div,cls,roll}; await writeFee(st2,{}); } }
+  await b.commit(); await b2.commit(); ATTC={}; if(FEES[s.sid]){ const st2={...s,div,cls,roll}; await writeFee(st2,{}); } }
 
 /* ---- class attendance (class teacher marks daily) ---- */
 const ABS_REASONS=["Not informed","Medical / sick","Personal / family","Travelling / out of station","Leave informed by parent","Other"];
@@ -2998,6 +3033,7 @@ document.addEventListener("click",async e=>{ const t=e.target.closest("[data-stu
   if(D.nocon){ e.preventDefault(); stu.status="nocon"; renderStu(); return; }
   if(D.cnprint&&s){ printConsent(s); return; }
   if(D.studl&&s){ downloadStu(s); return; }
+  if(D.sterase&&s&&!isFull()){ askRemoval("erase",s.sid,{name:s.name,std:s.std,div:s.div,roll:s.roll}); return; }
   if(D.sterase&&s){ confirmBox("Erase this child's data?",`This permanently deletes ${s.name}'s results, report cards, notes and attendance marks from the website. It cannot be undone. Download the data first if the school needs a copy.`,"Erase",async()=>{ try{ const n=await eraseStu(s); stu.sel=null; toast(`Erased ${n} results and all notes ✓`); }catch(err){ toast("Couldn't erase: "+errMsg(err)); } }); return; }
   if((D.cnsave||D.cnwd)&&s){ try{ const consent=D.cnwd?{given:false,withdrawnOn:todayISO(),photo:false}:{given:true,by:$("#cnBy").value,on:$("#cnOn").value||todayISO(),how:$("#cnHow").value,photo:$("#cnPhoto").value==="yes",recordedBy:ME.email};
       await setDoc(doc(db,"students",s.sid),stuDoc(s,{consent,history:[...(s.doc.history||[]),{on:todayISO(),what:D.cnwd?"Parent withdrew consent":"Consent recorded ("+consent.by+")",by:ME.email}]}));
@@ -3009,7 +3045,8 @@ document.addEventListener("click",async e=>{ const t=e.target.closest("[data-stu
     if(D.stutr&&s){ const div=$("#trDiv").value, roll=+$("#trRoll").value; if(!(roll>=1)) return toast("Please type the new roll no.");
       confirmBox("Transfer section?",`Move ${s.name} from ${s.cls} to ${s.std}-${div} with roll no. ${roll}? All ${s.recs.length} results of ${stuY()} move too.`,"Transfer",async()=>{ try{ await transferStu(s,div,roll); stu.sel=s.sid; toast(`✅ ${s.name} is now in ${s.std}-${div}, roll ${roll}`); }catch(err){ toast(err.code&&err.code.startsWith("Roll")?err.code:"Couldn't transfer: "+errMsg(err)); } }); return; }
     if(D.stuleft&&s){ const on=$("#lfDate").value||todayISO(), why=$("#lfWhy").value, tc=$("#lfTc").value.trim();
-      confirmBox("Mark as left?",`${s.name} (${s.cls}) will be marked as left the school on ${on}. Results stay saved, and you can re-admit later.`,"Mark as left",async()=>{ try{ if(tc) await setDoc(doc(db,"tcs",await tcKey(tc,s.name)),{tc:tc.toUpperCase(),name:s.name,cls:s.cls,issued:on}); await setDoc(doc(db,"students",s.sid),stuDoc(s,{status:"left",leftOn:on,leftReason:why,tc,history:[...(s.doc.history||[]),{on,what:"Left the school: "+why+(tc?" (TC "+tc+")":""),by:ME.email}]})); toast("Marked as left ✓"); }catch(err){ toast("Couldn't save: "+errMsg(err)); } }); return; }
+      if(!isFull()){ askRemoval("left",s.sid,{name:s.name,std:s.std,div:s.div,roll:s.roll,on,leftWhy:why,tc}); return; }
+      confirmBox("Mark as left?",`${s.name} (${s.cls}) will be marked as left the school on ${on}. Results stay saved, and you can re-admit later.`,"Mark as left",async()=>{ try{ await markLeft(s,on,why,tc); toast("Marked as left ✓"); }catch(err){ toast("Couldn't save: "+errMsg(err)); } }); return; }
     if(D.sturead&&s){ if(s.doc.tc) await deleteDoc(doc(db,"tcs",await tcKey(s.doc.tc,s.name))).catch(()=>{}); await setDoc(doc(db,"students",s.sid),stuDoc(s,{status:"active",leftOn:"",leftReason:"",tc:"",history:[...(s.doc.history||[]),{on:todayISO(),what:"Re-admitted",by:ME.email}]})); toast("Re-admitted ✓"); return; }
     if(D.ntmed&&s){ await saveNotes(s,{medical:$("#ntMed").value.trim().slice(0,600)}); toast("Health note saved ✓"); return; }
     if(D.ntadd&&s){ const text=$("#ntText").value.trim(); if(!text) return toast("Please write what happened"); const cur=(NOTES[s.sid]&&NOTES[s.sid].discipline)||[];

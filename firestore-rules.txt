@@ -59,7 +59,12 @@ service cloud.firestore {
         || (isClassTeacherOf(request.resource.data) && request.resource.data.sid is string
             && exists(/databases/$(database)/documents/students/$(request.resource.data.sid))
             && get(/databases/$(database)/documents/students/$(request.resource.data.sid)).data.get('admission', 'approved') == 'approved'));
-      allow delete: if isOffice() || isClassTeacherOf(resource.data);
+      // Removing a result needs the principal. Others may only drop the old copy after a rename or
+      // section transfer, when the old copy points (movedTo) at its replacement that already exists.
+      allow delete: if isPrincipal()
+        || ((isOffice() || isClassTeacherOf(resource.data)) && resource.data.get('movedTo', '') is string
+            && resource.data.get('movedTo', '') != '' && resource.data.movedTo != id
+            && exists(/databases/$(database)/documents/results/$(resource.data.movedTo)));
       // Marks are changed only by the subject teacher (own subjects) and details by the class teacher.
       // The principal, coordinator and admin may update a card only without touching marks.
       allow update: if okCard(request.resource.data) && ((isOffice() && marksChanged().size() == 0)
@@ -142,10 +147,14 @@ service cloud.firestore {
     // ---- Drafts: the coordinator prepares the timetable, calendar, exam duty, substitutes and the
     //      disclosure page here; only the principal / admin publishes them (writes the real document). ----
     match /drafts/{key} {
-      allow read: if isOffice();
-      allow create, update: if isCoord() && request.resource.data.col in ['timetable', 'calendar', 'duties', 'subs', 'config', 'staff', 'staffHR', 'import', 'action', 'notices', 'achievements']
-        && key == request.resource.data.col + '__' + request.resource.data.id;
-      allow delete: if isOffice();
+      // Staff see their own requests; the office sees all.
+      allow read: if isOffice() || (anyStaff() && resource.data.by == myEmail());
+      allow create, update: if key == request.resource.data.col + '__' + request.resource.data.id
+        && ((isCoord() && request.resource.data.col in ['timetable', 'calendar', 'duties', 'subs', 'config', 'staff', 'staffHR', 'import', 'action', 'notices', 'achievements', 'removal'])
+            // A class teacher may only recommend a removal for her own class; the principal decides.
+            || (request.resource.data.col == 'removal' && request.resource.data.by == myEmail()
+                && isClassTeacherOf(request.resource.data.data)));
+      allow delete: if isOffice() || (anyStaff() && resource.data.by == myEmail());
     }
 
     // ---- Notices (admissions, exams, PTM, events, visits) and achievements: public; the principal publishes,
@@ -180,9 +189,11 @@ service cloud.firestore {
       allow read: if anyStaff();
       allow create: if okStu(request.resource.data) && (isPrincipal()
         || (isCoord() && request.resource.data.get('admission', '') != 'approved'));
-      allow update: if okStu(request.resource.data) && ((isOffice() && noSelfApproval())
+      // Only the principal marks a child as left (the coordinator / class teacher recommend it).
+      allow update: if okStu(request.resource.data) && ((isOffice() && noSelfApproval()
+            && (isPrincipal() || request.resource.data.get('status', 'active') != 'left' || resource.data.get('status', 'active') == 'left'))
         || (isClassTeacherOf(resource.data) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['phone', 'consent', 'history', 'updatedAt', 'updatedBy'])));
-      allow delete: if isOffice();
+      allow delete: if isPrincipal();
     }
 
     // ---- Health and discipline notes: only teachers of that class, the coordinator and principal.
@@ -191,7 +202,7 @@ service cloud.firestore {
       allow read: if isOffice() || teachesCard(resource.data);
       allow create: if okStu(request.resource.data) && (isOffice() || isClassTeacherOf(request.resource.data));
       allow update: if okStu(request.resource.data) && (isOffice() || (isClassTeacherOf(resource.data) && isClassTeacherOf(request.resource.data)));
-      allow delete: if isOffice();
+      allow delete: if isPrincipal();
     }
 
     // ---- Daily class attendance: one document per class per month, marked by the class teacher ----
