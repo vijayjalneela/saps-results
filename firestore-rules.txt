@@ -159,9 +159,9 @@ service cloud.firestore {
       allow delete: if isOffice() || (anyStaff() && resource.data.by == myEmail());
     }
 
-    // ---- What the principal sent back, and why: seen only by the person it went back to ----
+    // ---- What the principal (or the coordinator, to teachers) sent back, and why: seen only by the person it went back to ----
     match /returns/{id} {
-      allow create: if isPrincipal() && request.resource.data.by == myEmail() && request.resource.data.to is string
+      allow create: if (isPrincipal() || isCoord()) && request.resource.data.by == myEmail() && request.resource.data.to is string
         && request.resource.data.reason is string && request.resource.data.reason.size() <= 300
         && request.resource.data.label is string && request.resource.data.label.size() <= 200;
       allow read, delete: if isPrincipal() || (signedIn() && resource.data.to == myEmail());
