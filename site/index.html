@@ -283,7 +283,7 @@ body:not(.admin) .admin-strict{display:none!important}
 body:not(.staff) .staff-only{display:none!important}
 /* while the saved sign-in is being restored after a refresh, show "loading" instead of the login box or "unauthorised" */
 body.authwait #gate,body.authwait #dashLock,body.authwait #aLock,body.authwait #adminLock{display:none!important}
-#entry.subjonly .ct-only{display:none!important}
+#entry.subjonly .ct-only{display:none!important}#entry.noteach>.card,#entry.noteach>.actions{display:none!important}
 body.staff #v-home>*:not(#homeStats):not(#homeTicker){display:none!important}
 body.staff #v-home.on{display:flex;flex-direction:column}
 body.staff #homeTicker{order:-1;margin:0 0 14px}
@@ -734,7 +734,7 @@ footer{background:var(--navy);color:#c9cfbd!important;padding:22px 16px!importan
   </div>
 
   <div class="layout">
-  <form id="entry" autocomplete="off">
+  <form id="entry" autocomplete="off"><div class="banner on warn" id="noTeachMsg" style="display:none;margin:0 0 14px"></div>
     <!-- 1. Student -->
     <div class="card">
       <div class="sec-h"><div class="dot" style="background:var(--violet)">1</div><div><h3>Student details</h3><p>As per school register</p></div></div>
@@ -822,8 +822,8 @@ footer{background:var(--navy);color:#c9cfbd!important;padding:22px 16px!importan
     </div>
 
     <div class="actions">
-      <div class="sum"><span>Total <b id="sumTot">0</b>/<span id="sumMax">0</span></span><span>Percentage <b id="sumPct">0%</b></span><span>Overall <b id="sumGrade">–</b></span></div>
-      <button type="button" class="btn sec" id="progBtn">📈 Progress</button><button type="button" class="btn sec" id="previewBtn">👁 Preview</button>
+      <div class="sum ct-only"><span>Total <b id="sumTot">0</b>/<span id="sumMax">0</span></span><span>Percentage <b id="sumPct">0%</b></span><span>Overall <b id="sumGrade">–</b></span></div>
+      <button type="button" class="btn sec ct-only" id="progBtn">📈 Progress</button><button type="button" class="btn sec ct-only" id="previewBtn">👁 Preview</button>
       <button type="submit" class="btn pri" id="saveBtn">💾 Save result</button>
     </div>
   </form>
@@ -1191,9 +1191,10 @@ function renderMarks(){
   $("#marksHead").innerHTML=`<tr><th>Subject</th>${cs.map(c=>`<th>${c.l}<small>${c.max}</small></th>`).join("")}${ut?`<th>Percent</th>`:`<th>Total<small>100</small></th>`}<th>Grade</th></tr>`;
   const tb=$("#marksBody");
   if(!subjects.length){tb.innerHTML=`<tr><td colspan="${cs.length+3}" class="empty">Tap a subject above to add it.</td></tr>`; updateSum(); return;}
+  const onlyMine=!!ME&&ME.role==="teacher"&&!canEditDetails(formCls());
   tb.innerHTML=subjects.map((s,i)=>{
     const t=subjTotal(s,ctx), g=subjGrade(t,ctx);
-    const ok=canEditSubject(s.name,formCls()), dis=ok?"":"disabled";
+    const ok=canEditSubject(s.name,formCls()), dis=ok?"":"disabled"; if(onlyMine&&!ok) return "";
     return `<tr data-i="${i}"><td>${esc(s.name)}${ok?"":'<span class="lock" title="View only">🔒</span>'}${s.by?`<span class="by">by ${esc(staffName(s.by))}</span>`:""}</td>${cs.map(c=>`<td><input inputmode="decimal" data-k="${c.k}" data-max="${c.max}" value="${esc(s[c.k]??"")}" placeholder="–" ${dis}></td>`).join("")}
       ${ut?`<td class="tot pctc">${t!=null?r1(t/out*100)+"%":"–"}</td>`:`<td><input class="totin" data-k="tot" data-max="100" value="${esc(s.tot??"")}" placeholder="${calcTotal(s,ctx)??"–"}" title="Worked out automatically. Type a number only to override it." ${dis}></td>`}<td>${gp(g)}</td></tr>`;
   }).join("");
@@ -1369,17 +1370,19 @@ function classRecords(){
   const y=$("#fYear").value,t=$("#fTerm").value,s=$("#fStd").value,d=$("#fDiv").value;
   return Object.values(RECORDS).filter(r=>r.year===y&&r.term===t&&r.std===s&&r.div===d).sort((a,b)=>a.roll-b.roll);
 }
+function mySubMarks(r){ const mine=teachesIn(ME,r.std+"-"+r.div); return (r.subjects||[]).filter(x=>mine.includes(x.name)).map(x=>{ const t=subjTotal(x,r); return x.name+" "+(t==null?"–":t); }).join(" · ")||"–"; }
 function pctOf(r){const t=(r.subjects||[]).map(s=>subjTotal(s,r)).filter(x=>x!=null);return t.length?r1(t.reduce((a,b)=>a+b,0)/(t.length*outOf(r))*100):null}
 function renderClassList(){
   const list=classRecords(), q=$("#clsSearch").value.trim().toLowerCase();
   $("#clsTitle").textContent=`Class ${$("#fStd").value}-${$("#fDiv").value}`;
   $("#clsSub").textContent=`${list.length} saved · ${$("#fTerm").value}`;
   const f=list.filter(r=>!q||r.name.toLowerCase().includes(q)||String(r.roll)===q);
+  if(ME&&ME.role==="teacher"&&!classLoaded($("#fStd").value+"-"+$("#fDiv").value)){ $("#clsList").innerHTML=`<div class="empty">🚫 You don't teach any subjects in class ${esc($("#fStd").value+"-"+$("#fDiv").value)}.</div>`; applyPerms(); return; }
   if(ME&&!classLoaded($("#fStd").value+"-"+$("#fDiv").value)){ $("#clsList").innerHTML=`<div class="empty">This is not one of your classes, so it isn't loaded.<br><button class="btn sec sm" data-loadall="1" style="margin-top:8px">Show all classes</button></div>`; return; }
   $("#clsList").innerHTML=f.length?f.map(r=>{const p=pctOf(r);return `<div class="li" data-id="${esc(r.id)}" style="${r.id===editingId?"border-color:var(--violet);background:#f6f3ff":""}">
     <div class="av">${r.photo?`<img src="${safeImg(r.photo)}" alt="">`:esc(r.roll)}</div>
     <div><div class="nm">${esc(r.name)}${r.sample?'<span class="sample-tag">sample</span>':""}${ME&&isLeft(r)?' <span class="ctag none">Left</span>':""}</div><div class="mt">Roll ${esc(r.roll)}${r.category?" · "+esc(r.category):""}</div></div>
-    <div class="pc" style="color:${GCOL[grade(p)]||"var(--muted)"}">${p!=null?p+"%":"–"}</div>
+    ${ME&&ME.role==="teacher"&&!canEditDetails(r.std+"-"+r.div)?`<div class="pc" style="font-size:12px">${esc(mySubMarks(r))}</div>`:`<div class="pc" style="color:${GCOL[grade(p)]||"var(--muted)"}">${p!=null?p+"%":"–"}</div>`}
     ${remPending("result",r.id)?`<span class="ctag none" title="Waiting for the principal">⏳ Removal sent</span>`:canEditDetails(r.std+"-"+r.div)||isFull()?`<button type="button" class="btn warn sm" data-del="${esc(r.id)}" title="${isFull()?"Delete":"Ask the principal to remove"}">✕</button>`:""}</div>`}).join(""):`<div class="empty">No students saved for this class yet.</div>`;
 }
 $("#clsSearch").addEventListener("input",renderClassList);
@@ -1416,7 +1419,7 @@ function printCards(html){ $("#printArea").innerHTML=html; document.body.classLi
   const done=()=>{ document.body.classList.remove("print-mode"); $("#printArea").innerHTML=""; window.removeEventListener("afterprint",done); };
   window.addEventListener("afterprint",done); setTimeout(()=>window.print(),150); }
 $("#pvPrint").onclick=()=>printCards($("#pvOut").innerHTML);
-$("#printClsBtn").onclick=()=>{ const list=classRecords(); if(!list.length) return toast("No saved results for this class and exam yet"); printCards(list.map(reportCard).join("")); toast(`Printing ${list.length} report cards. Choose "Save as PDF" to keep a file.`); };
+$("#printClsBtn").onclick=()=>{ if(ME&&ME.role==="teacher"&&!canEditDetails(formCls())) return toast("Only the class teacher can print the report cards of this class"); const list=classRecords(); if(!list.length) return toast("No saved results for this class and exam yet"); printCards(list.map(reportCard).join("")); toast(`Printing ${list.length} report cards. Choose "Save as PDF" to keep a file.`); };
 document.addEventListener("click",e=>{ if(e.target.closest("#rcPrint")) printCards($("#rcOut .rc")?$("#rcOut .rc").outerHTML:""); });
 
 /* ---------- Bulk marks via Excel (CSV) ---------- */
@@ -1547,7 +1550,8 @@ $("#lookup").addEventListener("submit",async e=>{
 let SUM={year:null,exam:null};
 /* ---------- "Coming up for you": what matters to this person in the next days ---------- */
 let SUBS_HOME={}, homeT=0;
-function homeRefresh(){ clearTimeout(homeT); homeT=setTimeout(()=>{ if(ME&&(location.hash==="#home"||location.hash===""||location.hash==="#")){ const b=$("#homeComing"); if(b) b.innerHTML=comingHTML(); } },300); }
+window.addEventListener("hashchange",()=>{ if(["#home","","#"].includes(location.hash)) homeRefresh(); });
+function homeRefresh(){ if(homeT) return; homeT=setTimeout(()=>{ homeT=0; if(ME&&(location.hash==="#home"||location.hash===""||location.hash==="#")){ const b=$("#homeComing"); if(b) b.innerHTML=comingHTML(); const m=$("#homeMine"); if(m) m.innerHTML=mineHTML(); } },300); }
 async function loadHomeSubs(){ const t=todayISO(), d2=new Date(t+"T00:00:00"); d2.setDate(d2.getDate()+1); const tm=d2.toISOString().slice(0,10);
   for(const d of [t,tm]){ if(d in SUBS_HOME) continue; SUBS_HOME[d]=null; try{ const x=await getDoc(doc(db,"subs",d)); SUBS_HOME[d]=x.exists()?x.data():null; }catch(_){} } homeRefresh(); }
 function comingHTML(){ if(!ME) return ""; const t=todayISO(), lim=(n)=>{ const x=new Date(t+"T00:00:00"); x.setDate(x.getDate()+n); return x.toISOString().slice(0,10); }, in14=lim(14), in21=lim(21), it=[], me=ME.email;
@@ -1571,6 +1575,81 @@ function comingHTML(){ if(!ME) return ""; const t=todayISO(), lim=(n)=>{ const x
   it.sort((a,b)=>(b.cls==="hot")-(a.cls==="hot")||String(a.date).localeCompare(String(b.date)));
   const day=d=>d===t?"Today":d===lim(1)?"Tomorrow":fmtD(d).replace(/ \d{4}$/,"");
   return `<div class="card" style="box-shadow:none;margin:0 0 14px;border-left:5px solid #ff9933"><h3 style="margin:0 0 8px">🔔 Coming up for you</h3>${it.length?it.slice(0,12).map(x=>`<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line)${x.cls==="hot"?";font-weight:700":""}"><span style="min-width:78px;color:${x.cls==="hot"?"#c4610d":"var(--muted)"};font-weight:800">${day(x.date)}</span><span>${x.icon} ${x.text}</span></div>`).join(""):'<p class="hint" style="margin:0">Nothing due in the next two weeks.</p>'}</div>`; }
+/* ---------- Teacher home: my engagements, my class (fees, achievements), toppers in my subjects ---------- */
+let SUBS_ALL=null, CTFEES={}, CTFEE_UNS={}, HOME_RECS=[];
+function eachDay(a,b){ const out=[], d=new Date(a+"T00:00:00"), e=new Date((b||a)+"T00:00:00"); while(d<=e){ out.push(d.toISOString().slice(0,10)); d.setDate(d.getDate()+1); } return out; }
+async function loadSubsAll(){ if(SUBS_ALL!==null||!db) return; SUBS_ALL={}; try{ const sn=await getDocs(query(collection(db,"subs"),where("date",">=",calData().start),where("date","<=",todayISO()))); sn.forEach(d=>SUBS_ALL[d.id]=d.data()); }catch(_){} homeRefresh(); }
+function loadCtFees(){ if(!db||!ME) return; (ME.classTeacher||[]).forEach(c=>{ if(CTFEE_UNS[c]) return;
+  CTFEE_UNS[c]=onSnapshot(query(collection(db,"fees"),where("year","==",stuY()),where("cls","==",c)),sn=>{ Object.keys(CTFEES).forEach(k=>{ if(CTFEES[k].cls===c) delete CTFEES[k]; }); sn.forEach(d=>{ const x=d.data(); CTFEES[x.sid]=x; }); homeRefresh(); if(location.hash==="#students"&&stu.tab==="fees") renderStu(); },()=>{}); }); }
+function stopCtFees(){ Object.values(CTFEE_UNS).forEach(u=>u()); CTFEE_UNS={}; CTFEES={}; SUBS_ALL=null; }
+function feeState(f,q){ const P=FP(), y=stuY(), t=todayISO(), p=f&&f.q&&f.q[q]; if(p&&p.paid) return "paid"; if(qDate(y,q,P.quarters[q].start)>t) return "later"; return qDate(y,q,P.quarters[q].due)<t?"over":"due"; }
+function engageData(){ const me=ME.email, set=ttSet(), grid=TT&&TT.grid; if(!grid) return null; const C=calData(), t=todayISO();
+  const per={}; Object.entries(teacherSlots(grid)[me]||{}).forEach(([k,x])=>{ const key=x.c+"|"+x.s; (per[key]=per[key]||Array(set.days.length).fill(0))[Math.floor(k/PPD)]++; });
+  const exD=new Set(); (C.exams||[]).forEach(e=>eachDay(e.from,e.to).forEach(d=>exD.add(d)));
+  const lv=new Set(); Object.values(LEAVES||{}).filter(l=>l.email===me&&l.status==="Approved").forEach(l=>eachDay(l.from,l.to).forEach(d=>lv.add(d)));
+  const wd=workingDays(C.start,C.end,set.days,C.holidays).filter(d=>!exD.has(d));
+  const rows=Object.entries(per).map(([key,pd])=>{ const [c,sub]=key.split("|"); let taken=0,missed=0,bal=0;
+    wd.forEach(d=>{ const n=pd[set.days.indexOf(DAYNAMES[new Date(d+"T00:00:00").getDay()])]||0; if(!n) return; if(d<=t){ if(lv.has(d)) missed+=n; else taken+=n; } else if(!lv.has(d)) bal+=n; });
+    return {c,sub,wk:pd.reduce((a,b)=>a+b,0),taken,missed,bal,ct:(ME.classTeacher||[]).includes(c)}; }).sort((a,b)=>(b.ct-a.ct)||ALLCLS.indexOf(a.c)-ALLCLS.indexOf(b.c)||a.sub.localeCompare(b.sub));
+  const subs=[], cover=[]; Object.values(SUBS_ALL||{}).forEach(sd=>(sd.plan||[]).forEach(p=>{ if(p.sub===me) subs.push({...p,date:sd.date}); if(p.absent===me) cover.push(p); }));
+  const inv=[]; if(DUTY) Object.entries(DUTY).forEach(([k,v])=>{ if(!v||!v.dates||!v.published) return; Object.entries(v.dates).forEach(([d,m])=>Object.entries(m).forEach(([c,em])=>{ if(em===me&&!c.startsWith("_")) inv.push({d,c,k}); })); });
+  const ev=[]; Object.values(EDUT||{}).forEach(e=>(e.duties||[]).filter(d=>d.email===me).forEach(d=>ev.push({date:e.date,title:e.title,task:d.task})));
+  return {rows,subs,cover,inv,ev,start:C.start,end:C.end,t}; }
+function engageHTML(){ const E=engageData(), card=b=>`<div class="card" style="box-shadow:none;margin:0 0 14px;border-left:5px solid #4b5320"><h3 style="margin:0 0 8px">🗓 My engagements ${esc(TT_YEAR())}</h3>${b}</div>`;
+  if(!E) return card(`<p class="hint" style="margin:0">The timetable for ${esc(TT_YEAR())} is not published yet, so periods can't be counted.</p>`);
+  const sum=k=>E.rows.reduce((a,r)=>a+r[k],0), past=x=>x<=E.t;
+  const k=(l,v,bg,fg)=>`<div style="background:${bg};color:${fg};border-radius:12px;padding:10px 12px"><div style="font-size:12px;font-weight:700">${l}</div><b style="font-size:22px">${v}</b></div>`;
+  return card(`<p class="hint" style="margin:0 0 10px">Counted from the timetable over the school's working days (${fmtD(E.start)} – ${fmtD(E.end)}), leaving out holidays and exam days. Days of your approved leave are shown as missed (and left out of the balance).</p>
+   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:10px">${k("Periods a week",sum("wk"),"#eef0e3","#3b4220")}${k("Taken so far",sum("taken"),"#e9fbf5","#0b7a64")}${k("Balance to year end",sum("bal"),"#e8f7ff","#0b6c99")}${k("Missed (leave)",sum("missed"),"#fff6ea","#a55a00")}${k("Substitutions taken",E.subs.length,"#f2edff","#5435c9")}${k("Invigilation duties",E.inv.length,"#ffeef4","#b3164f")}</div>
+   ${E.rows.length?`<div class="tbl-wrap"><table class="pt"><thead><tr><th>Class</th><th>Subject</th><th>A week</th><th>Taken</th><th>Missed</th><th>Balance</th><th>Year total</th></tr></thead><tbody>${E.rows.map(r=>`<tr style="${r.ct?"background:#eef0e3;font-weight:700":""}"><td>${esc(r.c)}${r.ct?" ⭐":""}</td><td style="text-align:left">${esc(r.sub)}</td><td>${r.wk}</td><td>${r.taken}</td><td>${r.missed||"–"}</td><td>${r.bal}</td><td>${r.taken+r.missed+r.bal}</td></tr>`).join("")}</tbody></table></div>`:`<p class="hint">You have no periods in the timetable.</p>`}
+   <h4 style="margin:12px 0 6px">Additional duties</h4>
+   <ul style="margin:0;padding-left:20px">${(ME.classTeacher||[]).map(c=>`<li>Class teacher of <b>${esc(c)}</b></li>`).join("")}
+    ${ME.acting?`<li>Acting coordinator ${fmtD(ME.acting.from)} – ${fmtD(ME.acting.to)}</li>`:""}
+    <li>Substitution periods taken: <b>${E.subs.length}</b>${E.subs.length?` (${esc(Object.entries(E.subs.reduce((m,p)=>(m[p.c]=(m[p.c]||0)+1,m),{})).map(([c,n])=>c+": "+n).join(", "))})`:""}${E.cover.length?` · your periods covered by others while you were away: ${E.cover.length}`:""}</li>
+    <li>Exam invigilation: <b>${E.inv.filter(x=>past(x.d)).length}</b> done${E.inv.some(x=>!past(x.d))?`, <b>${E.inv.filter(x=>!past(x.d)).length}</b> coming up`:""}</li>
+    ${E.ev.length?E.ev.map(e=>`<li>${past(e.date||"")?"Event duty":"Coming event duty"}: <b>${esc(e.title)}</b> (${fmtD(e.date)}): ${esc(e.task)}</li>`).join(""):`<li>Event duties: none yet</li>`}</ul>`); }
+function myClassHTML(){ const cts=ME.classTeacher||[]; if(!cts.length) return ""; const y=stuY(), cq=curQuarter(y)||"Q1";
+  return cts.map(c=>{ const S=allStudents().filter(x=>x.cls===c&&!x.left&&!x.pending), st=S.map(x=>feeState(CTFEES[x.sid],cq));
+    const paid=st.filter(x=>x==="paid").length, over=st.filter(x=>x==="over").length, due=st.filter(x=>x==="due").length;
+    return `<div class="card" style="box-shadow:none;margin:0 0 14px;border-left:5px solid #ff9933"><h3 style="margin:0 0 6px">💳 Fees of my class ${esc(c)} · ${cq}</h3>
+     <p style="margin:0">${S.length?`<b>${paid}</b> of ${S.length} paid${due?` · <b>${due}</b> due now`:""}${over?` · <b style="color:#a3330b">${over} overdue</b>`:""}`:"No students on the register yet."} <a href="#students" data-gofees="1">See every child →</a></p>
+     <p class="hint" style="margin:4px 0 0">View only. Payments are recorded by the office.</p></div>`; }).join(""); }
+function achMineHTML(){ const cts=ME.classTeacher||[], nm=normName(ME.name);
+  const mine=Object.values(ACHS||{}).filter(a=>normName(a.staff||"")===nm||cts.includes(a.cls)||(a.who&&(normName(a.who).includes(nm)||cts.some(c=>new RegExp("\\b"+c.replace("-","[- ]?")+"\\b","i").test(a.who))))).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+  const recs=HOME_RECS, tops=[]; myClasses().forEach(c=>teachesIn(ME,c).forEach(sub=>{ const L=recs.filter(r=>r.std+"-"+r.div===c).map(r=>{ const x=(r.subjects||[]).find(y=>y.name===sub), t=x?subjTotal(x,r):null; return t==null?null:{name:r.name,roll:r.roll,p:r1(t/outOf(r)*100)}; }).filter(Boolean).sort((a,b)=>b.p-a.p);
+    if(L.length){ const best=L[0].p; tops.push({c,sub,L:L.filter((x,i)=>i<3||x.p===best).slice(0,5)}); } }));
+  return `<div class="card" style="box-shadow:none;margin:0 0 14px;border-left:5px solid #c9a227"><h3 style="margin:0 0 8px">🏆 Achievements</h3>
+   ${mine.length?mine.slice(0,6).map(a=>`<div style="padding:5px 0;border-bottom:1px dashed var(--line)">🏅 <b>${esc(a.title)}</b> · ${esc(a.who||"")} <span class="hint">${a.date?fmtD(a.date):""}</span></div>`).join(""):`<p class="hint" style="margin:0">No achievements posted yet for you or ${cts.length?"class "+esc(cts.join(", ")):"your class"}.</p>`}
+   <h4 style="margin:12px 0 6px">⭐ Highest scorers in your subjects · ${esc(lab(SUM.exam||""))}</h4>
+   ${tops.length?`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px">${tops.map(t=>`<div style="background:#fffaf0;border:1px solid #f1dfb0;border-radius:12px;padding:8px 12px"><b>${esc(t.c)} · ${esc(t.sub)}</b>${t.L.map((x,i)=>`<div style="font-size:14px">${["🥇","🥈","🥉","🏅","🏅"][i]} ${esc(x.name)} <span class="hint">(roll ${esc(x.roll)})</span> <b>${x.p}%</b></div>`).join("")}</div>`).join("")}</div>`:`<p class="hint" style="margin:0">No marks entered yet for this exam.</p>`}</div>`; }
+/* Class teacher's dashboard of her class: like the principal's, but only her class */
+function classDashHTML(){ const cts=ME.classTeacher||[]; if(!cts.length) return ""; const ex=SUM.exam, prevEx=EXAMS[EXAMS.indexOf(ex)-1];
+  return cts.map(c=>{ const all=Object.values(RECORDS).filter(r=>r.year===SUM.year&&r.std+"-"+r.div===c&&!isLeft(r)), R=all.filter(r=>r.term===ex), prevOf=r=>prevEx?all.find(x=>x.term===prevEx&&sidOf(x)===sidOf(r)):null;
+    const head=`<h3 style="margin:0 0 6px">📋 My class ${esc(c)} · ${esc(lab(ex))}</h3>`;
+    if(!R.length) return `<div class="card" style="box-shadow:none;margin:0 0 14px;border-left:5px solid #0b6c99">${head}<p class="hint" style="margin:0">No results of ${esc(lab(ex))} saved yet for your class.</p></div>`;
+    const L=R.map(r=>{ const p=pctOf(r), pv=prevOf(r), pp=pv?pctOf(pv):null, att=r.workDays?r1(r.attended/r.workDays*100):null;
+      const weak=(r.subjects||[]).map(x=>{ const t=subjTotal(x,r); return t==null?null:{n:x.name,v:r1(t/outOf(r)*100)}; }).filter(x=>x&&x.v<33);
+      const why=[]; if(p!=null&&p<50) why.push(`overall ${p}%`); weak.forEach(w=>why.push(`${w.n} ${w.v}%`)); if(att!=null&&att<75) why.push(`attendance ${att}%`); if(p!=null&&pp!=null&&p-pp<=-10) why.push(`dropped ${r1(pp-p)} points since ${lab(prevEx)}`);
+      return {r,p,ch:p!=null&&pp!=null?r1(p-pp):null,att,why}; }).filter(x=>x.p!=null);
+    const v=L.map(x=>x.p), top=L.slice().sort((a,b)=>b.p-a.p).slice(0,5), need=L.filter(x=>x.why.length).sort((a,b)=>a.p-b.p), imp=L.filter(x=>x.ch!=null&&x.ch>0).sort((a,b)=>b.ch-a.ch).slice(0,3);
+    const subs=[...new Set(R.flatMap(r=>(r.subjects||[]).map(x=>x.name)))].map(n=>{ const vs=R.map(r=>{ const x=(r.subjects||[]).find(y=>y.name===n), t=x?subjTotal(x,r):null; return t==null?null:t/outOf(r)*100; }).filter(x=>x!=null); return {n,a:vs.length?r1(vs.reduce((a,b)=>a+b,0)/vs.length):null}; }).filter(x=>x.a!=null).sort((a,b)=>b.a-a.a);
+    const atts=L.map(x=>x.att).filter(x=>x!=null);
+    const k=(l,val,bg,fg)=>`<div style="background:${bg};color:${fg};border-radius:12px;padding:10px 12px"><div style="font-size:12px;font-weight:700">${l}</div><b style="font-size:22px">${val}</b></div>`;
+    const li=(x,extra)=>`<div style="padding:4px 0;border-bottom:1px dashed var(--line)"><b>${esc(x.r.name)}</b> <span class="hint">roll ${esc(x.r.roll)}</span> · ${x.p}%${extra||""}</div>`;
+    return `<div class="card" style="box-shadow:none;margin:0 0 14px;border-left:5px solid #0b6c99">${head}
+     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:10px">${k("Students",L.length,"#f2edff","#5435c9")}${k("Class average",avg(v)+"%","#e8f7ff","#0b6c99")}${k("Highest",Math.max(...v)+"%","#e9fbf5","#0b7a64")}${k("A+ (91%+)",v.filter(x=>x>=91).length,"#eef0e3","#3b4220")}${k("Below 50%",v.filter(x=>x<50).length,"#fff6ea","#a55a00")}${k("Need attention",need.length,"#ffeef4","#b3164f")}${atts.length?k("Avg attendance",avg(atts)+"%","#f4f4f4","#333"):""}</div>
+     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">
+      <div><h4 style="margin:0 0 4px">🏅 Highest scores</h4>${top.map((x,i)=>li(x," "+["🥇","🥈","🥉","",""][i])).join("")}</div>
+      <div><h4 style="margin:0 0 4px">⚠️ Needs more attention</h4>${need.length?need.slice(0,8).map(x=>li(x,`<br><small style="color:#b3164f">${esc(x.why.join(" · "))}</small>`)).join("")+(need.length>8?`<p class="hint">and ${need.length-8} more</p>`:""):`<p class="hint">Nobody below 50%, failing a subject, under 75% attendance or slipping by 10 points. 👍</p>`}</div>
+      <div><h4 style="margin:0 0 4px">📈 Most improved${prevEx?" since "+esc(lab(prevEx)):""}</h4>${imp.length?imp.map(x=>li(x,` <b style="color:#0b7a64">▲ ${x.ch}</b>`)).join(""):`<p class="hint">${prevEx?"No earlier exam to compare yet.":"This is the first exam of the year."}</p>`}
+       <h4 style="margin:10px 0 4px">📚 Subjects (class average)</h4>${subs.map((x,i)=>`<div style="display:flex;justify-content:space-between;padding:2px 0"><span>${esc(x.n)}${i===0?" 💪":i===subs.length-1&&subs.length>1?" 🔻 weakest":""}</span><b>${x.a}%</b></div>`).join("")}</div></div></div>`; }).join(""); }
+function mineHTML(){ if(!ME||ME.role!=="teacher"||ME.office) return ""; loadSubsAll(); loadCtFees(); return classDashHTML()+myClassHTML()+engageHTML()+achMineHTML(); }
+function ctFeesHTML(){ loadCtFees(); const P=FP(), y=stuY(), cts=ME.classTeacher||[];
+  const tag={paid:'<span class="ctag perm">✓ Paid</span>',over:'<span class="ctag none" style="background:#ffe1d6;color:#a3330b">Overdue</span>',due:'<span class="ctag" style="background:#fff1d6;color:#8a5200">Due</span>',later:'<span class="hint">–</span>'};
+  return `<p class="hint">Fee status of your class, ${esc(y)}. View only: payments are recorded by the office. Amounts and receipts are not shown here.</p>`+cts.map(c=>{ const S=allStudents().filter(x=>x.cls===c&&!x.left&&!x.pending).sort((a,b)=>a.roll-b.roll);
+    return `<h3 style="margin:12px 0 6px">${esc(c)}</h3><div class="tbl-wrap"><table class="pt"><thead><tr><th>Roll</th><th>Student</th>${QS.map(q=>`<th>${q}<br><small>due ${fmtD(qDate(y,q,P.quarters[q].due))}</small></th>`).join("")}</tr></thead><tbody>
+     ${S.map(x=>`<tr><td>${esc(x.roll)}</td><td style="text-align:left"><b>${esc(x.name)}</b></td>${QS.map(q=>{ const st=feeState(CTFEES[x.sid],q), p=CTFEES[x.sid]&&CTFEES[x.sid].q&&CTFEES[x.sid].q[q]; return `<td>${tag[st]}${st==="paid"&&p.on?`<br><small class="hint">${fmtD(p.on)}</small>`:""}</td>`; }).join("")}</tr>`).join("")}</tbody></table></div>`; }).join(""); }
+document.addEventListener("click",e=>{ if(e.target.closest("[data-gofees]")){ e.preventDefault(); stu.tab="fees"; stu.sel=null; if(location.hash==="#students") renderStu(); else location.hash="students"; } });
 /* Designation shown to everyone: Principal, Coordinator, Class teacher I-A, Special educator, Subject teacher */
 function desigOf(x){ if(!x) return ""; if(x.role==="admin") return "Admin"; if(x.role==="principal") return "Principal"; const ct=(x.classTeacher||[]);
   const parts=[]; if(x.coordinator) parts.push("Coordinator"); if(ct.length) parts.push("Class teacher "+ct.join(", ")); if(x.designation&&x.designation!=="PRT") parts.push(x.designation);
@@ -1585,7 +1664,7 @@ function myStatsHTML(recs){ const me=ME, cls=[...new Set([...(me.classes||[]),..
     const ctLine=(me.classTeacher||[]).includes(c)?(()=>{ const v=R.map(pctOf).filter(x=>x!=null); return `<p style="margin:2px 0 8px">👩‍🏫 <b>Your class:</b> ${R.length} students · class average <b>${avg(v)}%</b> · ${v.filter(x=>x>=91).length} A+ · ${v.filter(x=>x<50).length} below 50%</p>`; })():"";
     return `<div class="card" style="box-shadow:none;margin:0 0 12px"><h4 style="margin:0 0 4px">${esc(c)}${(me.classTeacher||[]).includes(c)?' <span class="ctag perm">Class teacher</span>':""}</h4>${ctLine}
       ${mine.length?mine.map(m=>{ const d=oAvg!=null?r1(m.avg-oAvg):null, rank=st.indexOf(m)+1; return `<p style="margin:2px 0">📘 <b>${esc(m.sub)}</b>: class average <b>${m.avg}%</b> · ${d==null?"":d>=0?`<span style="color:#0b7a64;font-weight:800">▲ ${d} above</span>`:`<span style="color:#b3164f;font-weight:800">▼ ${Math.abs(d)} below</span>`} the other subjects of this class · ranks ${rank} of ${st.length}</p>`; }).join(""):""}
-      <div class="tbl-wrap" style="margin-top:8px"><table class="pt"><thead><tr><th>Subject</th><th>Taught by</th><th>Class average</th></tr></thead><tbody>${st.map(x=>`<tr style="${x.mine?"background:#eef0e3;font-weight:800":""}"><td style="text-align:left">${esc(x.sub)}${x.mine?" (you)":""}</td><td style="text-align:left">${esc(x.who)}</td><td><div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:8px;background:#ecebe2;border-radius:6px"><div style="width:${Math.max(2,x.avg)}%;height:8px;border-radius:6px;background:${x.mine?"#ff9933":"#4b5320"}"></div></div><b>${x.avg}%</b></div></td></tr>`).join("")}</tbody></table></div></div>`; }).join("");
+      <div class="tbl-wrap" style="margin-top:8px"><table class="pt"><thead><tr><th>Subject</th><th>Taught by</th><th>Class average</th></tr></thead><tbody>${((me.classTeacher||[]).includes(c)?st:mine.concat(oAvg!=null?[{sub:"Other subjects (average)",who:"—",avg:oAvg,mine:false}]:[])).map(x=>`<tr style="${x.mine?"background:#eef0e3;font-weight:800":""}"><td style="text-align:left">${esc(x.sub)}${x.mine?" (you)":""}</td><td style="text-align:left">${esc(x.who)}</td><td><div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:8px;background:#ecebe2;border-radius:6px"><div style="width:${Math.max(2,x.avg)}%;height:8px;border-radius:6px;background:${x.mine?"#ff9933":"#4b5320"}"></div></div><b>${x.avg}%</b></div></td></tr>`).join("")}</tbody></table></div></div>`; }).join("");
   return blocks||'<div class="empty">You have no classes yet.</div>'; }
 function renderStats(){
   const box=$("#homeStats"); if(!ME){ box.innerHTML=""; return; } startTT(); startEDUT(); loadHomeSubs(); (ME.classTeacher||[]).forEach(c=>{ if(typeof absNotes==="function") absNotes(c).then(homeRefresh); });
@@ -1603,7 +1682,8 @@ function renderStats(){
   const welcome=welcome0+`<div id="homeComing">${comingHTML()}</div>`;
   const picker=`<div style="display:flex;gap:10px;flex-wrap:wrap"><label class="f">Year<select class="in" id="sumYear">${YEARS.map(y=>`<option ${y===SUM.year?"selected":""}>${y}</option>`).join("")}</select></label>
     <label class="f">Exam<select class="in" id="sumExam">${EXAMS.map(t=>`<option value="${esc(t)}" ${t===SUM.exam?"selected":""}>${esc(lab(t))}${examsWith.includes(t)?"":" (no results yet)"}</option>`).join("")}</select></label></div>`;
-  if(ME.role==="teacher"&&!ME.office){ box.innerHTML=welcome+`<div class="sec-h" style="justify-content:space-between;flex-wrap:wrap;gap:10px"><div style="display:flex;gap:10px;align-items:center"><div class="dot" style="background:var(--violet)">📊</div><div><h3>My summary</h3><p>Your subjects compared with the other subjects of the same class. Only you can see this.</p></div></div>${picker}</div>`+myStatsHTML(recs); return; }
+  HOME_RECS=recs;
+  if(ME.role==="teacher"&&!ME.office){ box.innerHTML=welcome+`<div id="homeMine">${mineHTML()}</div>`+`<div class="sec-h" style="justify-content:space-between;flex-wrap:wrap;gap:10px"><div style="display:flex;gap:10px;align-items:center"><div class="dot" style="background:var(--violet)">📊</div><div><h3>My summary</h3><p>Your subjects compared with the other subjects of the same class. Only you can see this.</p></div></div>${picker}</div>`+myStatsHTML(recs); return; }
   box.innerHTML=welcome+`<div class="sec-h" style="justify-content:space-between;flex-wrap:wrap;gap:10px"><div style="display:flex;gap:10px;align-items:center"><div class="dot" style="background:var(--violet)">🏫</div><div><h3>School summary</h3><p>Only visible to staff. One exam at a time, so numbers are not mixed.</p></div></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap"><label class="f">Year<select class="in" id="sumYear">${YEARS.map(y=>`<option ${y===SUM.year?"selected":""}>${y}</option>`).join("")}</select></label>
     <label class="f">Exam<select class="in" id="sumExam">${EXAMS.map(t=>`<option value="${esc(t)}" ${t===SUM.exam?"selected":""}>${esc(lab(t))}${examsWith.includes(t)?"":" (no results yet)"}</option>`).join("")}</select></label></div></div>
@@ -1682,10 +1762,14 @@ document.addEventListener("click",async e=>{ if(e.target.id!=="fillAtt") return;
   const C=calData(), ex=(C.exams||[]).find(x=>normName(x.label).replace(/\s/g,"")===normName(lab(r.term)).replace(/\s/g,"")||normName(x.label).includes(normName(lab(r.term)))); const upto=ex?ex.from:todayISO();
   try{ const a=await attOf(s), days=a.daysList.filter(d=>d<upto), abs=a.abs.filter(d=>d<upto); $("#fWork").value=days.length; $("#fAtt").value=days.length-abs.length; toast(`Filled from the register: ${days.length-abs.length} of ${days.length} days (up to ${upto})`); }
   catch(err){ toast("Couldn't read the register: "+errMsg(err)); } });
+function noTeachMsg(c){ const mine=myClasses().sort((a,b)=>ALLCLS.indexOf(a)-ALLCLS.indexOf(b));
+  return `🚫 <b>You don't teach any subjects in class ${esc(c)}.</b> Marks of this class are not shown to you. Your classes: ${mine.map(x=>`<b>${esc(x)}</b>${(ME.classTeacher||[]).includes(x)?" (class teacher)":` (${esc(teachesIn(ME,x).join(", "))})`}`).join(" · ")||"none yet"}.`; }
 function applyPerms(){
   const cls=formCls(), det=canEditDetails(cls);
   /* a subject teacher in a class where she is not the class teacher sees only roll no., name and her marks */
   $("#entry").classList.toggle("subjonly",!det&&!!ME&&ME.role==="teacher");
+  const none=!det&&!!ME&&ME.role==="teacher"&&!teachesIn(ME,cls).length; $("#entry").classList.toggle("noteach",none);
+  $("#noTeachMsg").style.display=none?"":"none"; if(none) $("#noTeachMsg").innerHTML=noTeachMsg(cls);
   const fa=$("#fillAtt"); if(fa) fa.style.display=det?"":"none";
   document.querySelectorAll("#entry .card").forEach(c=>{ if(c.contains($("#marksBody"))) return; c.querySelectorAll("input,select,textarea,button").forEach(el=>el.disabled=!det); });
   document.querySelectorAll("#subjPick button,#addSubj,#newSubj").forEach(el=>el.disabled=!det);
@@ -1929,12 +2013,12 @@ let ACTING=null, unsubACT=null;
 function startTT(){ if(!db||!ME) return; startDrafts();
   if(isOffice()&&!unsubSATT) unsubSATT=onSnapshot(query(collection(db,"staffAtt"),where("year","==",YEARS[0])),sn=>{ const n={}; sn.forEach(d=>{ const x=d.data(); n[x.month]=x; }); SATT_ALL=n; if(location.hash==="#timetable") renderTT(); },()=>{});
   if(!unsubACT) unsubACT=onSnapshot(doc(db,"office","acting"),d=>{ ACTING=d.exists()?d.data():null; homeRefresh(); if(location.hash==="#timetable") renderTT(); },()=>{});
-  if(!unsubTT) unsubTT=onSnapshot(doc(db,"timetable",TT_YEAR()),d=>{ TT=d.exists()?d.data():null; if(location.hash==="#timetable") renderTT(); },()=>{});
+  if(!unsubTT) unsubTT=onSnapshot(doc(db,"timetable",TT_YEAR()),d=>{ TT=d.exists()?d.data():null; homeRefresh(); if(location.hash==="#timetable") renderTT(); },()=>{});
   if(!unsubDUTY) unsubDUTY=onSnapshot(doc(db,"duties",TT_YEAR()),d=>{ DUTY=d.exists()?d.data():null; homeRefresh(); if(location.hash==="#timetable"&&ttS.tab==="exam"&&!dutyDraft) renderTT(); },()=>{});
   if(!unsubCAL) unsubCAL=onSnapshot(doc(db,"calendar",TT_YEAR()),d=>{ CAL=d.exists()?d.data():null; homeRefresh(); if(location.hash==="#timetable"&&!calDraft) renderTT(); },()=>{});
   if(!unsubLV){ const q=isOffice()?collection(db,"leaves"):query(collection(db,"leaves"),where("email","==",ME.email));
     unsubLV=onSnapshot(q,snap=>{ const n={}; snap.forEach(d=>n[d.id]={...d.data(),id:d.id}); LEAVES=n; homeRefresh(); if(location.hash==="#timetable") renderTT(); },()=>{}); } }
-function stopTT(){ stopDrafts(); if(unsubSATT){unsubSATT();unsubSATT=null;} SATT_ALL={}; if(unsubACT){unsubACT();unsubACT=null;} ACTING=null; if(unsubDUTY){unsubDUTY();unsubDUTY=null;} DUTY=null; dutyDraft=null; ttS.tab=""; ttS.teacher=""; ttS.cls="I-A"; ttS.setup=null; if(unsubCAL){unsubCAL();unsubCAL=null;} calDraft=null; if(unsubTT){unsubTT();unsubTT=null;} if(unsubLV){unsubLV();unsubLV=null;} TT=null; LEAVES={}; SUBDOC=null; SUBPLAN=null; }
+function stopTT(){ stopDrafts(); if(typeof stopCtFees==="function") stopCtFees(); if(unsubSATT){unsubSATT();unsubSATT=null;} SATT_ALL={}; if(unsubACT){unsubACT();unsubACT=null;} ACTING=null; if(unsubDUTY){unsubDUTY();unsubDUTY=null;} DUTY=null; dutyDraft=null; ttS.tab=""; ttS.teacher=""; ttS.cls="I-A"; ttS.setup=null; if(unsubCAL){unsubCAL();unsubCAL=null;} calDraft=null; if(unsubTT){unsubTT();unsubTT=null;} if(unsubLV){unsubLV();unsubLV=null;} TT=null; LEAVES={}; SUBDOC=null; SUBPLAN=null; }
 
 function ttTable(set,cell){ // cell(dayIdx,periodIdx) -> html
   const cols=set.periods;
@@ -2421,7 +2505,9 @@ const pcell=v=>v!=null?`<span class="cell" style="background:${GCOL[grade(v)]}22
 const GRADES=["A+","A","B+","B","C+","C","D","E"];
 function aData(){
   const y=$("#aYear").value,st=$("#aStd").value,dv=$("#aDiv").value;
-  const recs=Object.values(RECORDS).filter(r=>r.year===y&&r.std===st&&r.div===dv), kids={};
+  const own=!ME||ME.role!=="teacher"||canEditDetails(st+"-"+dv), mine=own?null:teachesIn(ME,st+"-"+dv);
+  /* outside her own class a subject teacher sees only her subjects (and "overall" means over her subjects) */
+  const recs=Object.values(RECORDS).filter(r=>r.year===y&&r.std===st&&r.div===dv).map(r=>own?r:{...r,subjects:(r.subjects||[]).filter(x=>mine.includes(x.name))}), kids={};
   recs.forEach(r=>{ const k=r.roll+"|"+normName(r.name); (kids[k]=kids[k]||{key:k,roll:r.roll,name:r.name,ex:{}}).ex[r.term]=r; });
   const rows=Object.values(kids).sort((a,b)=>a.roll-b.roll);
   const subjects=[...new Set(recs.flatMap(r=>(r.subjects||[]).map(x=>x.name)))];
@@ -2825,7 +2911,7 @@ const catTag=r=>r.category?`<span class="ctag" style="background:${r.category===
 const avatar=(r,sz)=>`<div class="av" style="width:${sz}px;height:${sz}px;flex:none;border-radius:12px;overflow:hidden;display:grid;place-items:center;background:#f2edff;font-weight:900;color:#5435c9">${r.photo&&safeImg(r.photo)?`<img src="${safeImg(r.photo)}" alt="" style="width:100%;height:100%;object-fit:cover">`:esc((r.name||"?").split(" ").map(w=>w[0]).slice(0,2).join(""))}</div>`;
 
 function renderStu(){ const box=$("#stuBody"); if(!box) return; if(!ME){ box.innerHTML=`<div class="empty">Please sign in.</div>`; return; } startStu();
-  const tabs=[["find","🔎 Find a student"]].concat(isOffice()?[["adm","🎒 Admissions"],["fees","💳 Fees"]]:[],[["att","✅ Class attendance"]],isOffice()?[["staff","👩‍🏫 Staff attendance"]]:[]);
+  const tabs=[["find","🔎 Find a student"]].concat(isOffice()?[["adm","🎒 Admissions"],["fees","💳 Fees"]]:(ME.classTeacher||[]).length?[["fees","💳 Fees of my class"]]:[],[["att","✅ Class attendance"]],isOffice()?[["staff","👩‍🏫 Staff attendance"]]:[]);
   if(!tabs.some(t=>t[0]===stu.tab)) stu.tab="find";
   const head=`<div class="title-row"><h2>🧒 Students</h2><span class="hint">${esc(stuY())}${ME.office&&!isFull()?` · <b>${ME.coordinator?"Coordinator":"Acting coordinator"}</b>`:""}</span></div>
     <div class="atabs">${tabs.map(([k,l])=>`<button data-stab="${k}" class="${stu.tab===k?"on":""}">${l}</button>`).join("")}</div>`;
@@ -2833,7 +2919,7 @@ function renderStu(){ const box=$("#stuBody"); if(!box) return; if(!ME){ box.inn
   if(stu.tab==="find") body=stu.sel?profileHTML():findHTML();
   else if(stu.tab==="att") body=attHTML();
   else if(stu.tab==="adm") body=approvalsHTML()+admissionsHTML();
-  else if(stu.tab==="fees") body=feesHTML();
+  else if(stu.tab==="fees") body=isOffice()?feesHTML():ctFeesHTML();
   else body=staffAttHTML();
   box.innerHTML=head+body;
   if(stu.tab==="find"&&!stu.sel) renderStuList();
@@ -2875,7 +2961,7 @@ function profileHTML(){ const s=allStudents().find(x=>x.sid===stu.sel); if(!s){ 
   const r=s.r, d=s.doc, off=isOffice(), ct=canCT(s.cls);
   const row=(k,v)=>v?`<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line)"><span class="hint" style="min-width:130px">${k}</span><b style="font-weight:700">${v}</b></div>`:"";
   const svc=r.category==="Serving"?[r.branch==="Others"?r.branchOther||"Others":r.branch,r.rankGroup].filter(Boolean).join(" · "):"";
-  const exams=s.recs.map(x=>{ const p=pctOf(x); return `<tr><td><b>${esc(EXLONG[x.term]||x.term)}</b></td><td class="p"><b>${p!=null?p+"%":"–"}</b></td><td>${esc(grade(p)||"–")}</td><td><button class="btn sec sm" data-stucard="${esc(x.id)}">👁 Report card</button></td></tr>`; }).join("");
+  const exams=!ct?s.recs.map(x=>`<tr><td><b>${esc(EXLONG[x.term]||x.term)}</b></td><td colspan="3" style="text-align:left">${esc(mySubMarks(x))} <span class="hint">(your subjects)</span></td></tr>`).join(""):s.recs.map(x=>{ const p=pctOf(x); return `<tr><td><b>${esc(EXLONG[x.term]||x.term)}</b></td><td class="p"><b>${p!=null?p+"%":"–"}</b></td><td>${esc(grade(p)||"–")}</td><td><button class="btn sec sm" data-stucard="${esc(x.id)}">👁 Report card</button></td></tr>`; }).join("");
   const hist=(d.history||[]).slice().reverse();
   return `<div class="row" style="justify-content:flex-start;margin:0 0 10px"><button class="btn sec sm" data-stuback="1">← All students</button></div>
   <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:14px">${avatar(r,84)}<div><h3 style="margin:0">${esc(s.name)} ${s.left?'<span class="ctag none">Left the school</span>':'<span class="ctag perm">Studying</span>'}</h3>
@@ -3176,7 +3262,7 @@ if(db){ onSnapshot(collection(db,"notices"),s=>{ const n={}; s.forEach(d=>n[d.id
   getDoc(doc(db,"calendar",YEARS[0])).then(d=>{ PCAL=d.exists()?d.data():null; pubRefresh(); }).catch(()=>{}); }
 function startEDUT(){ if(!db||!ME||unsubED) return; unsubED=onSnapshot(collection(db,"eventDuties"),s=>{ const n={}; s.forEach(d=>n[d.id]=d.data()); EDUT=n; pubRefresh(); homeRefresh(); },()=>{}); }
 function stopEDUT(){ if(unsubED){unsubED();unsubED=null;} EDUT={}; }
-function pubRefresh(){ renderFlash(); if(["#notices","#achievements"].includes(location.hash)) renderPub(); }
+function pubRefresh(){ renderFlash(); homeRefresh(); if(["#notices","#achievements"].includes(location.hash)) renderPub(); }
 const ntEnd=n=>n.until||n.to||n.date||"";
 const feeNotice=()=>{ const r=typeof feeReminder==="function"?feeReminder():null; return r?[{id:"_fee",type:"General",title:r.late?`School fee for ${r.q} (${r.label}) was due on ${fmtD(r.due).replace(/<[^>]*>/g,"")}: please pay if not done`:`School fee for ${r.q} (${r.label}) is due by ${fmtD(r.due).replace(/<[^>]*>/g,"")}`,date:"",until:r.due,text:"Pay by UPI, bank transfer or at the fee counter. Parents can see the fee status and payment details in the Parents login.",pinned:true,_auto:true}]:[]; };
 const upNotices=()=>[...feeNotice(),...Object.values(NOTICES)].filter(n=>ntEnd(n)>=todayISO()||n._auto).sort((a,b)=>(b.pinned?1:0)-(a.pinned?1:0)||String(a.date||"").localeCompare(String(b.date||"")));
@@ -3237,7 +3323,10 @@ function acFormHTML(){ const a=acEdit;
    <div class="grid g3"><label class="f">Title<input class="in" id="acTitle" maxlength="120" value="${esc(a.title||"")}" placeholder="e.g. Gold at the inter-APS athletics meet"></label>
     <label class="f">Who<input class="in" id="acWho" maxlength="160" value="${esc(a.who||"")}" placeholder="e.g. Aarav K., Class IV-A"></label>
     <label class="f">Date<input class="in" type="date" id="acDate" value="${esc(a.date||todayISO())}"></label>
-    <label class="f">Category<select class="in" id="acCat">${ACATS.map(c=>`<option ${a.category===c?"selected":""}>${c}</option>`).join("")}</select></label></div>
+    <label class="f">Category<select class="in" id="acCat">${ACATS.map(c=>`<option ${a.category===c?"selected":""}>${c}</option>`).join("")}</select></label>
+    <label class="f">Student's class (optional)<select class="in" id="acCls"><option value="">—</option>${ALLCLS.map(c=>`<option ${a.cls===c?"selected":""}>${c}</option>`).join("")}</select></label>
+    <label class="f">Teacher (optional)<select class="in" id="acStaff"><option value="">—</option>${teachersList().map(t=>`<option ${a.staff===t.name?"selected":""}>${esc(t.name)}</option>`).join("")}</select></label></div>
+   <p class="hint" style="margin:0 0 6px">Class and teacher let the class teacher and the teacher see it on their own Home page.</p>
    <label class="f">A few words<textarea class="in" id="acText" maxlength="500">${esc(a.text||"")}</textarea></label>
    <div class="row" style="justify-content:flex-start"><span id="acPrev">${acPhoto&&safeImg(acPhoto)?`<img src="${safeImg(acPhoto)}" style="height:60px;border-radius:8px">`:""}</span><button class="btn sec sm" data-acph="1">📷 Photo (optional)</button>${acPhoto?`<button class="btn sec sm" data-acphrm="1">Remove photo</button>`:""}<input type="file" id="acPhotoIn" accept="image/*" hidden></div>
    <div class="row"><button class="btn sec" data-accancel="1">Cancel</button><button class="btn pri" data-acsave="1">${isFull()?"💾 Publish":"📨 Send to the principal"}</button></div></div>`; }
@@ -3260,9 +3349,9 @@ document.addEventListener("click",async e=>{ const t=e.target.closest("[data-ntn
   if(D.acnew){ acEdit={}; acPhoto=""; renderPub(); return; }
   if(D.aced){ acEdit={...ACHS[D.aced]}; acPhoto=acEdit.photo||""; renderPub(); window.scrollTo(0,0); return; }
   if(D.accancel){ acEdit=null; renderPub(); return; }
-  if(D.acph){ Object.assign(acEdit,{title:$("#acTitle").value,who:$("#acWho").value,date:$("#acDate").value,category:$("#acCat").value,text:$("#acText").value}); $("#acPhotoIn").click(); return; }
+  if(D.acph){ Object.assign(acEdit,{title:$("#acTitle").value,who:$("#acWho").value,date:$("#acDate").value,category:$("#acCat").value,text:$("#acText").value,cls:$("#acCls").value,staff:$("#acStaff").value}); $("#acPhotoIn").click(); return; }
   if(D.acphrm){ acPhoto=""; renderPub(); return; }
-  if(D.acsave){ const a={title:$("#acTitle").value.trim().slice(0,120),who:$("#acWho").value.trim().slice(0,160),date:$("#acDate").value||todayISO(),category:$("#acCat").value,text:$("#acText").value.trim().slice(0,500),photo:acPhoto||"",updatedAt:new Date().toISOString(),updatedBy:ME.email};
+  if(D.acsave){ const a={title:$("#acTitle").value.trim().slice(0,120),who:$("#acWho").value.trim().slice(0,160),date:$("#acDate").value||todayISO(),category:$("#acCat").value,cls:$("#acCls").value,staff:$("#acStaff").value,text:$("#acText").value.trim().slice(0,500),photo:acPhoto||"",updatedAt:new Date().toISOString(),updatedBy:ME.email};
     if(!a.title) return toast("Please type a title"); const id=acEdit.id||("a"+Date.now().toString(36));
     await pubSet("achievements",id,a,`Achievement: ${a.title}`); acEdit=null; acPhoto=""; toast("Achievement published ✓"); renderPub(); return; }
   if(D.acrm){ const a=ACHS[D.acrm]; confirmBox("Remove this achievement?",a.title,"Remove",async()=>{ try{ await pubSet("achievements",a.id,{__delete:true},`Remove achievement: ${a.title}`); toast("Removed"); }catch(err){ toast("Couldn't remove: "+errMsg(err)); } }); return; }

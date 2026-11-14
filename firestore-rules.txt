@@ -227,7 +227,8 @@ service cloud.firestore {
     //      (year, class, roll, name and date of birth); nobody can browse. The office records payments. ----
     match /fees/{key} {
       allow get: if true;
-      allow list: if isOffice();
+      // The class teacher may list (view) the fee status of her own class only.
+      allow list: if isOffice() || (isTeacher() && resource.data.get('cls', '') in me().get('classTeacher', []));
       allow create, update: if isOffice() && request.resource.data.year is string && request.resource.data.q is map;
       allow delete: if isOffice();
     }
