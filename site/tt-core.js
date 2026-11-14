@@ -292,3 +292,25 @@ export function planExams({ start, end, days, holidays, subjects, gap = true }) 
     return { key: x.key, label: x.label, from: dates[0], to: dates[dates.length - 1], sheet };
   });
 }
+
+/* Fill every period a class would otherwise have with no teacher.
+   Each class gets "Library / Activity" with a teacher who is free then: its class teacher first,
+   then whoever has the lightest week. The coordinator is kept free for substitutions. */
+export function fillGaps({ grid, staff, ctOf, keepFree = [], maxLoad = 34, label = "Library / Activity" }) {
+  const busy = {}, load = {};
+  for (const row of Object.values(grid)) row.forEach((x, k) => { if (x && x.t && !x.fixed) { (busy[x.t] = busy[x.t] || new Set()).add(k); load[x.t] = (load[x.t] || 0) + 1; } });
+  const pool = staff.filter(t => t.role === "teacher" && !keepFree.includes(t.email));
+  let filled = 0, open = 0;
+  for (const [c, row] of Object.entries(grid)) {
+    row.forEach((x, k) => {
+      if (x) return;
+      const free = t => !(busy[t.email] && busy[t.email].has(k)) && (load[t.email] || 0) < maxLoad;
+      const ct = pool.find(t => t.email === ctOf(c) && free(t));
+      const pick = ct || pool.filter(free).sort((a, b) => (load[a.email] || 0) - (load[b.email] || 0))[0];
+      if (!pick) { open++; return; }
+      row[k] = { s: label, t: pick.email, filler: true };
+      (busy[pick.email] = busy[pick.email] || new Set()).add(k); load[pick.email] = (load[pick.email] || 0) + 1; filled++;
+    });
+  }
+  return { grid, filled, open };
+}
