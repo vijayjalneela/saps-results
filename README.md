@@ -1,4 +1,4 @@
-# Shivneri Army Public School – Results Portal
+# Demo School (Ulsoor Lake Army Area, Bengaluru) – School Results Portal
 
 Teacher data entry and parent/student result lookup.
 
