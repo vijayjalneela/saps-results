@@ -3876,10 +3876,10 @@ document.addEventListener("click",async e=>{ if(!PDATA) return;
 let GVS={}, unsubGV=[];
 function startGrievances(){ if(!db||!ME||unsubGV.length) return; const qs=[];
   if(isPrinRole()) qs.push(query(collection(db,"grievances"),where("year","==",stuY())));
-  else { if(isCoordMe()) qs.push(query(collection(db,"grievances"),where("to","array-contains","coord"),where("year","==",stuY())));
+  else { if(isCoordMe()) qs.push(query(collection(db,"grievances"),where("to","array-contains","coord")));
     const ct=ME.classTeacher||[]; if(ct.length) qs.push(query(collection(db,"grievances"),where("to","array-contains","ct"),where("cls","in",ct.slice(0,10)),where("year","==",stuY()))); }
   const parts=qs.map(()=>({}));
-  qs.forEach((q,i)=>unsubGV.push(onSnapshot(q,sn=>{ const m={}; sn.forEach(d=>m[d.id]={...d.data(),id:d.id}); parts[i]=m; GVS=Object.assign({},...parts); homeRefresh(); const g=$("#dashGV"); if(g) g.innerHTML=gvStaffHTML(); },()=>{}))); }
+  qs.forEach((q,i)=>unsubGV.push(onSnapshot(q,sn=>{ const m={}; sn.forEach(d=>{ const x=d.data(); if(x.year===stuY()) m[d.id]={...x,id:d.id}; }); parts[i]=m; GVS=Object.assign({},...parts); homeRefresh(); const g=$("#dashGV"); if(g) g.innerHTML=gvStaffHTML(); },err=>console.warn("Parent messages could not load:",err&&err.message)))); }
 function stopGrievances(){ unsubGV.forEach(u=>u()); unsubGV=[]; GVS={}; }
 function gvStaffHTML(){ const L=Object.values(GVS).sort((a,b)=>(a.status==="Resolved")-(b.status==="Resolved")||String(b.updatedAt||b.at).localeCompare(String(a.updatedAt||a.at))); if(!L.length) return "";
   const open=L.filter(g=>g.status!=="Resolved");
