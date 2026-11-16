@@ -284,7 +284,7 @@ service cloud.firestore {
     function isPrincipalRole() { return isStaffMember() && me().role == 'principal'; }
     function okThread(old, nw) {
       return nw is list && nw.size() <= 200 && (nw.size() == old.size() || (nw.size() == old.size() + 1
-        && nw[0:old.size()] == old && nw[old.size()].by == myEmail()
+        && nw.hasAll(old) && nw[old.size()].by == myEmail()
         && nw[old.size()].text is string && nw[old.size()].text.size() <= 1000));
     }
     match /staffCounsel/{id} {
@@ -354,7 +354,8 @@ service cloud.firestore {
       // Replies are only ever added; the parent may add one note at a time, staff may also change the status.
       allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['replies', 'status', 'updatedAt'])
         && request.resource.data.replies.size() <= 40
-        && request.resource.data.replies[0:resource.data.replies.size()] == resource.data.replies
+        && request.resource.data.replies is list && request.resource.data.replies.size() >= resource.data.replies.size()
+        && request.resource.data.replies.hasAll(resource.data.replies)
         && (gvStaff(resource.data)
             || (resource.data.status != 'Resolved' && request.resource.data.status == resource.data.status
                 && request.resource.data.replies.size() == resource.data.replies.size() + 1
