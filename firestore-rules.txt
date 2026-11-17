@@ -364,6 +364,46 @@ service cloud.firestore {
       allow delete: if isPrincipalRole();
     }
 
+    // ---- Homework diary: one document per class per day. Parents open it by its exact id (class + date). ----
+    match /diary/{id} {
+      allow get: if true;
+      allow list: if anyStaff();
+      allow create, update: if okStu(request.resource.data)
+        && id == request.resource.data.year + '_' + cls(request.resource.data) + '_' + request.resource.data.date
+        && request.resource.data.date is string && request.resource.data.items is map && request.resource.data.items.size() <= 15
+        && (isOffice() || teachesCard(request.resource.data));
+      allow delete: if isOffice();
+    }
+
+    // ---- Circulars parents must confirm: one 'read' record per child per notice, never changed afterwards ----
+    match /acks/{id} {
+      allow get: if true;
+      allow list: if anyStaff();
+      allow create: if request.resource.data.keys().hasOnly(['notice', 'year', 'std', 'div', 'cls', 'roll', 'name', 'at'])
+        && request.resource.data.notice is string
+        && id.matches(request.resource.data.notice + '_[0-9a-f]{64}')
+        && get(/databases/$(database)/documents/notices/$(request.resource.data.notice)).data.get('ack', false) == true
+        && request.resource.data.name is string && request.resource.data.name.size() <= 80
+        && request.resource.data.cls == request.resource.data.std + '-' + request.resource.data.div;
+      allow update: if false;
+      allow delete: if isPrincipal();
+    }
+
+    // ---- Syllabus plans (office) and chapters finished (teachers of that class, or the office) ----
+    match /syllabus/{id} {
+      allow read: if anyStaff();
+      allow create, update: if isOffice() && request.resource.data.chapters is list && request.resource.data.chapters.size() <= 60
+        && id == request.resource.data.year + '_' + request.resource.data.std + '_' + request.resource.data.subj;
+      allow delete: if isOffice();
+    }
+    match /sylProg/{id} {
+      allow read: if anyStaff();
+      allow create, update: if okStu(request.resource.data) && request.resource.data.done is map
+        && id == request.resource.data.year + '_' + cls(request.resource.data) + '_' + request.resource.data.subj
+        && (isOffice() || teachesCard(request.resource.data));
+      allow delete: if isOffice();
+    }
+
     // ---- Home page: school photo and principal's message (principal or admin) ----
     match /config/{id} {
       allow read: if true;

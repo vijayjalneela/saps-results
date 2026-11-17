@@ -7,6 +7,12 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Demo School, Ulsoor Lake Army Area</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0e1a2b">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Demo School">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700;800&family=Baloo+2:wght@600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -557,6 +563,25 @@ nav.tabs::-webkit-scrollbar{display:none}
 footer{background:var(--navy);color:#c9cfbd!important;padding:22px 16px!important;margin-top:30px;border-top:4px solid transparent;border-image:linear-gradient(90deg,#ff9933 0 33.3%,#fff 33.3% 66.6%,#138808 66.6%) 1}
 
 
+
+
+.install-chip{position:fixed;left:10px;right:10px;bottom:10px;z-index:80;display:flex;gap:10px;align-items:center;background:#fff;border:1px solid #e3dccb;border-radius:16px;padding:10px 12px;box-shadow:0 12px 34px rgba(0,0,0,.22);animation:wIn .35s ease}
+.install-chip img{width:42px;height:42px;border-radius:10px}
+@media print{.install-chip{display:none!important}}
+/* classroom */
+.hw-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));gap:10px}
+.hw-card{border:1px solid var(--line);border-radius:14px;padding:10px 12px;background:#fff}
+.hw-card.on{border-color:#c9dcb0;background:#fbfdf7}
+.hw-h{display:flex;justify-content:space-between;gap:8px;margin:0 0 6px}
+.hw-card textarea{min-height:70px;width:100%}
+.syl-bar{position:relative;height:10px;border-radius:6px;background:#eceadf;margin:10px 0}
+.syl-bar span{position:absolute;left:0;top:0;bottom:0;border-radius:6px}
+.syl-bar i{position:absolute;top:-4px;bottom:-4px;width:3px;background:#1b2a17;border-radius:2px}
+.syl-list{display:grid;gap:4px}
+.syl-ch{display:flex;gap:10px;align-items:center;padding:6px 8px;border-radius:10px;cursor:pointer}
+.syl-ch:hover{background:#f6f3ea}.syl-ch.done{color:#42613a}.syl-ch.due:not(.done){background:#fff6ea}
+.syl-ch input{width:18px;height:18px}
+.ack-box{margin-top:10px;background:#f2fbf6;border:1px solid #cfe9db;border-radius:12px;padding:10px 12px}
 /* morning briefing */
 .brief{border-radius:18px;padding:18px 20px;margin:0 0 14px;background:linear-gradient(120deg,#fffdf7,#f6f1e4);border:1px solid #eadfc4;box-shadow:0 6px 20px rgba(60,50,20,.06)}
 .brief-hd{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
@@ -593,6 +618,7 @@ footer{background:var(--navy);color:#c9cfbd!important;padding:22px 16px!importan
       <a href="#analysis" data-v="analysis" class="staff-only">Analysis</a>
       <a href="#students" data-v="students" class="staff-only">Students</a>
       <a href="#timetable" data-v="timetable" class="staff-only">Timetable</a>
+      <a href="#classroom" data-v="classroom" class="staff-only">📚 Classroom</a>
       <a href="#counsel" data-v="counsel" class="staff-only" id="navCounsel">💬 Counselling</a>
       <a href="#admin" data-v="admin" class="admin-only" id="navAdmin">Admin</a>
     </nav>
@@ -886,6 +912,7 @@ footer{background:var(--navy);color:#c9cfbd!important;padding:22px 16px!importan
 <section class="view" id="v-students"><div class="card" id="stuBody"></div></section>
 
 <section class="view" id="v-timetable"><div class="card" id="ttBody"></div></section>
+<section class="view" id="v-classroom"><div class="card" id="crBody"></div></section>
 <section class="view" id="v-counsel"><div class="card" id="csBody"></div></section>
 
 <!-- ================= ANALYSIS ================= -->
@@ -1160,7 +1187,7 @@ function route(){
   if(v==="dashboard"){ location.hash="home"; return; }
   if(v==="analysis"&&ME&&isOffice()&&!isFull()){ location.hash="home"; return; }
   if((v==="teacher"||v==="principal")&&ME&&isFull()){ location.hash="home"; return; }
-  const name=["home","teacher","principal","coordinator","adminlogin","results","admin","analysis","dashboard","timetable","students","school","privacy","notices","achievements","counsel"].includes(v)?v:"home"; if((name==="teacher"||name==="coordinator")&&ME&&ME.coordinator&&!ME.acting){ location.hash="students"; return; } if(["school","privacy","notices","achievements"].includes(name)) setTimeout(renderPub,0); if(name==="students"){ if(!ME){ if(document.body.classList.contains("authwait")) return; location.hash="teacher"; return; } startTT(); setTimeout(renderStu,0); } if(name==="counsel"){ if(!ME){ if(document.body.classList.contains("authwait")) return; location.hash="teacher"; return; } startCounsel(); setTimeout(renderCounsel,0); } if(name==="timetable"){ if(!ME){ location.hash="teacher"; return; } startTT(); setTimeout(renderTT,0); } if(name==="dashboard") setTimeout(()=>renderDash(),0); if(name==="analysis") setTimeout(renderAnalysis,0);
+  const name=["home","teacher","principal","coordinator","adminlogin","results","admin","analysis","dashboard","timetable","students","school","privacy","notices","achievements","counsel","classroom"].includes(v)?v:"home"; if((name==="teacher"||name==="coordinator")&&ME&&ME.coordinator&&!ME.acting){ location.hash="students"; return; } if(["school","privacy","notices","achievements"].includes(name)) setTimeout(renderPub,0); if(name==="students"){ if(!ME){ if(document.body.classList.contains("authwait")) return; location.hash="teacher"; return; } startTT(); setTimeout(renderStu,0); } if(name==="classroom"){ if(!ME){ if(document.body.classList.contains("authwait")) return; location.hash="teacher"; return; } CR.syl=null; CR.diary={}; setTimeout(renderClassroom,0); } if(name==="counsel"){ if(!ME){ if(document.body.classList.contains("authwait")) return; location.hash="teacher"; return; } startCounsel(); setTimeout(renderCounsel,0); } if(name==="timetable"){ if(!ME){ location.hash="teacher"; return; } startTT(); setTimeout(renderTT,0); } if(name==="dashboard") setTimeout(()=>renderDash(),0); if(name==="analysis") setTimeout(renderAnalysis,0);
   if(name==="teacher"||name==="principal"||name==="coordinator"||name==="adminlogin") setLoginMode(name==="adminlogin"?"admin":name);
   if(name==="adminlogin"&&ME&&ME.role==="admin"){ location.hash="admin"; return; }
   const view=(name==="principal"||name==="coordinator"||name==="adminlogin")?"teacher":["school","privacy","notices","achievements"].includes(name)?"pub":name;
@@ -1765,7 +1792,7 @@ let BRIEF_ON=null;
 async function loadBrief(){ if(!ME||!db) return; const t=todayISO(), m=monthOf(t), key=ME.email+"|"+t; if(BRIEF_ON===key) return; BRIEF_ON=key;
   const cls=isOffice()?ALLCLS:(ME.classTeacher||[]);
   try{ if(isOffice()||cls.length) startStu(); }catch(_){}
-  await Promise.all([loadHomeSubs().catch(()=>{}),
+  await Promise.all([loadHomeSubs().catch(()=>{}),crLoadSyl().catch(()=>{}),
     ...cls.map(async c=>{ const k=attKey(c,m); if(k in ATTM) return; try{ const x=await getDoc(doc(db,"attendance",k)); ATTM[k]=x.exists()?x.data():null; }catch(_){ ATTM[k]=null; } }),
     (async()=>{ if(!isOffice()) return; const sk=`${YEARS[0]}_${m}`; if(sk in SATTM) return; try{ const x=await getDoc(doc(db,"staffAtt",sk)); SATTM[sk]=x.exists()?x.data():null; }catch(_){ SATTM[sk]=null; } })()]);
   if(BRIEF_ON!==key||!ME) return; refreshBrief(); setTimeout(()=>{ if(BRIEF_ON!==key||!ME) return; refreshBrief(); maybeWelcome(); },900); }
@@ -1827,6 +1854,9 @@ function briefData(){ if(!ME) return null; const t=todayISO(), m=monthOf(t), me=
     const rm=Object.values(DRAFTS||{}).filter(d=>d.by===me); if(rm.length){ const o=Math.max(0,...rm.map(d=>daysAgo(d.at)||0)); info("⏳",`${rm.length} request${rm.length>1?"s":""} you sent ${rm.length>1?"are":"is"} waiting for approval${o?` ${agoTxt(o)}`:""}.`); }
     if(ME.joined&&mdOf(ME.joined)===mdOf(t)&&String(ME.joined).slice(0,4)<t.slice(0,4)) good("🌟",`Happy work anniversary! You complete ${+t.slice(0,4)-+String(ME.joined).slice(0,4)} year(s) with the school today.`);
   }
+  /* syllabus plan */
+  if(isOffice()){ const sb=sylBehind(); if(sb.length) warn("📖",`<b>${sb.length} class-subject${sb.length>1?"s are":" is"}</b> 2 or more chapters behind the syllabus plan: ${sb.slice(0,3).map(x=>esc(x.c+" "+x.s)).join(", ")}${sb.length>3?"…":""}. <a href="#classroom" data-briefgo="syl">See →</a>`); }
+  else if(CR.syl){ crClasses().forEach(c=>teachesIn(ME,c).forEach(s=>{ const st=sylStat(c,s); if(st.total&&st.behind>=1) (st.behind>=2?warn:info)("📖",`${esc(c)} ${esc(s)} is ${st.behind} chapter${st.behind>1?"s":""} behind the plan (${st.done} of ${st.total} done). <a href="#classroom" data-briefgo="syl">Update →</a>`); })); }
   /* everyone on staff: open parent messages */
   const gv=Object.values(typeof GVS!=="undefined"?GVS:{}).filter(g=>g.status!=="Resolved"&&!((g.replies||[]).length&&(g.replies[g.replies.length-1].by!=="parent")));
   if(gv.length){ const o=Math.max(0,...gv.map(g=>daysAgo(g.updatedAt||g.at)||0)); (o>=2?warn:info)("🗣",`<b>${gv.length} parent message${gv.length>1?"s":""}</b> waiting for a reply${o?`, the oldest ${agoTxt(o)}`:""}. <a href="#home" data-briefgo="gv">Open →</a>`); }
@@ -1852,7 +1882,127 @@ document.addEventListener("click",e=>{ if(e.target.id==="welcomeGo"||e.target.id
   if(k==="gv"){ e.preventDefault(); const x=$("#dashGV"); if(x){ const d=x.querySelector("details"); if(d) d.open=true; x.scrollIntoView({behavior:"smooth",block:"start"}); } return; }
   if(k==="today"&&typeof ttS!=="undefined"){ ttS.tab="today"; ttS.date=todayISO(); }
   if(k==="leave"&&typeof ttS!=="undefined"){ ttS.tab="leave"; }
-  if(k==="att"&&typeof stu!=="undefined"){ stu.tab="att"; } });
+  if(k==="att"&&typeof stu!=="undefined"){ stu.tab="att"; }
+  if(k==="syl"){ CR.tab="syl"; if(location.hash==="#classroom") renderClassroom(); } });
+
+/* ================= Install as an app (phone home screen) ================= */
+let INSTALL_EVT=null;
+const isStandalone=()=>{ try{ return matchMedia("(display-mode: standalone)").matches||navigator.standalone===true; }catch(_){ return false; } };
+const isIOS=()=>/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+if("serviceWorker" in navigator&&/github\.io$|\.in$|\.com$|\.org$/.test(location.hostname)) addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+addEventListener("beforeinstallprompt",e=>{ e.preventDefault(); INSTALL_EVT=e; showInstallChip(); });
+addEventListener("appinstalled",()=>{ INSTALL_EVT=null; const c=document.getElementById("installChip"); if(c) c.remove(); toast("✅ Installed. Open Demo School from your home screen."); });
+function showInstallChip(){ if(isStandalone()||document.getElementById("installChip")) return; let off=false; try{ off=localStorage.getItem("saps_noinstall")===todayISO().slice(0,7); }catch(_){}
+  if(off||!(INSTALL_EVT||isIOS())||innerWidth>900) return;
+  const c=document.createElement("div"); c.id="installChip"; c.className="install-chip"; c.innerHTML=`<img src="icon-192.png" alt=""><div style="flex:1"><b>Get the Demo School app</b><br><small>Opens straight from your home screen. Free, no app store.</small></div><button class="btn pri sm" id="installGo">Install</button><button class="btn sec sm" id="installNo" aria-label="Not now">✕</button>`; document.body.appendChild(c); }
+document.addEventListener("click",async e=>{ if(e.target.id==="installNo"){ try{ localStorage.setItem("saps_noinstall",todayISO().slice(0,7)); }catch(_){} const c=document.getElementById("installChip"); if(c) c.remove(); return; }
+  if(e.target.id==="installGo"||e.target.closest("[data-install]")){ e.preventDefault(); if(INSTALL_EVT){ INSTALL_EVT.prompt(); try{ await INSTALL_EVT.userChoice; }catch(_){} INSTALL_EVT=null; const c=document.getElementById("installChip"); if(c) c.remove(); return; }
+    confirmBox("📲 Add Demo School to your home screen", isIOS()?"In Safari, tap the Share button (the square with an arrow ↑) at the bottom, then tap “Add to Home Screen” and “Add”.":"In Chrome, tap the ⋮ menu at the top right, then “Add to Home screen” or “Install app”.","OK",()=>{}); } });
+setTimeout(showInstallChip,4000);
+/* ================= Circulars that parents must confirm (Read ✓) ================= */
+let ACKS={};
+const ackNotices=()=>{ const t=todayISO(); return Object.values(NOTICES||{}).filter(n=>n.ack&&!n._auto&&(!n.until||n.until>=t)); };
+async function loadParentAcks(){ if(!PDATA||!db) return; const q=PDATA.q; const k=await childKey("ak",q); if(!k){ PDATA.acks={}; return; } PDATA.ak=k; const A={};
+  await Promise.all(ackNotices().map(async n=>{ try{ const x=await getDoc(doc(db,"acks",n.id+"_"+k)); A[n.id]=x.exists()?x.data().at:null; }catch(_){ A[n.id]=null; } }));
+  PDATA.acks=A; renderParentDash(); }
+function parentAckHTML(){ const L=ackNotices(); if(!L.length||!PDATA.acks) return "";
+  return `<div class="card" style="box-shadow:none;margin:0 0 12px;border-left:5px solid #c4610d;background:#fffaf2"><h3 style="margin:0 0 6px">✍️ Circulars to confirm</h3><p class="hint" style="margin:0 0 6px">The school asks you to confirm that you have read these.</p>
+   ${L.map(n=>{ const at=PDATA.acks[n.id]; return `<div style="padding:10px 0;border-top:1px dashed var(--line)"><b>${ntIcon(n.type)} ${esc(n.title)}</b>${n.date?` <span class="hint">· ${fmtD(n.date)}</span>`:""}<div style="white-space:pre-line;margin:4px 0 8px">${esc(n.text||"")}</div>
+     ${at?`<span style="color:#0b7a64;font-weight:800">✓ You confirmed on ${fmtD(String(at).slice(0,10))}</span>`:`<button class="btn pri sm" data-ackgo="${esc(n.id)}">✓ I have read this</button>`}</div>`; }).join("")}</div>`; }
+document.addEventListener("click",async e=>{ const b=e.target.closest("[data-ackgo]"); if(!b||!PDATA||!PDATA.ak) return; const n=NOTICES[b.dataset.ackgo]; if(!n) return; const q=PDATA.q;
+  b.disabled=true; try{ const at=new Date().toISOString(); await setDoc(doc(db,"acks",n.id+"_"+PDATA.ak),{notice:n.id,year:q.year,std:q.std,div:q.div,cls:q.std+"-"+q.div,roll:+q.roll,name:capName(q.name).slice(0,80),at}); PDATA.acks[n.id]=at; toast("✅ Thank you. The school can see that you have read it."); renderParentDash(); }catch(err){ b.disabled=false; toast("Couldn't send: "+errMsg(err)); } });
+/* staff: who has confirmed */
+async function loadAcks(nid,force){ if(!db||!ME) return; if(ACKS[nid]&&!force) return; ACKS[nid]=ACKS[nid]||null; try{ const sn=await getDocs(query(collection(db,"acks"),where("notice","==",nid))); const L=[]; sn.forEach(d=>L.push(d.data())); ACKS[nid]=L; }catch(err){ ACKS[nid]=[]; } pubRefresh(); }
+function ackStaffHTML(n){ if(!ME||!n.ack) return ""; const L=ACKS[n.id]; if(L===undefined){ loadAcks(n.id); } if(!L) return `<div class="ack-box"><b>✍️ Read ✓</b> <span class="hint">Loading…</span></div>`;
+  const cls=isOffice()?ALLCLS:(ME.classTeacher||[]); if(!cls.length) return `<div class="ack-box"><b>✍️ Read ✓ by ${L.length} parent${L.length===1?"":"s"}</b></div>`;
+  const S=allStudents().filter(s=>!s.left&&!s.pending), rows=cls.map(c=>{ const kids=S.filter(s=>s.cls===c), got=new Set(L.filter(a=>a.cls===c).map(a=>+a.roll)); return {c,n:kids.length,read:kids.filter(s=>got.has(+s.roll)).length,missing:kids.filter(s=>!got.has(+s.roll))}; }).filter(r=>r.n);
+  const tot=rows.reduce((a,r)=>a+r.n,0), rd=rows.reduce((a,r)=>a+r.read,0), pct=tot?Math.round(rd/tot*100):0;
+  return `<div class="ack-box"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><b>✍️ Read ✓ by ${rd} of ${tot} parents (${pct}%)</b><button class="btn sec sm" data-ackre="${esc(n.id)}">🔄 Refresh</button></div>
+   <div class="syl-bar" style="margin:8px 0"><span style="width:${pct}%;background:#0b7a64"></span></div>
+   <details><summary style="cursor:pointer" class="hint">${isOffice()?"By class, and who hasn't confirmed yet":"Who hasn't confirmed yet"}</summary>${rows.map(r=>`<div style="padding:6px 0;border-top:1px dashed var(--line)"><b>${esc(r.c)}</b>: ${r.read} of ${r.n}${r.missing.length?` <span class="hint">· not yet: ${r.missing.slice(0,40).map(s=>`${esc(s.name)} (${s.roll})`).join(", ")}${r.missing.length>40?"…":""}</span>`:" ✓ all read"}</div>`).join("")}</details></div>`; }
+document.addEventListener("click",e=>{ const b=e.target.closest("[data-ackre]"); if(b) loadAcks(b.dataset.ackre,true); });
+/* ================= Classroom: homework diary + syllabus tracker ================= */
+let CR={tab:"hw",cls:"",date:"",syl:null,prog:null,diary:{},sylOpen:"",sylEdit:""};
+const MONTHS=["Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar"];
+const ymOf=(y,mi)=>{ const y0=+String(y).slice(0,4); const m=MONTHS[mi]; const idx=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"].indexOf(m)+1; return `${idx<=3?y0+1:y0}-${String(idx).padStart(2,"0")}`; };
+const monLabel=ym=>{ const [Y,M]=String(ym).split("-"); return ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+M-1]||ym; };
+function crClasses(){ if(!ME) return []; return isOffice()?ALLCLS:myClasses().sort((a,b)=>ALLCLS.indexOf(a)-ALLCLS.indexOf(b)); }
+function crSubjs(c){ if(!ME) return []; if(isOffice()||(ME.classTeacher||[]).includes(c)){ return [...new Set(Object.values(STAFF).flatMap(t=>teachesIn(t,c)))].sort(); } return teachesIn(ME,c); }
+function subjsOfStd(std){ return [...new Set(Object.values(STAFF).flatMap(t=>(t.classes||[]).filter(c=>c.split("-")[0]===std).flatMap(c=>teachesIn(t,c))))].sort(); }
+async function crLoadSyl(force){ if(!db||!ME) return; if(CR.syl&&!force) return; const y=stuY(); const S={}, P={};
+  try{ const [a,b]=await Promise.all([getDocs(query(collection(db,"syllabus"),where("year","==",y))),getDocs(query(collection(db,"sylProg"),where("year","==",y)))]); a.forEach(d=>S[d.id]=d.data()); b.forEach(d=>P[d.id]=d.data()); }catch(err){ toast("Couldn't load the syllabus: "+errMsg(err)); }
+  CR.syl=S; CR.prog=P; if(location.hash==="#classroom") renderClassroom(); homeRefresh(); }
+async function crLoadDiary(c,d){ const k=`${stuY()}_${c}_${d}`; if(k in CR.diary) return; CR.diary[k]=undefined; try{ const x=await getDoc(doc(db,"diary",k)); CR.diary[k]=x.exists()?x.data():null; }catch(_){ CR.diary[k]=null; } if(location.hash==="#classroom") renderClassroom(); }
+function sylStat(c,subj){ const y=stuY(), std=c.split("-")[0], S=(CR.syl||{})[`${y}_${std}_${subj}`], P=(CR.prog||{})[`${y}_${c}_${subj}`], ch=(S&&S.chapters)||[], done=Object.keys((P&&P.done)||{}).filter(i=>ch[+i]).length, cur=todayISO().slice(0,7), due=ch.filter(x=>x.m&&x.m<=cur).length;
+  return {ch,done,due,total:ch.length,pct:ch.length?Math.round(done/ch.length*100):null,tpct:ch.length?Math.round(due/ch.length*100):null,behind:Math.max(0,due-done),P}; }
+function renderClassroom(){ const box=$("#crBody"); if(!box) return; if(!ME){ box.innerHTML=""; return; }
+  const C=crClasses(); if(!C.length){ box.innerHTML=`<div class="empty">You have no classes yet. The admin adds your classes and subjects on the staff list.</div>`; return; }
+  if(!C.includes(CR.cls)) CR.cls=(ME.classTeacher||[])[0]&&C.includes(ME.classTeacher[0])?ME.classTeacher[0]:C[0]; if(!CR.date) CR.date=todayISO();
+  const tabs=[["hw","📒 Homework diary"],["syl","📖 Syllabus progress"]];
+  box.innerHTML=`<div class="page-title"><div><h2>📚 Classroom</h2><p>${isOffice()?"Homework given and syllabus covered in every class.":"Post homework for your classes and tick off chapters as you finish them."}</p></div></div>
+   <div class="atabs">${tabs.map(([k,l])=>`<button data-crtab="${k}" class="${CR.tab===k?"on":""}">${l}</button>`).join("")}</div><div id="crOut" style="margin-top:12px">${CR.tab==="syl"?sylHTML():hwHTML()}</div>`;
+  if(CR.tab==="hw") crLoadDiary(CR.cls,CR.date); else crLoadSyl(); }
+function hwHTML(){ const C=crClasses(), c=CR.cls, d=CR.date, k=`${stuY()}_${c}_${d}`, D=CR.diary[k], items=(D&&D.items)||{}, mine=isOffice()?crSubjs(c):teachesIn(ME,c), all=[...new Set([...crSubjs(c),...Object.keys(items)])].sort();
+  const pick=`<div class="apick" style="align-items:flex-end;margin:0 0 12px"><label class="f">Class<select class="in" id="crCls">${C.map(x=>`<option ${x===c?"selected":""}>${esc(x)}</option>`).join("")}</select></label>
+   <label class="f">Date<input class="in" type="date" id="crDate" value="${esc(d)}" max="${esc(addDaysISO(todayISO(),7))}"></label>
+   <span class="hint">${d===todayISO()?"Today":fmtD(d)} · parents of ${esc(c)} see this on their child's page.</span></div>`;
+  if(D===undefined) return pick+`<p class="hint">Loading…</p>`;
+  const canEdit=s=>isOffice()||mine.includes(s);
+  return pick+`<div class="hw-grid">${all.length?all.map(s=>{ const it=items[s];
+    return `<div class="hw-card ${it&&it.text?"on":""}"><div class="hw-h"><b>${esc(s)}</b>${it&&it.byName?`<span class="hint">by ${esc(it.byName)}</span>`:""}</div>
+     ${canEdit(s)?`<textarea class="in" data-hwtext="${esc(s)}" maxlength="400" placeholder="e.g. Learn the poem on page 24. Write 5 sentences about your family.">${esc((it&&it.text)||"")}</textarea>`:`<div style="white-space:pre-line">${it&&it.text?esc(it.text):'<span class="hint">No homework posted.</span>'}</div>`}</div>`; }).join(""):`<div class="empty">No subjects found for ${esc(c)}.</div>`}</div>
+   ${all.some(canEdit)?`<div class="row" style="justify-content:flex-start;margin-top:10px"><button class="btn pri" id="hwSave">💾 Save homework for ${esc(c)}</button><span class="hint">Keep it short. Leave a box empty if there is no homework.</span></div>`:""}`; }
+function sylHTML(){ if(!CR.syl) return `<p class="hint">Loading…</p>`; const y=stuY();
+  if(isOffice()){ const subs=[...new Set(ALLCLS.flatMap(c=>crSubjs(c)))].sort();
+    const cell=(c,s)=>{ if(!crSubjs(c).includes(s)) return `<td class="hint">–</td>`; const st=sylStat(c,s); if(!st.total) return `<td class="hint" data-sylopen="${esc(c+"|"+s)}" style="cursor:pointer">no plan</td>`;
+      const col=st.behind>=2?"#b3164f":st.behind===1?"#a55a00":"#0b7a64"; return `<td data-sylopen="${esc(c+"|"+s)}" style="cursor:pointer"><b style="color:${col}">${st.pct}%</b><br><small class="hint">target ${st.tpct}%</small></td>`; };
+    const behind=[]; ALLCLS.forEach(c=>crSubjs(c).forEach(s=>{ const st=sylStat(c,s); if(st.total&&st.behind>=2) behind.push(`${c} ${s} (${st.behind} chapters behind)`); }));
+    const stds=[...new Set(ALLCLS.map(c=>c.split("-")[0]))];
+    return `${behind.length?`<div class="banner on warn" style="margin:0 0 10px">⚠️ Behind the plan: ${esc(behind.slice(0,8).join(", "))}${behind.length>8?"…":""}</div>`:`<div class="banner on" style="margin:0 0 10px;background:#e9f8f1;color:#0b7a64">✅ Every class is on track with its syllabus plan.</div>`}
+     <p class="hint" style="margin:0 0 8px">% of chapters finished, against the target for this month. Tap a box to see the chapters. <b style="color:#0b7a64">Green</b> on track · <b style="color:#a55a00">orange</b> 1 chapter behind · <b style="color:#b3164f">red</b> 2 or more behind.</p>
+     <div class="tbl-wrap"><table class="pt"><thead><tr><th>Class</th>${subs.map(s=>`<th>${esc(s)}</th>`).join("")}</tr></thead><tbody>${ALLCLS.map(c=>`<tr><td><b>${esc(c)}</b></td>${subs.map(s=>cell(c,s)).join("")}</tr>`).join("")}</tbody></table></div>
+     ${CR.sylOpen?sylDetailHTML(...CR.sylOpen.split("|"),false):""}
+     <h3 style="margin:18px 0 6px">✏️ Syllabus plans</h3><p class="hint" style="margin:0 0 8px">One plan per class and subject: the chapters and the month each should be finished. Every section of that class follows it.</p>
+     <div class="apick">${stds.map(sd=>subjsOfStd(sd).map(s=>{ const S=(CR.syl||{})[`${y}_${sd}_${s}`]; return `<button class="chip ${CR.sylEdit===sd+"|"+s?"on":""}" data-syledit="${esc(sd+"|"+s)}">${esc(sd)} ${esc(s)}${S&&S.chapters&&S.chapters.length?` · ${S.chapters.length}`:" · ➕"}</button>`; }).join("")).join("")}</div>
+     ${CR.sylEdit?sylEditHTML(...CR.sylEdit.split("|")):""}`; }
+  const mine=crClasses().flatMap(c=>teachesIn(ME,c).map(s=>[c,s]));
+  if(!mine.length) return `<div class="empty">You have no subjects assigned yet.</div>`;
+  return `<p class="hint" style="margin:0 0 10px">Tick a chapter when you finish it in that class. The principal and coordinator see how each class is doing against the plan.</p>`+mine.map(([c,s])=>sylDetailHTML(c,s,true)).join(""); }
+function sylDetailHTML(c,s,edit){ const st=sylStat(c,s), col=st.behind>=2?"#b3164f":st.behind===1?"#a55a00":"#0b7a64";
+  return `<div class="card syl-card" style="box-shadow:none;margin:0 0 12px"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><h3 style="margin:0">${esc(c)} · ${esc(s)}</h3>
+    ${st.total?`<span style="font-weight:800;color:${col}">${st.done} of ${st.total} done${st.behind?` · ${st.behind} behind the plan`:" · on track"}</span>`:""}${!edit?`<button class="btn sec sm" data-sylopen="">✕ Close</button>`:""}</div>
+   ${st.total?`<div class="syl-bar"><span style="width:${st.pct}%;background:${col}"></span><i style="left:${st.tpct}%" title="Target for this month"></i></div>
+    <div class="syl-list">${st.ch.map((x,i)=>{ const dn=st.P&&st.P.done&&st.P.done[i]; return `<label class="syl-ch ${dn?"done":x.m&&x.m<=todayISO().slice(0,7)?"due":""}">${edit?`<input type="checkbox" data-sylck="${esc(c+"|"+s+"|"+i)}" ${dn?"checked":""}>`:`<span>${dn?"✅":"⬜"}</span>`}<span style="flex:1">${esc(x.n)}</span><small class="hint">${dn?"done "+fmtD(dn).replace(/ \d{4}$/,""):x.m?"by "+esc(monLabel(x.m)):""}</small></label>`; }).join("")}</div>`
+   :`<p class="hint" style="margin:6px 0 0">No syllabus plan for class ${esc(c.split("-")[0])} ${esc(s)} yet. ${isOffice()?"Add it under Syllabus plans below.":"The coordinator adds the chapters."}</p>`}</div>`; }
+function sylEditHTML(std,s){ const S=(CR.syl||{})[`${stuY()}_${std}_${s}`], ch=(S&&S.chapters)||[];
+  return `<div class="card" style="box-shadow:none;background:#f8f6ff;margin:10px 0"><h3 style="margin:0 0 6px">Class ${esc(std)} · ${esc(s)}: chapters</h3>
+   <p class="hint" style="margin:0 0 6px">One chapter per line, starting with the month it should be finished, e.g. <code>Jul: Fractions</code>. Months run April to March.</p>
+   <textarea class="in" id="sylTxt" style="min-height:220px;font-family:inherit">${esc(ch.map(x=>`${monLabel(x.m)}: ${x.n}`).join("\n"))}</textarea>
+   <div class="row" style="justify-content:flex-start;margin-top:8px"><button class="btn pri" data-sylsave="${esc(std+"|"+s)}">💾 Save plan</button><button class="btn sec" data-syledit="">Cancel</button></div></div>`; }
+function parseSyl(txt){ const y=stuY(), out=[]; String(txt).split(/\n+/).map(l=>l.trim()).filter(Boolean).slice(0,60).forEach(l=>{ const m=l.match(/^([A-Za-z]{3})[a-z]*\s*[:\-–]\s*(.+)$/); if(m){ const mi=MONTHS.findIndex(x=>x.toLowerCase()===m[1].toLowerCase()); out.push({n:m[2].trim().slice(0,100),m:mi>=0?ymOf(y,mi):""}); } else out.push({n:l.slice(0,100),m:""}); }); return out; }
+document.addEventListener("change",e=>{ if(e.target.id==="crCls"){ CR.cls=e.target.value; renderClassroom(); } if(e.target.id==="crDate"){ CR.date=e.target.value||todayISO(); renderClassroom(); } });
+document.addEventListener("click",async e=>{ const t=e.target.closest("[data-crtab],#hwSave,[data-sylopen],[data-syledit],[data-sylsave]"); if(!t||!ME) return;
+  if(t.dataset.crtab){ CR.tab=t.dataset.crtab; renderClassroom(); return; }
+  if(t.id==="hwSave"){ const c=CR.cls, d=CR.date, k=`${stuY()}_${c}_${d}`, old=(CR.diary[k]&&CR.diary[k].items)||{}, items={...old}; let n=0;
+    document.querySelectorAll("[data-hwtext]").forEach(a=>{ const s=a.dataset.hwtext, v=a.value.trim().slice(0,400); if(v){ if(!old[s]||old[s].text!==v){ items[s]={text:v,byName:ME.name,at:new Date().toISOString()}; n++; } } else if(old[s]){ delete items[s]; n++; } });
+    if(!n) return toast("Nothing changed"); const [std,div]=c.split("-");
+    try{ const data={year:stuY(),std,div,cls:c,date:d,items,updatedAt:new Date().toISOString()}; await setDoc(doc(db,"diary",k),data); CR.diary[k]=data; toast("✅ Homework saved. Parents can see it now."); renderClassroom(); }catch(err){ toast("Couldn't save: "+errMsg(err)); } return; }
+  if(t.dataset.sylopen!==undefined){ CR.sylOpen=t.dataset.sylopen; renderClassroom(); if(CR.sylOpen) setTimeout(()=>{ const x=document.querySelector(".syl-card"); if(x) x.scrollIntoView({behavior:"smooth",block:"center"}); },50); return; }
+  if(t.dataset.syledit!==undefined){ CR.sylEdit=t.dataset.syledit; renderClassroom(); return; }
+  if(t.dataset.sylsave){ const [std,s]=t.dataset.sylsave.split("|"), ch=parseSyl($("#sylTxt").value), y=stuY(); if(ch.some(x=>!x.m)) return toast("Start each line with a month, e.g. Jul: Fractions");
+    try{ const data={year:y,std,subj:s,chapters:ch,updatedBy:ME.email,updatedAt:new Date().toISOString()}; await setDoc(doc(db,"syllabus",`${y}_${std}_${s}`),data); CR.syl[`${y}_${std}_${s}`]=data; CR.sylEdit=""; toast("✅ Syllabus plan saved"); renderClassroom(); }catch(err){ toast("Couldn't save: "+errMsg(err)); } return; } });
+document.addEventListener("change",async e=>{ const ck=e.target.closest("[data-sylck]"); if(!ck||!ME) return; const [c,s,i]=ck.dataset.sylck.split("|"), y=stuY(), k=`${y}_${c}_${s}`, [std,div]=c.split("-"), P=(CR.prog||{})[k]||{year:y,std,div,cls:c,subj:s,done:{}}, done={...(P.done||{})};
+  if(ck.checked) done[i]=todayISO(); else delete done[i];
+  try{ const data={year:y,std,div,cls:c,subj:s,done,updatedBy:ME.email,updatedAt:new Date().toISOString()}; await setDoc(doc(db,"sylProg",k),data); CR.prog[k]=data; renderClassroom(); toast(ck.checked?"✅ Chapter marked as done":"Chapter un-ticked"); }catch(err){ ck.checked=!ck.checked; toast("Couldn't save: "+errMsg(err)); } });
+/* behind-the-plan count for the morning briefing (office) */
+function sylBehind(){ if(!CR.syl||!isOffice()) return []; const L=[]; ALLCLS.forEach(c=>crSubjs(c).forEach(s=>{ const st=sylStat(c,s); if(st.total&&st.behind>=2) L.push({c,s,n:st.behind}); })); return L; }
+/* ---- parents: the child's homework for the last school days ---- */
+async function loadParentHW(){ if(!PDATA||!db) return; const q=PDATA.q, c=q.std+"-"+q.div, t=todayISO(), days=[...Array(10)].map((_,i)=>addDaysISO(t,-i)), out=[];
+  await Promise.all(days.map(async d=>{ try{ const x=await getDoc(doc(db,"diary",`${q.year}_${c}_${d}`)); if(x.exists()&&Object.keys(x.data().items||{}).length) out.push(x.data()); }catch(_){} }));
+  PDATA.hw=out.sort((a,b)=>b.date.localeCompare(a.date)); renderParentDash(); }
+function parentHwHTML(){ const L=PDATA.hw; if(L==null) return `<p class="hint">Loading…</p>`; if(!L.length) return `<div class="empty">No homework posted in the last 10 days.</div>`; const t=todayISO();
+  return L.map(d=>`<div class="card" style="box-shadow:none;margin:0 0 10px;${d.date===t?"border-left:5px solid #ff9933":""}"><h3 style="margin:0 0 6px">${d.date===t?"Today":d.date===addDaysISO(t,-1)?"Yesterday":fmtD(d.date)}</h3>
+    ${Object.entries(d.items||{}).sort().map(([s,x])=>`<div style="padding:6px 0;border-top:1px dashed var(--line)"><b>${esc(s)}</b> ${x.byName?`<span class="hint">· ${esc(x.byName)}</span>`:""}<div style="white-space:pre-line">${esc(x.text)}</div></div>`).join("")}</div>`).join(""); }
 /* ---------- Teacher home: my engagements, my class (fees, achievements), toppers in my subjects ---------- */
 let SUBS_ALL=null, CTFEES={}, CTFEE_UNS={}, HOME_RECS=[];
 function eachDay(a,b){ const out=[]; let d=a; const e=b||a; for(let i=0;d<=e&&i<400;i++){ out.push(d); d=addDaysISO(d,1); } return out; }
@@ -2219,7 +2369,7 @@ if(auth){
 let HR={}, unsubHR=null;
 function startStaffData(){ if(unsubStaff) return; unsubStaff=onSnapshot(collection(db,"staff"),snap=>{ const n={}; snap.forEach(d=>n[d.id]=d.data()); STAFF=n; renderStaff(); if(typeof renderStats==="function") renderStats(); if(location.hash==="#dashboard") renderDash(); },()=>{});
   if(isOffice()&&!unsubHR) unsubHR=onSnapshot(isFull()?collection(db,"staffHR"):query(collection(db,"staffHR"),where("role","==","teacher")),snap=>{ const n={}; snap.forEach(d=>n[d.id]=d.data()); HR=n; if(onHome()&&isFull()) renderDash(); },()=>{}); }
-function stopStaffData(){ BRIEF_ON=null; SUBS_HOME={}; { const w=document.getElementById("welcomeModal"); if(w) w.style.display="none"; } stopTT(); if(unsubStaff){unsubStaff();unsubStaff=null;} if(unsubHR){unsubHR();unsubHR=null;} STAFF={}; HR={}; }
+function stopStaffData(){ BRIEF_ON=null; SUBS_HOME={}; ACKS={}; CR={tab:"hw",cls:"",date:"",syl:null,prog:null,diary:{},sylOpen:"",sylEdit:""}; { const w=document.getElementById("welcomeModal"); if(w) w.style.display="none"; } stopTT(); if(unsubStaff){unsubStaff();unsubStaff=null;} if(unsubHR){unsubHR();unsubHR=null;} STAFF={}; HR={}; }
 
 /* ---------- Admin page ---------- */
 const ALL_SUBJECTS=[...new Set(STDS.flatMap(x=>SUBJECTS_BY(x).all))];
@@ -2293,7 +2443,7 @@ $("#delSample").onclick=()=>{ if(!isFull()) return asOffice("delSample","Delete 
     const rk=(await Promise.all(ids.map(id=>reportKey(RECORDS[id]._raw||RECORDS[id])))).filter(Boolean);
     let extra=[]; try{ const [lv,sb,tt]=await Promise.all([getDocs(collection(db,"leaves")),getDocs(collection(db,"subs")),getDocs(collection(db,"timetable"))]);
       try{ const du=await getDocs(collection(db,"duties")); du.forEach(d=>{ if(d.data().sample) extra.push(["duties",d.id]); }); }catch(_){}
-      for(const c of ["students","studentNotes","attendance","staffAtt","tcs","notices","achievements","eventDuties","fees","office"]){ try{ const q=await getDocs(collection(db,c)); q.forEach(d=>{ if(d.data().sample) extra.push([c,d.id]); }); }catch(_){} }
+      for(const c of ["students","studentNotes","attendance","staffAtt","tcs","notices","achievements","eventDuties","fees","office","syllabus","sylProg","diary"]){ try{ const q=await getDocs(collection(db,c)); q.forEach(d=>{ if(d.data().sample) extra.push([c,d.id]); }); }catch(_){} }
       lv.forEach(d=>{ if(d.data().sample) extra.push(["leaves",d.id]); }); sb.forEach(d=>{ if(d.data().sample) extra.push(["subs",d.id]); }); tt.forEach(d=>{ if(d.data().sample) extra.push(["timetable",d.id]); }); }catch(_){}
     const ops=[...ids.map(id=>["results",id]),...rk.map(k=>["reports",k]),...sids.map(id=>["staff",id]),...sids.map(id=>["staffHR",id]),...extra];
     for(let i=0;i<ops.length;i+=100){ const b=writeBatch(db); ops.slice(i,i+100).forEach(([c,id])=>b.delete(doc(db,c,id))); await b.commit(); }
@@ -3294,7 +3444,7 @@ async function runImport(text,name){ IMPORT_NAME=name||IMPORT_NAME||"data file";
   staff=staff.filter(x=>x&&x.email&&x.role); 
   hr=hr.filter(x=>x&&x.email); let leaves=[]; try{ const j2=JSON.parse(text); leaves=Array.isArray(j2.leaves)?j2.leaves.filter(x=>x&&x.email&&x.from):[]; }catch(_){}
   if(leaves.length){ try{ const b=writeBatch(db); leaves.slice(0,300).forEach(x=>{ const em=String(x.email).toLowerCase(); b.set(doc(db,"leaves",("imp-"+em+"-"+x.from).replace(/[^A-Za-z0-9_\-]/g,"-")),{...x,email:em}); }); await b.commit(); if(!list.length&&!staff.length&&!hr.length) return toast(`Imported ${leaves.length} leave records ✓`); }catch(err){ return toast("Import of leave failed: "+errMsg(err)); } }
-  let extras=[]; try{ const j3=JSON.parse(text); if(j3&&j3.feeplan&&typeof j3.feeplan==="object") extras.push(["config","feeplan",j3.feeplan]); [["students","students"],["notes","studentNotes"],["attendance","attendance"],["staffAtt","staffAtt"],["tcs","tcs"],["notices","notices"],["achievements","achievements"],["eventDuties","eventDuties"],["fees","fees"],["published","office"]].forEach(([k,c])=>(Array.isArray(j3[k])?j3[k]:[]).forEach(x=>{ if(x&&x.id){ const {id,...b}=x; if(c==="fees"||c==="staffAtt") b.importedBy=ME.email; extras.push([c,String(id),b]); } })); }catch(_){}
+  let extras=[]; try{ const j3=JSON.parse(text); if(j3&&j3.feeplan&&typeof j3.feeplan==="object") extras.push(["config","feeplan",j3.feeplan]); [["students","students"],["notes","studentNotes"],["attendance","attendance"],["staffAtt","staffAtt"],["tcs","tcs"],["notices","notices"],["achievements","achievements"],["eventDuties","eventDuties"],["fees","fees"],["published","office"],["syllabus","syllabus"],["sylProg","sylProg"],["diary","diary"],["acks","acks"]].forEach(([k,c])=>(Array.isArray(j3[k])?j3[k]:[]).forEach(x=>{ if(x&&x.id){ const {id,...b}=x; if(c==="fees"||c==="staffAtt") b.importedBy=ME.email; extras.push([c,String(id),b]); } })); }catch(_){}
   if(extras.length){ try{ const cols=[...new Set(extras.map(x=>x[0]))]; for(const col of cols){ const E=extras.filter(x=>x[0]===col); for(let i=0;i<E.length;i+=100){ const b=writeBatch(db); E.slice(i,i+100).forEach(([c,id,d])=>b.set(doc(db,c,id),d)); try{ await b.commit(); }catch(err){ err._col=col; throw err; } } } toast(`Imported ${extras.length} attendance, student and notes records ✓`); if(!list.length&&!staff.length&&!hr.length) return; }catch(err){ return toast("Import of "+(err._col||"attendance/notes")+" failed: "+errMsg(err)); } }
   if(!list.length&&!staff.length&&!hr.length&&!leaves.length) return toast("No results found in that file");
   if(hr.length){ try{ const b=writeBatch(db); hr.slice(0,400).forEach(x=>{ const {email,...h}=x; const em2=String(email).toLowerCase(); b.set(doc(db,"staffHR",em2),{role:(staff.find(y=>String(y.email).toLowerCase()===em2)||STAFF[em2]||{}).role||"teacher",...h}); }); await b.commit(); if(!list.length&&!staff.length) return toast(`Imported contract details for ${hr.length} staff ✓`); }catch(err){ return toast("Import of contract details failed: "+errMsg(err)); } }
@@ -3648,7 +3798,7 @@ if(db) onSnapshot(doc(db,"config","disclosure"),d=>{ DISC=d.exists()?d.data():nu
 const D_=()=>{ const d=DISC||{}; return {...DEF_DISC,...d,pta:d.pta!=null?d.pta:DEF_DISC.pta,general:{...DEF_DISC.general,...(d.general||{})},staff:{...DEF_DISC.staff,...(d.staff||{})},infra:{...DEF_DISC.infra,...(d.infra||{})},docs:{...(d.docs||{})},acad:{...(d.acad||{})},committees:d.committees||DEF_COMMITTEES}; };
 const safeUrl=u=>/^https:\/\/[^\s"'<>]+$/i.test(String(u||"").trim())?String(u).trim():"";
 function renderFooter(){ const f=document.querySelector("footer"); if(!f) return; const g=D_().general;
-  f.innerHTML=`${esc(g.name)} · ${esc(g.address)} · Tel ${esc(g.phone)} · <a href="#school" style="color:inherit;font-weight:800">📋 Mandatory Public Disclosure</a> · <a href="#privacy" style="color:inherit;font-weight:800">🔒 Privacy</a><span class="staff-only"> · <a href="guide.html" style="color:inherit;font-weight:800">📖 How to use (staff)</a></span>`; }
+  f.innerHTML=`${esc(g.name)} · ${esc(g.address)} · Tel ${esc(g.phone)} · <a href="#school" style="color:inherit;font-weight:800">📋 Mandatory Public Disclosure</a> · <a href="#privacy" style="color:inherit;font-weight:800">🔒 Privacy</a> · <a href="#" data-install="1" style="color:inherit;font-weight:800">📲 Install app</a><span class="staff-only"> · <a href="guide.html" style="color:inherit;font-weight:800">📖 How to use (staff)</a></span>`; }
 function teachersPublic(){ const d=D_(); if(d.staff.teachers) return d.staff.teachers.split("\n").map(l=>l.split("|").map(x=>x.trim())).filter(x=>x[0]);
   return []; }
 function renderPub(){ const box=$("#pubBody"); if(!box) return; const h=location.hash;
@@ -3759,6 +3909,7 @@ function noticesHTML(){ const off=!!ME&&isOffice()&&!isFull(), U=upNotices(), P=
       <div class="hint">${esc(n.type||"Notice")}${n.date?` · <b>${fmtD(n.date)}${n.to&&n.to!==n.date?" – "+fmtD(n.to):""}</b>`:""}${n.time?` · ${esc(n.time)}`:""}${n.pinned?" · 📌 Important":""}</div>
       <h3 style="margin:2px 0 6px">${esc(n.title)}</h3><div style="white-space:pre-line">${esc(n.text||"")}</div>
       ${safeUrl(n.link)?`<p style="margin:8px 0 0"><a href="${esc(safeUrl(n.link))}" target="_blank" rel="noopener">More details ↗</a></p>`:""}
+      ${n.ack?(ME?ackStaffHTML(n):`<div class="hint" style="margin-top:8px">✍️ Parents: please confirm you have read this in the Parents login.</div>`):""}
       ${du.length?`<div style="margin-top:10px;background:#f8f6ff;border-radius:10px;padding:8px 12px"><b>👩‍🏫 Staff duties</b> <span class="hint">(staff only)</span>${du.map(d=>`<div>• <b>${esc(tName(d.email))}</b>: ${esc(d.task)}</div>`).join("")}</div>`:""}
       ${n._auto?`<p style="margin:8px 0 0"><a href="#results">💳 Check fee status in the Parents login →</a></p>`:""}${off&&!n._auto?`<div class="row" style="justify-content:flex-start;margin-top:8px"><button class="btn sec sm" data-nted="${esc(n.id)}">✏️ Edit</button><button class="btn warn sm" data-ntrm="${esc(n.id)}">🗑 Remove</button></div>`:""}</div></div></div>`; };
   return `<div class="title-row"><h2>📢 Notices</h2>${off?`<button class="btn pri" data-ntnew="1">➕ New notice or event</button>`:""}</div>
@@ -3778,6 +3929,7 @@ function ntFormHTML(){ const n=ntEdit, T=Object.values(STAFF).filter(x=>x.role==
     <label class="f">Show on the site until<input class="in" type="date" id="ntUntil" value="${esc(n.until||"")}"></label></div>
    <label class="f">Details<textarea class="in" id="ntText" maxlength="1500" style="min-height:90px">${esc(n.text||"")}</textarea></label>
    <div class="grid g2"><label class="f">Link (optional, https://)<input class="in" id="ntLink" value="${esc(n.link||"")}"></label><label class="f">Important?<select class="in" id="ntPin"><option value="">No</option><option value="1" ${n.pinned?"selected":""}>Yes, pin to the top</option></select></label></div>
+   <label class="f">Parents must confirm they have read it?<select class="in" id="ntAck"><option value="">No</option><option value="1" ${n.ack?"selected":""}>Yes: ask parents to tap "I have read this" (you can see who has)</option></select></label>
    <h4 style="margin:12px 0 6px">👩‍🏫 Staff duties for this event <span class="hint">(only staff see these)</span></h4>
    <div id="ntDut">${ntDuties.map((d,i)=>`<div class="grid g3" style="align-items:end"><label class="f">Teacher<select class="in" data-ndt="${i}">${T.map(t=>`<option value="${esc(t.email)}" ${t.email===d.email?"selected":""}>${esc(t.name)}</option>`).join("")}</select></label><label class="f">Duty<input class="in" data-ndk="${i}" maxlength="120" value="${esc(d.task||"")}" placeholder="e.g. Stage and compering"></label><div class="f"><button class="btn sec sm" data-ndrm="${i}">✖ Remove</button></div></div>`).join("")}</div>
    <button class="btn sec sm" data-ndadd="1">＋ Add a duty</button>
@@ -3806,7 +3958,7 @@ function acFormHTML(){ const a=acEdit;
 document.addEventListener("change",e=>{ if(e.target.id==="acPhotoIn"){ const f=e.target.files[0]; e.target.value=""; if(!f) return; shrinkImage(f,900,600,150000,d=>{ acPhoto=d; renderPub(); }); } });
 document.addEventListener("click",async e=>{ const t=e.target.closest("[data-ntnew],[data-nted],[data-ntrm],[data-ntcancel],[data-ntsave],[data-ndadd],[data-ndrm],[data-acnew],[data-aced],[data-acrm],[data-accancel],[data-acsave],[data-acph],[data-acphrm]"); if(!t||!ME||!isOffice()||isFull()) return; const D=t.dataset;
   const keepDut=()=>{ document.querySelectorAll("[data-ndt]").forEach(el=>{ ntDuties[+el.dataset.ndt].email=el.value; }); document.querySelectorAll("[data-ndk]").forEach(el=>{ ntDuties[+el.dataset.ndk].task=el.value; }); };
-  const keepNt=()=>{ if(!$("#ntTitle")) return; keepDut(); Object.assign(ntEdit,{type:$("#ntType").value,title:$("#ntTitle").value,date:$("#ntDate").value,to:$("#ntTo").value,time:$("#ntTime").value,until:$("#ntUntil").value,text:$("#ntText").value,link:$("#ntLink").value,pinned:!!$("#ntPin").value}); };
+  const keepNt=()=>{ if(!$("#ntTitle")) return; keepDut(); Object.assign(ntEdit,{type:$("#ntType").value,title:$("#ntTitle").value,date:$("#ntDate").value,to:$("#ntTo").value,time:$("#ntTime").value,until:$("#ntUntil").value,text:$("#ntText").value,link:$("#ntLink").value,pinned:!!$("#ntPin").value,ack:!!($("#ntAck")&&$("#ntAck").value)}); };
   try{
   if(D.ntnew){ ntEdit={type:"Event"}; ntDuties=[]; renderPub(); return; }
   if(D.nted){ ntEdit={...NOTICES[D.nted]}; ntDuties=JSON.parse(JSON.stringify((EDUT[D.nted]&&EDUT[D.nted].duties)||[])); renderPub(); window.scrollTo(0,0); return; }
@@ -3815,7 +3967,7 @@ document.addEventListener("click",async e=>{ const t=e.target.closest("[data-ntn
   if(D.ndrm!=null){ keepNt(); ntDuties.splice(+D.ndrm,1); renderPub(); return; }
   if(D.ntsave){ keepNt(); const n=ntEdit; if(!n.title.trim()) return toast("Please type a title"); if(n.link&&!safeUrl(n.link)) return toast("The link must start with https://");
     if(n.to&&n.date&&n.to<n.date) return toast("'To' can't be before the date");
-    const id=n.id||("n"+Date.now().toString(36)), data={type:n.type,title:n.title.trim().slice(0,120),date:n.date||"",to:n.to||"",time:(n.time||"").slice(0,80),until:n.until||n.to||n.date||"",text:(n.text||"").slice(0,1500),link:safeUrl(n.link)||"",pinned:!!n.pinned,updatedAt:new Date().toISOString(),updatedBy:ME.email,__duties:ntDuties.filter(d=>d.email&&d.task.trim()).map(d=>({email:d.email,task:d.task.trim().slice(0,120)}))};
+    const id=n.id||("n"+Date.now().toString(36)), data={type:n.type,title:n.title.trim().slice(0,120),date:n.date||"",to:n.to||"",time:(n.time||"").slice(0,80),until:n.until||n.to||n.date||"",text:(n.text||"").slice(0,1500),link:safeUrl(n.link)||"",pinned:!!n.pinned,ack:!!n.ack,updatedAt:new Date().toISOString(),updatedBy:ME.email,__duties:ntDuties.filter(d=>d.email&&d.task.trim()).map(d=>({email:d.email,task:d.task.trim().slice(0,120)}))};
     if(!data.until) data.until=new Date(Date.now()+30*864e5).toISOString().slice(0,10);
     await pubSet("notices",id,data,`Notice: ${ntIcon(data.type)} ${data.title}${data.__duties.length?` (+${data.__duties.length} staff duties)`:""}`); ntEdit=null; toast("Notice published ✓"); renderPub(); return; }
   if(D.ntrm){ const n=NOTICES[D.ntrm]; confirmBox("Remove this notice?",n.title,"Remove",async()=>{ try{ await pubSet("notices",n.id,{__delete:true},`Remove notice: ${n.title}`); toast("Removed"); }catch(err){ toast("Couldn't remove: "+errMsg(err)); } }); return; }
@@ -4071,6 +4223,8 @@ function parentBriefHTML(big){ if(!PDATA) return ""; const {q,r,fd}=PDATA, t=tod
   ((C&&C.holidays)||[]).filter(h=>h.from<=t&&t<=(h.to||h.from)).forEach(h=>fest.push(["🎉",`${esc(h.name)} today${CLOSED_KINDS.includes(h.kind||"Holiday")?" (school closed)":""}.`]));
   ((C&&C.holidays)||[]).filter(h=>CLOSED_KINDS.includes(h.kind||"Holiday")&&h.from>t&&h.from<=addDaysISO(t,3)).forEach(h=>info("🎉",`School closed ${h.from===addDaysISO(t,1)?"tomorrow":fmtD(h.from)} for ${esc(h.name)}.`));
   ((C&&C.exams)||[]).filter(e=>(e.to||e.from)>=t&&e.from<=addDaysISO(t,7)).forEach(e=>(e.from<=t?info:warn)("📝",e.from<=t?`<b>${esc(e.label)}</b> exams are on. All the best, ${esc(first)}!`:`<b>${esc(e.label)}</b> exams start ${e.from===addDaysISO(t,1)?"tomorrow":fmtD(e.from)}. <a href="#" data-ptab="news">Date sheet →</a>`));
+  ackNotices().filter(n=>PDATA.acks&&PDATA.acks[n.id]===null).forEach(n=>warn("✍️",`Please confirm you have read: <b>${esc(n.title)}</b>. <a href="#" data-ptab="news">Confirm →</a>`));
+  const hwT=(PDATA.hw||[]).find(d=>d.date===t); if(hwT) info("📒",`Homework today in ${Object.keys(hwT.items||{}).map(esc).join(", ")}. <a href="#" data-ptab="hw">See →</a>`);
   const fr=typeof feeReminder==="function"?feeReminder():null;
   if(fr&&fd){ const paid=fd.q&&fd.q[fr.q]&&fd.q[fr.q].paid; if(paid) good("💳",`${esc(fr.q)} fee (${esc(fr.label)}) is paid. Thank you!`); else (fr.late?warn:info)("💳",`${esc(fr.q)} fee (${esc(fr.label)}) ${fr.late?"was due":"is due"} on ${fmtD(fr.due)}. <a href="#" data-ptab="fees">Details →</a>`); }
   const rep=(PDATA.gv||[]).filter(g=>(g.replies||[]).length&&g.replies[g.replies.length-1].by!=="parent"); if(rep.length) good("🗣",`The school has replied to ${rep.length>1?rep.length+" of your messages":"your message"}. <a href="#" data-ptab="talk">Read →</a>`);
@@ -4087,13 +4241,16 @@ function parentWelcome(){ if(!PDATA) return; const q=PDATA.q, k="saps_pwelcome_"
 function renderParentDash(){ const out=$("#rcOut"); if(!out||!PDATA) return; document.body.classList.remove("pwait"); const {q,r,fd,list}=PDATA, name=(r&&r.name)||(fd&&fd.name)||capName(q.name);
   const exams=(list||[]).filter(x=>x.rec), t=todayISO();
   const up=Object.values(NOTICES||{}).filter(n=>n.date&&n.date>=t).sort((a,b)=>a.date.localeCompare(b.date));
-  const tabs=[["info","👤 Child details"],["card","📄 Report card"],["prog","📈 Progress"],["fees","💳 Fees"],["abs","✉️ Absence note"],["msgs",`📬 Messages${PDATA.inbox&&PDATA.inbox.items&&PDATA.inbox.items.length?` (${PDATA.inbox.items.length})`:""}`],["talk","🗣 Write to the school"],["news",`📢 Notices${up.length?` (${up.length})`:""}`]];
+  const tabs=[["info","👤 Child details"],["card","📄 Report card"],["hw",`📒 Homework${PDATA.hw&&PDATA.hw[0]&&PDATA.hw[0].date===t?" (today)":""}`],["prog","📈 Progress"],["fees","💳 Fees"],["abs","✉️ Absence note"],["msgs",`📬 Messages${PDATA.inbox&&PDATA.inbox.items&&PDATA.inbox.items.length?` (${PDATA.inbox.items.length})`:""}`],["talk","🗣 Write to the school"],["news",`📢 Notices${(()=>{ const u=ackNotices().filter(n=>PDATA.acks&&!PDATA.acks[n.id]).length; return u?` (${u} to confirm)`:up.length?` (${up.length})`:""; })()}`]];
   if(PDATA.gv===undefined){ PDATA.gv=null; loadGrievances(); }
+  if(PDATA.hw===undefined){ PDATA.hw=null; loadParentHW(); }
+  if(PDATA.acks===undefined){ PDATA.acks=null; loadParentAcks(); }
   if(PDATA.inbox===undefined){ PDATA.inbox=null; childKey("pn",q).then(k=>k?getDoc(doc(db,"inbox",k)):null).then(d=>{ PDATA.inbox=d&&d.exists()?d.data():{items:[]}; renderParentDash(); }).catch(()=>{ PDATA.inbox={items:[]}; }); }
   let body="";
   if(PTAB==="card") body=r?`${exams.length>1?`<div class="apick" style="margin:0 0 10px">${exams.map(x=>`<button class="chip ${x.rec.term===r.term?"on":""}" data-pex="${esc(x.term)}">${esc(lab(x.term))}</button>`).join("")}</div>`:""}${reportCard(r)}<div style="text-align:center;margin:14px 0"><button class="btn sec" id="rcPrint">🖨 Print / Save PDF</button></div>`
     :`<div class="card" style="text-align:center"><p style="color:var(--muted);margin:0">No report card is published yet for ${esc(name)}.</p></div>`;
   else if(PTAB==="prog") body=r?(list?`<div id="progOut">${progressHTML(r,list)}</div>`:`<div class="prog"><p class="sub">Loading progress across exams…</p></div>`):`<div class="empty">Progress appears once a report card is published.</div>`;
+  else if(PTAB==="hw") body=parentHwHTML();
   else if(PTAB==="fees") body=fd?feePanelHTML(fd,{...q,name}):`<div class="empty">Fee details are not available yet.</div>`;
   else if(PTAB==="abs") body=absFormHTML().replace("<details","<details open");
   else if(PTAB==="talk") body=gvParentHTML();
@@ -4102,7 +4259,7 @@ function renderParentDash(){ const out=$("#rcOut"); if(!out||!PDATA) return; doc
      <h3 style="margin:14px 0 8px">👤 Child</h3><table class="pt"><tbody>${row("Name",name)}${row("Date of birth",q.dob?fmtD(q.dob):"")}${row("Gender",R.gender)}${row("Father",R.father)}${row("Mother",R.mother)}${row("Category",R.category)}${row("Class teacher",R.teacher)}</tbody></table>
      <p class="hint" style="margin:8px 0 0">If anything here is wrong, please tell the class teacher using <b>Write to the school</b>.</p></div>`; }
   else if(PTAB==="msgs"){ const I=((PDATA.inbox&&PDATA.inbox.items)||[]).slice().reverse(); body=`<div class="card" style="box-shadow:none">${PDATA.inbox==null?`<p class="hint">Loading…</p>`:I.length?I.map(x=>`<div style="padding:10px 0;border-bottom:1px dashed var(--line)"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>${esc(x.subject)}</b><small class="hint">${esc(fmtD(String(x.at).slice(0,10)))}</small></div><small class="hint">From ${esc(x.from)} (${esc(x.role)})${x.kind==="class"?" · to the whole class":x.kind==="some"?" · to selected parents":" · to you"}</small><p style="margin:6px 0 0;white-space:pre-wrap">${esc(x.text)}</p></div>`).join(""):`<p class="hint" style="margin:0">No messages from the school yet.</p>`}</div>`; }
-  else body=`<div class="card" style="box-shadow:none">${up.length?up.map(n=>`<div style="display:flex;gap:12px;padding:8px 0;border-bottom:1px dashed var(--line)"><b style="min-width:80px">${esc(fmtD(n.date))}</b><span>${ntIcon(n.type)} <b>${esc(n.title)}</b>${n.text?`<br><small class="hint">${esc(String(n.text).slice(0,160))}</small>`:""}</span></div>`).join(""):`<p class="hint" style="margin:0">No upcoming notices.</p>`}<p style="margin:10px 0 0"><a href="#notices">All notices →</a></p></div>`;
+  else body=parentAckHTML()+`<div class="card" style="box-shadow:none">${up.length?up.map(n=>`<div style="display:flex;gap:12px;padding:8px 0;border-bottom:1px dashed var(--line)"><b style="min-width:80px">${esc(fmtD(n.date))}</b><span>${ntIcon(n.type)} <b>${esc(n.title)}</b>${n.text?`<br><small class="hint">${esc(String(n.text).slice(0,160))}</small>`:""}</span></div>`).join(""):`<p class="hint" style="margin:0">No upcoming notices.</p>`}<p style="margin:10px 0 0"><a href="#notices">All notices →</a></p></div>`;
   if(!PDATA._wl){ PDATA._wl=1; setTimeout(parentWelcome,1200); } else { const pw=$("#pWelcomeBody"); if(pw) pw.innerHTML=parentBriefHTML(true); }
   out.innerHTML=`<div id="pBrief">${PTAB==="card"||PTAB==="info"?parentBriefHTML():""}</div><div class="card" style="margin-top:0;border-left:6px solid #ff9933"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
      <div><h2 style="margin:0">👪 ${esc(name)}</h2><p class="hint" style="margin:2px 0 0">Class ${esc(q.std)}-${esc(q.div)} · Roll ${esc(q.roll)} · ${esc(q.year)}${(fd&&fd.adm)||(r&&r.adm)?` · Adm. no. ${esc((fd&&fd.adm)||r.adm)}`:""}${fd&&fd.admittedOn?` · admitted ${esc(fmtD(fd.admittedOn))}`:""}</p></div>
