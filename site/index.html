@@ -1941,13 +1941,21 @@ function renderClassroom(){ const box=$("#crBody"); if(!box) return; if(!ME){ bo
   const tabs=[["hw","📒 Homework diary"],["syl","📖 Syllabus progress"]];
   box.innerHTML=`<div class="page-title"><div><h2>📚 Classroom</h2><p>${isOffice()?"Homework given and syllabus covered in every class.":"Post homework for your classes and tick off chapters as you finish them."}</p></div></div>
    <div class="atabs">${tabs.map(([k,l])=>`<button data-crtab="${k}" class="${CR.tab===k?"on":""}">${l}</button>`).join("")}</div><div id="crOut" style="margin-top:12px">${CR.tab==="syl"?sylHTML():hwHTML()}</div>`;
-  if(CR.tab==="hw") crLoadDiary(CR.cls,CR.date); else crLoadSyl(); }
-function hwHTML(){ const C=crClasses(), c=CR.cls, d=CR.date, k=`${stuY()}_${c}_${d}`, D=CR.diary[k], items=(D&&D.items)||{}, mine=isOffice()?crSubjs(c):teachesIn(ME,c), all=[...new Set([...crSubjs(c),...Object.keys(items)])].sort();
+  if(CR.tab==="hw"){ if(!isFull()) crLoadDiary(CR.cls,CR.date); } else crLoadSyl(); }
+/* principal / admin: read-only overview of every class for one day */
+function hwOverviewHTML(){ const d=CR.date, y=stuY(); ALLCLS.forEach(c=>crLoadDiary(c,d));
+  const rows=ALLCLS.map(c=>({c,D:CR.diary[`${y}_${c}_${d}`]})), done=rows.filter(r=>r.D&&Object.keys(r.D.items||{}).length).length, wait=rows.some(r=>r.D===undefined);
+  return `<div class="apick" style="align-items:flex-end;margin:0 0 12px"><label class="f">Date<input class="in" type="date" id="crDate" value="${esc(d)}"></label>
+   <span class="hint">${d===todayISO()?"Today":fmtD(d)} · ${wait?"loading…":`homework posted in <b>${done} of ${rows.length}</b> classes`}. Teachers post it; this page is for viewing.</span></div>
+   <div class="hw-grid">${rows.map(({c,D})=>{ const it=Object.entries((D&&D.items)||{}).sort();
+     return `<div class="hw-card ${it.length?"on":""}"><div class="hw-h"><b>${esc(c)}</b><span class="hint">${D===undefined?"…":it.length?it.length+" subject"+(it.length>1?"s":""):"none posted"}</span></div>
+      ${it.map(([sb,x])=>`<div style="padding:4px 0;border-top:1px dashed var(--line)"><b>${esc(sb)}</b>${x.byName?` <span class="hint">· ${esc(x.byName)}</span>`:""}<div style="white-space:pre-line">${esc(x.text)}</div></div>`).join("")}</div>`; }).join("")}</div>`; }
+function hwHTML(){ if(isFull()) return hwOverviewHTML(); const C=crClasses(), c=CR.cls, d=CR.date, k=`${stuY()}_${c}_${d}`, D=CR.diary[k], items=(D&&D.items)||{}, mine=isOffice()?crSubjs(c):teachesIn(ME,c), all=[...new Set([...crSubjs(c),...Object.keys(items)])].sort();
   const pick=`<div class="apick" style="align-items:flex-end;margin:0 0 12px"><label class="f">Class<select class="in" id="crCls">${C.map(x=>`<option ${x===c?"selected":""}>${esc(x)}</option>`).join("")}</select></label>
    <label class="f">Date<input class="in" type="date" id="crDate" value="${esc(d)}" max="${esc(addDaysISO(todayISO(),7))}"></label>
-   <span class="hint">${d===todayISO()?"Today":fmtD(d)} · parents of ${esc(c)} see this on their child's page.</span></div>`;
+   <span class="hint">${d===todayISO()?"Today":fmtD(d)} · parents of ${esc(c)} see this on their child's page.${isOffice()?" As coordinator you can post for a teacher who is away.":""}</span></div>`;
   if(D===undefined) return pick+`<p class="hint">Loading…</p>`;
-  const canEdit=s=>isOffice()||mine.includes(s);
+  const canEdit=s=>mine.includes(s)||(isOffice()&&!isFull());
   return pick+`<div class="hw-grid">${all.length?all.map(s=>{ const it=items[s];
     return `<div class="hw-card ${it&&it.text?"on":""}"><div class="hw-h"><b>${esc(s)}</b>${it&&it.byName?`<span class="hint">by ${esc(it.byName)}</span>`:""}</div>
      ${canEdit(s)?`<textarea class="in" data-hwtext="${esc(s)}" maxlength="400" placeholder="e.g. Learn the poem on page 24. Write 5 sentences about your family.">${esc((it&&it.text)||"")}</textarea>`:`<div style="white-space:pre-line">${it&&it.text?esc(it.text):'<span class="hint">No homework posted.</span>'}</div>`}</div>`; }).join(""):`<div class="empty">No subjects found for ${esc(c)}.</div>`}</div>
