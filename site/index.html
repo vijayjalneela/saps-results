@@ -556,6 +556,24 @@ nav.tabs::-webkit-scrollbar{display:none}
 .ticker .tk-l{background:#ff9933;color:#1b1206}
 footer{background:var(--navy);color:#c9cfbd!important;padding:22px 16px!important;margin-top:30px;border-top:4px solid transparent;border-image:linear-gradient(90deg,#ff9933 0 33.3%,#fff 33.3% 66.6%,#138808 66.6%) 1}
 
+
+/* morning briefing */
+.brief{border-radius:18px;padding:18px 20px;margin:0 0 14px;background:linear-gradient(120deg,#fffdf7,#f6f1e4);border:1px solid #eadfc4;box-shadow:0 6px 20px rgba(60,50,20,.06)}
+.brief-hd{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.brief-hi{font-family:"Barlow Condensed","Baloo 2",system-ui;font-size:30px;font-weight:700;color:#1b2a17;line-height:1.1}
+.brief-sub{color:#6b6450;font-weight:700;margin-top:2px}
+.brief-fest{margin:10px 0 0;padding:10px 14px;border-radius:12px;background:linear-gradient(90deg,#ffedd5,#fff 50%,#e3f6e8);font-weight:800;color:#5b3a00;font-size:17px}
+.brief-mood{margin:10px 0 8px;color:#3b4220;font-weight:700}
+.brief-list{display:grid;gap:8px}
+.brief-it{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:12px;border-left:5px solid;line-height:1.45}
+.brief-it .bi{font-size:20px;line-height:1.2;flex:0 0 auto}
+.brief-it a{font-weight:800;white-space:nowrap;color:#8a4b00;text-decoration:none;border-bottom:2px solid #f3c58e}
+.brief.big{margin:0;box-shadow:none;border:0;background:transparent;padding:0}
+.brief.big .brief-hi{font-size:34px}
+.welcome-ov{position:fixed;inset:0;background:rgba(14,26,43,.55);display:none;align-items:center;justify-content:center;z-index:95;padding:16px;backdrop-filter:blur(3px)}
+.welcome-box{background:linear-gradient(160deg,#fffdf7,#f3eddc);border-radius:22px;max-width:640px;width:100%;max-height:88vh;overflow:auto;padding:22px 22px 18px;box-shadow:0 24px 60px rgba(0,0,0,.35);animation:wIn .35s ease}
+@keyframes wIn{from{transform:translateY(16px) scale(.98);opacity:0}to{transform:none;opacity:1}}
+@media(max-width:520px){.brief-hi{font-size:25px}.brief.big .brief-hi{font-size:27px}.welcome-box{padding:18px 14px 14px}}
 </style>
 </head>
 <body>
@@ -1486,7 +1504,7 @@ function startCounsel(){ if(!db||!ME||ME.role==="admin") return;
     const q=(isPrinRole()||isCoordMe())?query(collection(db,"childCounsel"),where("year","==",stuY())):query(collection(db,"childCounsel"),where("year","==",stuY()),where("cls","in",ct));
     unsubCC=onSnapshot(q,sn=>{ const n={}; sn.forEach(d=>n[d.id]={...d.data(),id:d.id}); CC=n; csRefresh(); },()=>{}); } }
 function stopCounsel(){ if(unsubSC){unsubSC();unsubSC=null;} if(unsubCC){unsubCC();unsubCC=null;} SC={}; CC={}; csTab=null; csCls=""; csT=""; const cb=$("#csBody"); if(cb) cb.innerHTML=""; }
-function counselDue(){ if(!ME) return []; const t=todayISO(), d7=new Date(t+"T00:00:00"); d7.setDate(d7.getDate()+7); const lim=d7.toISOString().slice(0,10), out=[];
+function counselDue(){ if(!ME) return []; const t=todayISO(), d7=new Date(t+"T00:00:00"); d7.setDate(d7.getDate()+7); const lim=addDaysISO(t,7), out=[];
   Object.values(SC).forEach(x=>{ if(!isPrinRole()&&x.teacher===ME.email&&!x.ack) out.push({date:t,hot:true,text:`The principal has shared a counselling note with you <a href="#counsel">Open →</a>`});
     if(isPrinRole()&&x.status!=="Closed"&&x.followUp&&x.followUp<=lim) out.push({date:x.followUp,hot:x.followUp<=t,text:`Counselling follow-up: <b>${esc(x.teacherName||tName(x.teacher))}</b> <a href="#counsel">Open →</a>`}); });
   Object.values(CC).forEach(x=>{ if(x.status!=="Closed"&&x.followUp&&x.followUp<=lim) out.push({date:x.followUp,hot:x.followUp<=t,text:`Child counselling follow-up: <b>${esc(x.name)}</b> (${esc(x.cls)}) <a href="#counsel">Open →</a>`}); });
@@ -1707,10 +1725,10 @@ let SUM={year:null,exam:null};
 /* ---------- "Coming up for you": what matters to this person in the next days ---------- */
 let SUBS_HOME={}, homeT=0;
 window.addEventListener("hashchange",()=>{ if(["#home","","#"].includes(location.hash)) homeRefresh(); });
-function homeRefresh(){ if(homeT) return; homeT=setTimeout(()=>{ homeT=0; if(ME&&(location.hash==="#home"||location.hash===""||location.hash==="#")){ const b=$("#homeComing"); if(b) b.innerHTML=comingHTML(); const m=$("#homeMine"); if(m) m.innerHTML=mineHTML(); const ea=$("#homeEvAch"); if(ea) ea.innerHTML=eventsAchHTML(); const se=$("#homeSeats"); if(se) se.innerHTML=seatsHTML(); } },300); }
-async function loadHomeSubs(){ const t=todayISO(), d2=new Date(t+"T00:00:00"); d2.setDate(d2.getDate()+1); const tm=d2.toISOString().slice(0,10);
+function homeRefresh(){ if(homeT) return; homeT=setTimeout(()=>{ homeT=0; if(ME&&(location.hash==="#home"||location.hash===""||location.hash==="#")){ const b=$("#homeComing"); if(b) b.innerHTML=comingHTML(); refreshBrief(); const m=$("#homeMine"); if(m) m.innerHTML=mineHTML(); const ea=$("#homeEvAch"); if(ea) ea.innerHTML=eventsAchHTML(); const se=$("#homeSeats"); if(se) se.innerHTML=seatsHTML(); } },300); }
+async function loadHomeSubs(){ const t=todayISO(), tm=addDaysISO(t,1);
   for(const d of [t,tm]){ if(d in SUBS_HOME) continue; SUBS_HOME[d]=null; try{ const x=await getDoc(doc(db,"subs",d)); SUBS_HOME[d]=x.exists()?x.data():null; }catch(_){} } homeRefresh(); }
-function comingHTML(){ if(!ME) return ""; const t=todayISO(), lim=(n)=>{ const x=new Date(t+"T00:00:00"); x.setDate(x.getDate()+n); return x.toISOString().slice(0,10); }, in14=lim(14), in21=lim(21), it=[], me=ME.email;
+function comingItems(){ if(!ME) return []; const t=todayISO(), lim=(n)=>addDaysISO(t,n), in14=lim(14), in21=lim(21), it=[], me=ME.email;
   const add=(date,icon,text,cls)=>it.push({date,icon,text,cls:cls||""});
   Object.values(SUBS_HOME).forEach(sd=>{ if(!sd) return; (sd.plan||[]).filter(p=>p.sub===me).forEach(p=>add(sd.date,"🔁",`Substitution: <b>P${p.p} ${esc(p.c)}</b> ${esc(p.s)} (for ${esc(tName(p.absent))})`,"hot")); });
   Object.entries(EDUT||{}).forEach(([id,e])=>(e.duties||[]).filter(d=>d.email===me&&(e.date||"")>=t&&e.date<=in21).forEach(d=>add(e.date,"🎭",`Event duty: <b>${esc(e.title)}</b> · ${esc(d.task)}`)));
@@ -1730,11 +1748,114 @@ function comingHTML(){ if(!ME) return ""; const t=todayISO(), lim=(n)=>{ const x
   ((C&&C.holidays)||SUGGESTED_HOLIDAYS).filter(h=>CLOSED_KINDS.includes(h.kind||"Holiday")&&(h.to||h.from)>=t&&h.from<=in14).forEach(h=>add(h.from,"🎉",`${esc(h.name)} (school closed)`));
   Object.values(typeof NOTICES!=="undefined"?NOTICES:{}).filter(n=>n.date&&n.date>=t&&n.date<=in14).forEach(n=>add(n.date,ntIcon(n.type),esc(n.title)));
   it.sort((a,b)=>(b.cls==="hot")-(a.cls==="hot")||String(a.date).localeCompare(String(b.date)));
-  const day=d=>d===t?"Today":d===lim(1)?"Tomorrow":fmtD(d).replace(/ \d{4}$/,"");
-  return `<div class="card" style="box-shadow:none;margin:0 0 14px;border-left:5px solid #ff9933"><h3 style="margin:0 0 8px">🔔 Coming up for you</h3>${it.length?it.slice(0,12).map(x=>`<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line)${x.cls==="hot"?";font-weight:700":""}"><span style="min-width:78px;color:${x.cls==="hot"?"#c4610d":"var(--muted)"};font-weight:800">${day(x.date)}</span><span>${x.icon} ${x.text}</span></div>`).join(""):'<p class="hint" style="margin:0">Nothing due in the next two weeks.</p>'}</div>`; }
+  return it; }
+/* "Coming up": only the days after today. Today's items are in the morning briefing at the top, so nothing is shown twice. */
+function comingHTML(){ if(!ME) return ""; const t=todayISO(), it=comingItems().filter(x=>String(x.date)>t).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+  const day=d=>d===addDaysISO(t,1)?"Tomorrow":fmtD(d).replace(/ \d{4}$/,"");
+  return `<div class="card" style="box-shadow:none;margin:0 0 14px;border-left:5px solid #ff9933"><h3 style="margin:0 0 8px">🔔 Coming up</h3>${it.length?it.slice(0,10).map(x=>`<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line)${x.cls==="hot"?";font-weight:700":""}"><span style="min-width:78px;color:${x.cls==="hot"?"#c4610d":"var(--muted)"};font-weight:800">${day(x.date)}</span><span>${x.icon} ${x.text}</span></div>`).join(""):'<p class="hint" style="margin:0">Nothing due in the next two weeks.</p>'}</div>`; }
+/* ---------- Morning briefing: a warm, personal summary of today, at the top of every dashboard ----------
+   Shown as a welcome card on the first login of the day, and kept at the top of the dashboard. */
+const FEST={"01-01":["🎆","Happy New Year!"],"01-15":["🎖️","Happy Army Day! Saluting our soldiers and their families."],"01-26":["🇮🇳","Happy Republic Day!"],"08-15":["🇮🇳","Happy Independence Day!"],
+  "09-05":["🍎","Happy Teachers' Day! Thank you for all you do."],"10-02":["🕊️","Gandhi Jayanti today."],"11-14":["🎈","Happy Children's Day!"],"12-16":["🎖️","Vijay Diwas today."],"12-25":["🎄","Merry Christmas!"]};
+const daysAgo=iso=>{ if(!iso) return null; const a=new Date(String(iso).slice(0,10)+"T00:00:00Z"), b=new Date(todayISO()+"T00:00:00Z"); const n=Math.round((b-a)/864e5); return isNaN(n)?null:n; };
+const agoTxt=n=>n==null?"":n<=0?"today":n===1?"since yesterday":`for ${n} days`;
+const firstName=x=>{ const n=String((x&&x.name)||"").trim(); return n||"there"; };
+const mdOf=d=>String(d||"").slice(5,10);
+let BRIEF_ON=null;
+async function loadBrief(){ if(!ME||!db) return; const t=todayISO(), m=monthOf(t), key=ME.email+"|"+t; if(BRIEF_ON===key) return; BRIEF_ON=key;
+  const cls=isOffice()?ALLCLS:(ME.classTeacher||[]);
+  try{ if(isOffice()||cls.length) startStu(); }catch(_){}
+  await Promise.all([loadHomeSubs().catch(()=>{}),
+    ...cls.map(async c=>{ const k=attKey(c,m); if(k in ATTM) return; try{ const x=await getDoc(doc(db,"attendance",k)); ATTM[k]=x.exists()?x.data():null; }catch(_){ ATTM[k]=null; } }),
+    (async()=>{ if(!isOffice()) return; const sk=`${YEARS[0]}_${m}`; if(sk in SATTM) return; try{ const x=await getDoc(doc(db,"staffAtt",sk)); SATTM[sk]=x.exists()?x.data():null; }catch(_){ SATTM[sk]=null; } })()]);
+  if(BRIEF_ON!==key||!ME) return; refreshBrief(); setTimeout(()=>{ if(BRIEF_ON!==key||!ME) return; refreshBrief(); maybeWelcome(); },900); }
+function refreshBrief(){ const b=$("#dashBrief"); if(b) b.innerHTML=briefHTML(); const w=$("#welcomeBody"); if(w) w.innerHTML=briefHTML(true); }
+function briefData(){ if(!ME) return null; const t=todayISO(), m=monthOf(t), me=ME.email, it=[], good=(i,x)=>it.push({tone:"good",icon:i,text:x}), warn=(i,x)=>it.push({tone:"warn",icon:i,text:x}), info=(i,x)=>it.push({tone:"info",icon:i,text:x});
+  const hr=new Date().getHours(), greet=hr<12?"Good morning":hr<17?"Good afternoon":"Good evening";
+  const nm=e=>{ const n=tName(e)||""; return esc(n); }, subjOf=e=>{ const x=STAFF[e]; const s=[...new Set(((x&&x.classes)||[]).flatMap(c=>teachesIn(x,c)))]; return s.length?s.slice(0,2).join(" & "):""; };
+  const C=CAL||(typeof PCAL!=="undefined"?PCAL:null)||calData(), fest=[];
+  if(FEST[mdOf(t)]) fest.push(FEST[mdOf(t)]);
+  ((C&&C.holidays)||[]).filter(h=>h.from<=t&&t<=(h.to||h.from)).forEach(h=>{ if(!fest.some(f=>f[1].includes(h.name))) fest.push(["🎉",`${esc(h.name)} today${CLOSED_KINDS.includes(h.kind||"Holiday")?" (school closed)":""}.`]); });
+  const ex=((C&&C.exams)||[]).find(e=>e.from<=t&&t<=(e.to||e.from)); if(ex) info("📝",`<b>${esc(ex.label)}</b> exams are on today. Best wishes to all our children!`);
+  const exSoon=((C&&C.exams)||[]).find(e=>e.from>t&&e.from<=addDaysISO(t,3)); if(exSoon) info("📝",`<b>${esc(exSoon.label)}</b> exams start ${exSoon.from===addDaysISO(t,1)?"tomorrow":fmtD(exSoon.from)}.`);
+  const sub=SUBS_HOME[t]||null, plan=(sub&&sub.plan)||[];
+  /* ---- the principal / admin / coordinator ---- */
+  if(isOffice()){
+    const sk=`${YEARS[0]}_${m}`, sd=SATTM[sk]&&SATTM[sk].days&&SATTM[sk].days[t], onLv=leavesOnly(t), away=[...new Set([...onLv.map(l=>l.email),...(sd?(sd.absent||[]):[])])].filter(e=>STAFF[e]);
+    away.forEach(e=>{ const lv=onLv.find(l=>l.email===e), mine=plan.filter(p=>p.absent===e), miss=mine.filter(p=>!p.sub), why=lv?`on ${esc((lv.type||"").toLowerCase()||"")} leave`.replace("on  leave","on leave"):"absent";
+      if(!sub) return isFull()?warn("👩‍🏫",`<b>${nm(e)}</b> is ${why} today. Her relief periods are not published yet; the coordinator is arranging them. <a href="#timetable" data-briefgo="today">See today →</a>`)
+                         :warn("👩‍🏫",`<b>${nm(e)}</b> is ${why} today. Please plan and publish her relief periods. <a href="#timetable" data-briefgo="today">Plan relief →</a>`);
+      if(!mine.length) return info("👩‍🏫",`<b>${nm(e)}</b> is ${why} today. She has no class periods to cover.`);
+      const cov=mine.filter(p=>p.sub).slice(0,4).map(p=>{ const x=STAFF[p.sub], who=x&&teachesIn(x,p.c).length?`, who already teaches ${esc(p.c)},`:subjOf(p.sub)?` (${esc(subjOf(p.sub))} teacher)`:""; return `<b>${nm(p.sub)}</b>${who} takes ${esc(p.c)} ${esc(p.s)} in period ${p.p}`; }).join("; ");
+      if(!miss.length) good("👩‍🏫",`<b>${nm(e)}</b> is ${why} today. Don't worry, it's all taken care of: ${cov}${mine.length>4?` and ${mine.length-4} more`:""}.`);
+      else warn("👩‍🏫",`<b>${nm(e)}</b> is ${why} today. ${cov?cov+". ":""}<b>${miss.length} period${miss.length>1?"s":""}</b> still need${miss.length>1?"":"s"} a teacher. <a href="#timetable" data-briefgo="today">Fix →</a>`); });
+    const late=sd?(sd.late||[]).filter(e=>STAFF[e]):[]; if(late.length) info("⏰",`Late today: ${late.map(nm).join(", ")}.`);
+    /* students' attendance */
+    const rows=ALLCLS.map(c=>{ const S=allStudents().filter(s=>s.cls===c&&!s.pending&&!s.left), M=ATTM[attKey(c,m)], day=M&&M.days&&M.days[t]; return {c,n:S.length,day}; }).filter(x=>x.n);
+    const mk=rows.filter(x=>x.day), tot=mk.reduce((a,x)=>a+x.n,0), ab=mk.reduce((a,x)=>a+((x.day.absent||[]).length),0), pct=tot?Math.round((tot-ab)/tot*1000)/10:null, notYet=rows.length-mk.length;
+    if(rows.length&&!(fest.length&&fest.some(f=>/closed/.test(f[1])))){
+      if(mk.length&&!notYet&&ab===0) good("🎉",`<b>Congratulations! 100% attendance today</b>: all ${tot} children are in school.`);
+      else if(mk.length&&!notYet) (pct>=95?good:info)("🧒",`Attendance today: <b>${pct}%</b> (${tot-ab} of ${tot} children present, ${ab} absent).`);
+      else if(mk.length) info("🧒",`Attendance so far: <b>${pct}%</b> present in the ${mk.length} class${mk.length>1?"es":""} marked. ${notYet} class${notYet>1?"es have":" has"} not marked yet.`);
+      else info("🧒",`Attendance hasn't been marked in any class yet today.`); }
+    /* approvals and requests, with how long they have waited */
+    const dr=Object.values(DRAFTS||{}).filter(d=>d.col!=="import"||d.data.part===0), adm=Object.values(STUDOCS||{}).filter(d=>d.admission==="pending"),
+      ages=[...dr.map(d=>daysAgo(d.at)),...adm.map(d=>daysAgo(d.updatedAt||d.at||d.createdAt))].filter(x=>x!=null), old=ages.length?Math.max(...ages):null, nA=dr.length+adm.length;
+    if(nA){ const txt=`<b>${nA} item${nA>1?"s":""}</b> waiting for ${isFull()?"your approval":"the principal's approval"}${old?`, the oldest ${agoTxt(old)}`:""}.`;
+      isFull()?(old>=3?warn:info)("📥",txt+` <a href="#home" data-goapprove="1">Review →</a>`):info("⏳",txt); }
+    const lr=Object.values(LEAVES||{}).filter(l=>(l.status==="Requested"||(isFull()&&l.status==="Recommended"))&&(l.to||l.from)>=t);
+    if(lr.length){ const o=Math.max(0,...lr.map(l=>daysAgo(l.createdAt||l.at)||0)); (o>=2?warn:info)("🏖",`<b>${lr.length} leave request${lr.length>1?"s":""}</b> to ${isFull()?"decide":"recommend"}${o?`, waiting ${agoTxt(o)}`:""}. <a href="#timetable" data-briefgo="leave">Open →</a>`); }
+    /* birthdays and work anniversaries */
+    const bd=Object.values(STAFF).filter(x=>{ const h=(typeof HR!=="undefined"&&HR[x.email])||{}; return h.dob&&mdOf(h.dob)===mdOf(t); });
+    if(bd.length) good("🎂",`It's <b>${bd.map(x=>esc(x.name)).join(" and ")}</b>'s birthday today. A good day to wish ${bd.length>1?"them":"her"}!`);
+    const ann=Object.values(STAFF).filter(x=>x.joined&&mdOf(x.joined)===mdOf(t)&&String(x.joined).slice(0,4)<t.slice(0,4));
+    ann.forEach(x=>good("🌟",`<b>${esc(x.name)}</b> completes <b>${+t.slice(0,4)-+String(x.joined).slice(0,4)} year${+t.slice(0,4)-+String(x.joined).slice(0,4)>1?"s":""}</b> with the school today.`));
+    const kb=allStudents().filter(s=>!s.left&&!s.pending&&mdOf(s.r&&s.r.dob||s.doc&&s.doc.dob)===mdOf(t));
+    if(kb.length) good("🎈",`<b>${kb.length} child${kb.length>1?"ren":""}</b> ${kb.length>1?"have":"has"} a birthday today: ${kb.slice(0,4).map(s=>`${esc(s.name)} (${esc(s.cls)})`).join(", ")}${kb.length>4?"…":""}.`);
+  } else {
+    /* ---- teachers ---- */
+    const mine=plan.filter(p=>p.sub===me).sort((a,b)=>a.p-b.p);
+    if(mine.length) warn("🔁",`You have <b>${mine.length} extra period${mine.length>1?"s":""}</b> today: ${mine.map(p=>`period ${p.p} ${esc(p.c)} ${esc(p.s)} (for ${nm(p.absent)})`).join("; ")}. Thank you for covering!`);
+    const act=((sub&&sub.acting)||[]).filter(a=>a.sub===me); act.forEach(a=>info("🗂️",`You are acting class teacher of <b>${esc(a.c)}</b> today.`));
+    (ME.classTeacher||[]).forEach(c=>{ const M=ATTM[attKey(c,m)], day=M&&M.days&&M.days[t], S=allStudents().filter(s=>s.cls===c&&!s.left&&!s.pending);
+      if(fest.some(f=>/closed/.test(f[1]))) return;
+      if(!day) warn("✅",`${esc(c)} attendance isn't marked yet today. <a href="#students" data-briefgo="att">Mark it →</a>`);
+      else if(!(day.absent||[]).length) good("🎉",`<b>Full house!</b> Everyone in ${esc(c)} is present today.`);
+      else info("✅",`${esc(c)}: ${S.length?S.length-(day.absent||[]).length+" of "+S.length+" present":"attendance marked"}, ${(day.absent||[]).length} absent.`);
+      const kb=S.filter(s=>mdOf(s.r&&s.r.dob||s.doc&&s.doc.dob)===mdOf(t)); if(kb.length) good("🎈",`Birthday in ${esc(c)} today: <b>${kb.map(s=>esc(s.name)).join(", ")}</b>. Don't forget to wish ${kb.length>1?"them":esc(String(kb[0].name).split(" ")[0])}!`); });
+    const myLv=Object.values(LEAVES||{}).filter(l=>l.email===me&&(l.status==="Requested"||l.status==="Recommended")); myLv.forEach(l=>info("🏖",`Your leave request for ${fmtD(l.from)} is ${l.status==="Recommended"?"recommended and with the principal":"with the coordinator"}${daysAgo(l.createdAt)?`, ${agoTxt(daysAgo(l.createdAt))}`:""}.`));
+    const rm=Object.values(DRAFTS||{}).filter(d=>d.by===me); if(rm.length){ const o=Math.max(0,...rm.map(d=>daysAgo(d.at)||0)); info("⏳",`${rm.length} request${rm.length>1?"s":""} you sent ${rm.length>1?"are":"is"} waiting for approval${o?` ${agoTxt(o)}`:""}.`); }
+    if(ME.joined&&mdOf(ME.joined)===mdOf(t)&&String(ME.joined).slice(0,4)<t.slice(0,4)) good("🌟",`Happy work anniversary! You complete ${+t.slice(0,4)-+String(ME.joined).slice(0,4)} year(s) with the school today.`);
+  }
+  /* everyone on staff: open parent messages */
+  const gv=Object.values(typeof GVS!=="undefined"?GVS:{}).filter(g=>g.status!=="Resolved"&&!((g.replies||[]).length&&(g.replies[g.replies.length-1].by!=="parent")));
+  if(gv.length){ const o=Math.max(0,...gv.map(g=>daysAgo(g.updatedAt||g.at)||0)); (o>=2?warn:info)("🗣",`<b>${gv.length} parent message${gv.length>1?"s":""}</b> waiting for a reply${o?`, the oldest ${agoTxt(o)}`:""}. <a href="#home" data-briefgo="gv">Open →</a>`); }
+  /* today's items from the calendar, duties and notices (not repeated in "Coming up") */
+  comingItems().filter(x=>String(x.date)<=t&&!/waiting for|leave request|On leave today|^Fee |Substitution:/.test(x.text)&&!(ex&&/^Exam:/.test(x.text.replace(/<[^>]*>/g,"")))&&!/school closed/.test(x.text)).forEach(x=>(x.cls==="hot"?warn:info)(x.icon,x.text));
+  const fr=isOffice()&&typeof feeReminder==="function"?feeReminder():null; if(fr&&fr.late) info("💳",`Fee ${esc(fr.q)} was due ${fmtD(fr.due)}. <a href="#students">Fees →</a>`);
+  return {greet,fest,it,t}; }
+function briefHTML(big){ const B=briefData(); if(!B) return ""; const {greet,fest,it,t}=B, warnN=it.filter(x=>x.tone==="warn").length;
+  const dt=new Date(t+"T00:00:00").toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+  const mood=warnN?`${warnN} thing${warnN>1?"s":""} need${warnN>1?"":"s"} your attention today.`:it.length?"Everything is on track today. Have a lovely day!":"A calm day ahead. Have a lovely day!";
+  const col={good:["#e9f8f1","#0b7a64"],warn:["#fff4e6","#a55a00"],info:["#f3f6fb","#33415c"]};
+  const L=[...it].sort((a,b)=>({warn:0,good:1,info:2})[a.tone]-({warn:0,good:1,info:2})[b.tone]);
+  return `<div class="brief${big?" big":""}"><div class="brief-hd"><div><div class="brief-hi">${greet}, ${esc(firstName(ME))} 👋</div><div class="brief-sub">${esc(dt)} · ${esc(desigOf(ME))}</div></div></div>
+   ${fest.map(f=>`<div class="brief-fest">${f[0]} ${f[1]}</div>`).join("")}
+   <div class="brief-mood">${mood}</div>
+   ${L.length?`<div class="brief-list">${L.slice(0,big?8:12).map(x=>`<div class="brief-it" style="background:${col[x.tone][0]};border-left-color:${col[x.tone][1]}"><span class="bi">${x.icon}</span><span>${x.text}</span></div>`).join("")}</div>`:""}</div>`; }
+function maybeWelcome(){ if(!ME) return; const k="saps_welcome_"+ME.email+"_"+todayISO(); let seen=false; try{ seen=localStorage.getItem(k)==="1"; }catch(_){ seen=!!window["_w_"+k]; } if(seen) return;
+  try{ localStorage.setItem(k,"1"); }catch(_){ window["_w_"+k]=1; }
+  let w=$("#welcomeModal"); if(!w){ w=document.createElement("div"); w.id="welcomeModal"; w.className="welcome-ov"; document.body.appendChild(w); }
+  w.innerHTML=`<div class="welcome-box" role="dialog" aria-label="Today's briefing"><div id="welcomeBody">${briefHTML(true)}</div><div style="text-align:right;margin-top:12px"><button class="btn pri" id="welcomeGo">Let's begin ✨</button></div></div>`; w.style.display="flex"; }
+document.addEventListener("click",e=>{ if(e.target.id==="welcomeGo"||e.target.id==="welcomeModal"){ const w=$("#welcomeModal"); if(w) w.style.display="none"; return; }
+  const g=e.target.closest("[data-briefgo]"); if(!g) return; const w=$("#welcomeModal"); if(w) w.style.display="none"; const k=g.dataset.briefgo;
+  if(k==="gv"){ e.preventDefault(); const x=$("#dashGV"); if(x){ const d=x.querySelector("details"); if(d) d.open=true; x.scrollIntoView({behavior:"smooth",block:"start"}); } return; }
+  if(k==="today"&&typeof ttS!=="undefined"){ ttS.tab="today"; ttS.date=todayISO(); }
+  if(k==="leave"&&typeof ttS!=="undefined"){ ttS.tab="leave"; }
+  if(k==="att"&&typeof stu!=="undefined"){ stu.tab="att"; } });
 /* ---------- Teacher home: my engagements, my class (fees, achievements), toppers in my subjects ---------- */
 let SUBS_ALL=null, CTFEES={}, CTFEE_UNS={}, HOME_RECS=[];
-function eachDay(a,b){ const out=[], d=new Date(a+"T00:00:00"), e=new Date((b||a)+"T00:00:00"); while(d<=e){ out.push(d.toISOString().slice(0,10)); d.setDate(d.getDate()+1); } return out; }
+function eachDay(a,b){ const out=[]; let d=a; const e=b||a; for(let i=0;d<=e&&i<400;i++){ out.push(d); d=addDaysISO(d,1); } return out; }
 async function loadSubsAll(){ if(SUBS_ALL!==null||!db) return; SUBS_ALL={}; try{ const sn=await getDocs(query(collection(db,"subs"),where("date",">=",calData().start),where("date","<=",todayISO()))); sn.forEach(d=>SUBS_ALL[d.id]=d.data()); }catch(_){} homeRefresh(); }
 function loadCtFees(){ if(!db||!ME) return; (ME.classTeacher||[]).forEach(c=>{ if(CTFEE_UNS[c]) return;
   CTFEE_UNS[c]=onSnapshot(query(collection(db,"fees"),where("year","==",stuY()),where("cls","==",c)),sn=>{ Object.keys(CTFEES).forEach(k=>{ if(CTFEES[k].cls===c) delete CTFEES[k]; }); sn.forEach(d=>{ const x=d.data(); CTFEES[x.sid]={...x,_k:d.id}; }); homeRefresh(); if(location.hash==="#students"&&stu.tab==="fees") renderStu(); },()=>{}); }); }
@@ -1870,7 +1991,7 @@ function renderStats(){
   const allV=recs.map(pctOf).filter(x=>x!=null);
   const welcome0=`<div style="margin:0 0 14px;padding:14px 18px;border-radius:14px;background:linear-gradient(110deg,#0e1a2b,#2c3318);color:#fff"><div style="font-family:'Barlow Condensed';font-size:26px;font-weight:700">👋 Welcome, ${esc(ME.name)}</div><div style="color:#ffd9ad;font-weight:700">${esc(desigOf(ME))}${ME.role==="teacher"&&(ME.classes||[]).length?` · teaches ${esc([...new Set((ME.classes||[]).flatMap(c=>teachesIn(ME,c)))].join(", "))}`:""}</div></div>`;
   if(isFull()){ box.innerHTML=""; renderDash(); return; }
-  const welcome=welcome0+`<div id="homeComing">${comingHTML()}</div>`;
+  const welcome=`<div id="dashBrief">${briefHTML()}</div>`+`<div id="homeComing">${comingHTML()}</div>`; loadBrief();
   const picker=`<div style="display:flex;gap:10px;flex-wrap:wrap"><label class="f">Year<select class="in" id="sumYear">${YEARS.map(y=>`<option ${y===SUM.year?"selected":""}>${y}</option>`).join("")}</select></label>
     <label class="f">Exam<select class="in" id="sumExam">${EXAMS.map(t=>`<option value="${esc(t)}" ${t===SUM.exam?"selected":""}>${esc(lab(t))}${examsWith.includes(t)?"":" (no results yet)"}</option>`).join("")}</select></label></div>`;
   HOME_RECS=recs;
@@ -2067,12 +2188,12 @@ async function loadMe(u){
     const right=loginAs, nm={principal:"Principal",coordinator:"Coordinator",teacher:"Teacher"};
     setTimeout(()=>unauth(`This is the ${nm[LOGIN_MODE]||"Teacher"} login. Please use the ${nm[right]} login.`),60);
     setTimeout(()=>{ location.hash=right; $("#gateErr").textContent=`We've opened the ${nm[right]} login for you. Please sign in here.`; },2600); return; }
-  window._freshLogin=false;
+  const wasFresh=!!window._freshLogin; window._freshLogin=false;
   ME={email:em,name:(sd&&sd.name)||(admin?"Admin":em),role,subjects:(sd&&sd.subjects)||[],classes:(sd&&sd.classes)||[],classTeacher:(sd&&sd.classTeacher)||[],teaches:(sd&&sd.teaches)||{},coordinator:!!(sd&&sd.coordinator),office,acting};
   document.body.classList.toggle("admin",admin); document.body.classList.add("staff"); document.body.classList.toggle("principal",admin||((sd&&sd.role)==="principal")); document.body.classList.toggle("office",admin||role==="principal"||office);
-  $("#whoName").textContent=((sd&&sd.name)||em)+" · "+(admin?"Admin":acting&&!(sd&&sd.coordinator)?"Acting coordinator · "+desigOf(sd):desigOf(sd)); if(window._freshLogin){ lastWrite=0; markActive(); } setTimeout(()=>idleCheck(true),0);
+  $("#whoName").textContent=((sd&&sd.name)||em)+" · "+(admin?"Admin":acting&&!(sd&&sd.coordinator)?"Acting coordinator · "+desigOf(sd):desigOf(sd)); if(wasFresh){ lastWrite=0; markActive(); } setTimeout(()=>idleCheck(true),0);
   canWrite=true; { const c0=(ME.classTeacher||[])[0]||(ME.classes||[])[0]; if(ME.role==="teacher"&&c0){ const [cs,cd]=c0.split("-"); $("#aStd").value=cs; $("#aDiv").value=cd; $("#fStd").value=cs; $("#fDiv").value=cd; } } setUnlocked(true); startTeacherData(); startStaffData(); startStu(); startDrafts(); startEDUT();
-  renderRoleBar(); renderMarks(); renderStats(); toast(`Welcome, ${ME.name}`);
+  renderRoleBar(); renderMarks(); renderStats(); toast(`Welcome, ${ME.name}`); if(wasFresh&&!onHome()) setTimeout(()=>{ location.hash="home"; },50);
   $("#navEntry").href=role==="principal"?"#principal":loginAs==="coordinator"?"#coordinator":"#teacher";
   /* the coordinator does not enter results, so she has no Results entry tab (an acting coordinator keeps hers for her own classes) */
   $("#navEntry").style.display=(sd&&sd.coordinator)||admin||role==="principal"?"none":"";
@@ -2098,7 +2219,7 @@ if(auth){
 let HR={}, unsubHR=null;
 function startStaffData(){ if(unsubStaff) return; unsubStaff=onSnapshot(collection(db,"staff"),snap=>{ const n={}; snap.forEach(d=>n[d.id]=d.data()); STAFF=n; renderStaff(); if(typeof renderStats==="function") renderStats(); if(location.hash==="#dashboard") renderDash(); },()=>{});
   if(isOffice()&&!unsubHR) unsubHR=onSnapshot(isFull()?collection(db,"staffHR"):query(collection(db,"staffHR"),where("role","==","teacher")),snap=>{ const n={}; snap.forEach(d=>n[d.id]=d.data()); HR=n; if(onHome()&&isFull()) renderDash(); },()=>{}); }
-function stopStaffData(){ stopTT(); if(unsubStaff){unsubStaff();unsubStaff=null;} if(unsubHR){unsubHR();unsubHR=null;} STAFF={}; HR={}; }
+function stopStaffData(){ BRIEF_ON=null; SUBS_HOME={}; { const w=document.getElementById("welcomeModal"); if(w) w.style.display="none"; } stopTT(); if(unsubStaff){unsubStaff();unsubStaff=null;} if(unsubHR){unsubHR();unsubHR=null;} STAFF={}; HR={}; }
 
 /* ---------- Admin page ---------- */
 const ALL_SUBJECTS=[...new Set(STDS.flatMap(x=>SUBJECTS_BY(x).all))];
@@ -2189,6 +2310,8 @@ const TT_YEAR=()=>YEARS[0];
 let DUTY=null, unsubDUTY=null, dutyDraft=null, TT=null, unsubTT=null, LEAVES={}, unsubLV=null, SUBDOC=null, SUBPLAN=null, CAL=null, unsubCAL=null, calDraft=null;
 const ttS={tab:"",cls:"I-A",teacher:"",date:"",swap:null,draft:null,setup:null};
 const DAYNAMES=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+/* date arithmetic on plain YYYY-MM-DD strings, safe in any time zone */
+function addDaysISO(iso,n){ const x=new Date(String(iso).slice(0,10)+"T00:00:00Z"); x.setUTCDate(x.getUTCDate()+n); return x.toISOString().slice(0,10); }
 const todayISO=()=>{ const d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); };
 const ttSet=()=>JSON.parse(JSON.stringify((TT&&TT.settings&&TT.settings.v===3)?TT.settings:DEFAULT_TT));
 const allClasses=(set)=>{ set=set||ttSet(); return (set.stds||STDS).flatMap(s=>((set.sections&&set.sections[s])||secOf(s)).map(d=>s+"-"+d)); };
@@ -2962,10 +3085,11 @@ function renderDash(){
   if(!DASH.picked||!have.includes(DASH.exam)) DASH.exam=have[have.length-1]||"Term I";
   const t=DASH.exam, pe=prevExamOf(t,y), recs=all.filter(r=>r.term===t), prev=pe?all.filter(r=>r.term===pe):[];
   const hr=new Date().getHours(), greet=hr<12?"Good morning":hr<17?"Good afternoon":"Good evening";
-  const head=`<div class="dash-head"><div><h2>${greet}, ${esc(ME.name)} 👋</h2><p>${ME.role==="admin"?"Admin":"Principal"} dashboard · ${esc(y)} · ${new Date().toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long"})}</p></div>
+  const head=`<div id="dashBrief">${briefHTML()}</div>`;  loadBrief();
+  const examBar=`<div class="dash-head" style="margin-top:18px"><div><h2 style="font-size:22px">📊 Results at a glance</h2><p>${esc(y)} · choose an exam</p></div>
     <div class="apick" style="margin:0">${EXAMS.map(x=>`<button class="chip ${x===t?"on":""}" data-dex="${esc(x)}" ${have.includes(x)?"":"disabled"}>${esc(lab(x))}</button>`).join("")}</div></div>`;
   startGrievances(); startPmLog(); const coming=`<div id="homeComing">${comingHTML()}</div><div id="dashApprovals">${approvalsHTML()}</div><div id="dashGV">${gvStaffHTML()}</div><div id="dashPM">${pmLogHTML()}</div><div id="dashPublish">${pubPanelHTML()}</div><div id="homeEvAch">${eventsAchHTML()}</div>`;
-  if(!recs.length){ $("#dashBody").innerHTML=head+coming+`<div class="empty">No results for ${esc(y)} yet. Once teachers enter marks, highlights appear here.</div>`; return; }
+  if(!recs.length){ $("#dashBody").innerHTML=head+coming+examBar+`<div class="empty">No results for ${esc(y)} yet. Once teachers enter marks, highlights appear here.</div>`; return; }
   const key=r=>[r.std,r.div,r.roll,normName(r.name)].join("|");
   const prevMap={}; prev.forEach(r=>prevMap[key(r)]=pctOf(r));
   const vals=recs.map(pctOf).filter(v=>v!=null), sAvg=avg(vals), pAvg=avg(prev.map(pctOf).filter(v=>v!=null));
@@ -3021,7 +3145,7 @@ function renderDash(){
   const rems=staffReminders(60);
   const remBox=`<h3 style="margin:22px 0 8px">⏰ Contract reminders <span class="hint" style="font-weight:700">· next 60 days</span></h3>${rems.length?rems.map(r=>`<div class="rem ${r.n<0?"over":"soon"}" data-prof="${esc(r.em)}">${tAvatar(STAFF[r.em],36)}<div><b>${esc(r.name)}</b> <span class="hint">${esc(r.contract||"")}</span><br><span style="font-size:14px">${esc(r.what)}: ${fmtD(r.d)}</span></div><span class="when">${remWhen(r.n)}</span></div>`).join(""):'<div class="empty" style="background:#f0fbf7">No contract renewals or terminations in the next 60 days. 👍</div>'}`;
   const dirBox=`<h3 style="margin:22px 0 4px">🔎 Find a teacher</h3><input class="in" id="dirQ" placeholder="Search by name, subject, class or contract type…" value="${esc(DASH.q||"")}" style="max-width:420px"><div class="dir-grid" id="dirGrid">${dirHTML()}</div>`;
-  $("#dashBody").innerHTML=head+coming+kpis+remBox+spot+charts+dirBox+`<div class="two"><div><h4 style="margin:0 0 8px">⚠️ Needs your attention</h4><ul class="alist att">${att.map(x=>`<li>${x}</li>`).join("")||`<li style="background:#f0fbf7;border-left-color:#14c3a2">Nothing urgent. 👍</li>`}</ul></div>
+  $("#dashBody").innerHTML=head+coming+examBar+kpis+remBox+spot+charts+dirBox+`<div class="two"><div><h4 style="margin:0 0 8px">⚠️ Needs your attention</h4><ul class="alist att">${att.map(x=>`<li>${x}</li>`).join("")||`<li style="background:#f0fbf7;border-left-color:#14c3a2">Nothing urgent. 👍</li>`}</ul></div>
     <div><h4 style="margin:0 0 8px">🌟 Highlights</h4><ul class="alist hi">${hi.map(x=>`<li>${x}</li>`).join("")}</ul></div></div>
     <details class="mstat" ${pendN?"open":""} style="margin-top:18px"><summary>📋 Classes and marks entry status · ${esc(lab(t))} ${pendN?`<span class="pend">${pendN} pending</span>`:`<span class="done">✓ all entered</span>`}</summary>${status}<p class="hint" style="margin:6px 0 0">Click a class to open its full analysis.</p></details>
     <div class="qlinks" style="margin-top:14px"><a class="btn sec" href="#analysis" data-goana="teachers">👩‍🏫 Teacher comparison</a><a class="btn sec" href="#analysis" data-goana="school">🏆 School toppers and support list</a><a class="btn sec" href="#analysis" data-goana="overview">📊 Class analysis</a><a class="btn sec" data-gohome="1" href="#home">🏫 School summary</a></div>`;
@@ -3763,7 +3887,7 @@ async function childKey(tag,r){ if(!r||!r.dob||!crypto.subtle) return null; cons
   const h=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(t)); return [...new Uint8Array(h)].map(b=>b.toString(16).padStart(2,"0")).join(""); }
 const inr=n=>"₹ "+Number(n||0).toLocaleString("en-IN");
 /* the reminder that runs every quarter: from 15 days before a quarter starts until 45 days after its due date */
-function feeReminder(){ const y=YEARS[0], t=todayISO(), add=(d,n)=>{ const x=new Date(d+"T00:00:00"); x.setDate(x.getDate()+n); return x.toISOString().slice(0,10); };
+function feeReminder(){ const y=YEARS[0], t=todayISO(), add=(d,n)=>addDaysISO(d,n);
   for(const q of QS){ const P=FP().quarters[q], st=qDate(y,q,P.start), due=qDate(y,q,P.due); if(t>=add(st,-15)&&t<=add(due,45)) return {q,label:P.label,due,y,late:t>due}; } return null; }
 /* ---- parents' fee panel ---- */
 function feePanelHTML(f,q){ const P=FP(), y=q.year, amt=P.amounts[q.std]||0, t=todayISO();
@@ -3938,6 +4062,28 @@ document.addEventListener("click",async e=>{ if(e.target.id!=="pmSend"||!ME) ret
       toast(`✅ Sent to ${S.length} famil${S.length>1?"ies":"y"}`); $("#pmSub").value=""; $("#pmText").value=""; }catch(err){ toast("Couldn't send: "+errMsg(err)); } }); });
 /* ---------- Parent dashboard: one page for their own child, with tabs ---------- */
 let PDATA=null, PTAB="card";
+/* ---------- Parents: a warm welcome with today's news about their child ---------- */
+function parentBriefHTML(big){ if(!PDATA) return ""; const {q,r,fd}=PDATA, t=todayISO(), name=(r&&r.name)||(fd&&fd.name)||capName(q.name), first=String(name).split(" ")[0], it=[], good=(i,x)=>it.push({tone:"good",icon:i,text:x}), warn=(i,x)=>it.push({tone:"warn",icon:i,text:x}), info=(i,x)=>it.push({tone:"info",icon:i,text:x});
+  const hr=new Date().getHours(), greet=hr<12?"Good morning":hr<17?"Good afternoon":"Good evening", fest=[];
+  if(FEST[mdOf(t)]) fest.push(FEST[mdOf(t)]);
+  if(q.dob&&mdOf(q.dob)===mdOf(t)) fest.unshift(["🎂",`Happy birthday, ${esc(first)}! Wishing a wonderful year ahead from all of us at school.`]);
+  const C=(typeof PCAL!=="undefined"&&PCAL)||CAL||null;
+  ((C&&C.holidays)||[]).filter(h=>h.from<=t&&t<=(h.to||h.from)).forEach(h=>fest.push(["🎉",`${esc(h.name)} today${CLOSED_KINDS.includes(h.kind||"Holiday")?" (school closed)":""}.`]));
+  ((C&&C.holidays)||[]).filter(h=>CLOSED_KINDS.includes(h.kind||"Holiday")&&h.from>t&&h.from<=addDaysISO(t,3)).forEach(h=>info("🎉",`School closed ${h.from===addDaysISO(t,1)?"tomorrow":fmtD(h.from)} for ${esc(h.name)}.`));
+  ((C&&C.exams)||[]).filter(e=>(e.to||e.from)>=t&&e.from<=addDaysISO(t,7)).forEach(e=>(e.from<=t?info:warn)("📝",e.from<=t?`<b>${esc(e.label)}</b> exams are on. All the best, ${esc(first)}!`:`<b>${esc(e.label)}</b> exams start ${e.from===addDaysISO(t,1)?"tomorrow":fmtD(e.from)}. <a href="#" data-ptab="news">Date sheet →</a>`));
+  const fr=typeof feeReminder==="function"?feeReminder():null;
+  if(fr&&fd){ const paid=fd.q&&fd.q[fr.q]&&fd.q[fr.q].paid; if(paid) good("💳",`${esc(fr.q)} fee (${esc(fr.label)}) is paid. Thank you!`); else (fr.late?warn:info)("💳",`${esc(fr.q)} fee (${esc(fr.label)}) ${fr.late?"was due":"is due"} on ${fmtD(fr.due)}. <a href="#" data-ptab="fees">Details →</a>`); }
+  const rep=(PDATA.gv||[]).filter(g=>(g.replies||[]).length&&g.replies[g.replies.length-1].by!=="parent"); if(rep.length) good("🗣",`The school has replied to ${rep.length>1?rep.length+" of your messages":"your message"}. <a href="#" data-ptab="talk">Read →</a>`);
+  const ib=((PDATA.inbox&&PDATA.inbox.items)||[]).filter(x=>!x.at||String(x.at).slice(0,10)>=addDaysISO(t,-7)); if(ib.length) info("📬",`${ib.length} message${ib.length>1?"s":""} from ${esc(first)}'s teachers this week. <a href="#" data-ptab="msgs">Open →</a>`);
+  const nt=Object.values(NOTICES||{}).filter(n=>n.date&&n.date>=t&&n.date<=addDaysISO(t,7)); if(nt.length) info("📢",`Coming up this week: ${nt.slice(0,3).map(n=>esc(n.title)).join(" · ")}${nt.length>3?"…":""}. <a href="#" data-ptab="news">See all →</a>`);
+  const dt=new Date(t+"T00:00:00").toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long"}), col={good:["#e9f8f1","#0b7a64"],warn:["#fff4e6","#a55a00"],info:["#f3f6fb","#33415c"]};
+  return `<div class="brief${big?" big":""}"><div class="brief-hi">${greet} 👋</div><div class="brief-sub">${esc(dt)} · Parent of ${esc(name)}, ${esc(q.std)}-${esc(q.div)}</div>
+   ${fest.map(f=>`<div class="brief-fest">${f[0]} ${f[1]}</div>`).join("")}<div class="brief-mood">${it.some(x=>x.tone==="warn")?"A few things for you today:":it.length?"Here's what's new for you:":"All is well. Thank you for being part of our school family!"}</div>
+   ${it.length?`<div class="brief-list">${it.map(x=>`<div class="brief-it" style="background:${col[x.tone][0]};border-left-color:${col[x.tone][1]}"><span class="bi">${x.icon}</span><span>${x.text}</span></div>`).join("")}</div>`:""}</div>`; }
+function parentWelcome(){ if(!PDATA) return; const q=PDATA.q, k="saps_pwelcome_"+[q.std,q.div,q.roll,q.name].join("_")+"_"+todayISO(); let seen=false; try{ seen=localStorage.getItem(k)==="1"; }catch(_){ seen=!!window["_w_"+k]; } if(seen) return;
+  try{ localStorage.setItem(k,"1"); }catch(_){ window["_w_"+k]=1; }
+  let w=$("#welcomeModal"); if(!w){ w=document.createElement("div"); w.id="welcomeModal"; w.className="welcome-ov"; document.body.appendChild(w); }
+  w.innerHTML=`<div class="welcome-box" role="dialog" aria-label="Welcome"><div id="pWelcomeBody">${parentBriefHTML(true)}</div><div style="text-align:right;margin-top:12px"><button class="btn pri" id="welcomeGo">Continue ✨</button></div></div>`; w.style.display="flex"; }
 function renderParentDash(){ const out=$("#rcOut"); if(!out||!PDATA) return; document.body.classList.remove("pwait"); const {q,r,fd,list}=PDATA, name=(r&&r.name)||(fd&&fd.name)||capName(q.name);
   const exams=(list||[]).filter(x=>x.rec), t=todayISO();
   const up=Object.values(NOTICES||{}).filter(n=>n.date&&n.date>=t).sort((a,b)=>a.date.localeCompare(b.date));
@@ -3957,11 +4103,12 @@ function renderParentDash(){ const out=$("#rcOut"); if(!out||!PDATA) return; doc
      <p class="hint" style="margin:8px 0 0">If anything here is wrong, please tell the class teacher using <b>Write to the school</b>.</p></div>`; }
   else if(PTAB==="msgs"){ const I=((PDATA.inbox&&PDATA.inbox.items)||[]).slice().reverse(); body=`<div class="card" style="box-shadow:none">${PDATA.inbox==null?`<p class="hint">Loading…</p>`:I.length?I.map(x=>`<div style="padding:10px 0;border-bottom:1px dashed var(--line)"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>${esc(x.subject)}</b><small class="hint">${esc(fmtD(String(x.at).slice(0,10)))}</small></div><small class="hint">From ${esc(x.from)} (${esc(x.role)})${x.kind==="class"?" · to the whole class":x.kind==="some"?" · to selected parents":" · to you"}</small><p style="margin:6px 0 0;white-space:pre-wrap">${esc(x.text)}</p></div>`).join(""):`<p class="hint" style="margin:0">No messages from the school yet.</p>`}</div>`; }
   else body=`<div class="card" style="box-shadow:none">${up.length?up.map(n=>`<div style="display:flex;gap:12px;padding:8px 0;border-bottom:1px dashed var(--line)"><b style="min-width:80px">${esc(fmtD(n.date))}</b><span>${ntIcon(n.type)} <b>${esc(n.title)}</b>${n.text?`<br><small class="hint">${esc(String(n.text).slice(0,160))}</small>`:""}</span></div>`).join(""):`<p class="hint" style="margin:0">No upcoming notices.</p>`}<p style="margin:10px 0 0"><a href="#notices">All notices →</a></p></div>`;
-  out.innerHTML=`<div class="card" style="margin-top:0;border-left:6px solid #ff9933"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+  if(!PDATA._wl){ PDATA._wl=1; setTimeout(parentWelcome,1200); } else { const pw=$("#pWelcomeBody"); if(pw) pw.innerHTML=parentBriefHTML(true); }
+  out.innerHTML=`<div id="pBrief">${PTAB==="card"||PTAB==="info"?parentBriefHTML():""}</div><div class="card" style="margin-top:0;border-left:6px solid #ff9933"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
      <div><h2 style="margin:0">👪 ${esc(name)}</h2><p class="hint" style="margin:2px 0 0">Class ${esc(q.std)}-${esc(q.div)} · Roll ${esc(q.roll)} · ${esc(q.year)}${(fd&&fd.adm)||(r&&r.adm)?` · Adm. no. ${esc((fd&&fd.adm)||r.adm)}`:""}${fd&&fd.admittedOn?` · admitted ${esc(fmtD(fd.admittedOn))}`:""}</p></div>
 </div>
      <div class="atabs" style="margin:12px 0 0">${tabs.map(([k,l])=>`<button data-ptab="${k}" class="${PTAB===k?"on":""}">${l}</button>`).join("")}</div></div><div style="margin-top:14px">${body}</div>`; }
-document.addEventListener("click",e=>{ const b=e.target.closest("[data-ptab],[data-pex]"); if(!b||!PDATA) return;
+document.addEventListener("click",e=>{ const b=e.target.closest("[data-ptab],[data-pex]"); if(!b||!PDATA) return; if(b.tagName==="A") e.preventDefault(); { const w=$("#welcomeModal"); if(w) w.style.display="none"; }
   if(b.dataset.ptab){ PTAB=b.dataset.ptab; try{ sessionStorage.setItem("saps_ptab",PTAB); }catch(_){}
     /* always fetch the latest replies / messages when the parent opens these tabs */
     if(PTAB==="talk") loadGrievances(); if(PTAB==="msgs"){ PDATA.inbox=undefined; } renderParentDash(); return; }
