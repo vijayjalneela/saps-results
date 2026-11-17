@@ -46,7 +46,7 @@ nav.tabs a.on{background:#fff;color:var(--ink);box-shadow:0 2px 8px rgba(31,29,5
 .hero .bubbles{position:absolute;inset:0;pointer-events:none;overflow:hidden}
 .hero .bubbles span{position:absolute;border-radius:50%;background:rgba(255,255,255,.16)}
 .school-line{display:inline-flex;gap:8px;align-items:center;background:rgba(255,255,255,.2);padding:6px 14px;border-radius:999px;font-weight:800;font-size:13px;margin-bottom:16px}
-.doors{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;margin-top:22px}
+.doors{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));gap:18px;margin-top:22px}
 .door{background:var(--card);border-radius:24px;padding:26px;border:1px solid var(--line);text-decoration:none;color:inherit;position:relative;overflow:hidden;transition:transform .15s, box-shadow .15s}
 .door:hover{transform:translateY(-3px);box-shadow:0 14px 30px rgba(31,29,58,.1)}
 .door .ic{width:54px;height:54px;border-radius:16px;display:grid;place-items:center;font-size:26px;margin-bottom:14px}
@@ -1796,7 +1796,7 @@ function classDashOne(c,o){ const ex=o.exam, prevEx=EXAMS[EXAMS.indexOf(ex)-1], 
     const li=(x,extra)=>`<div style="padding:4px 0;border-bottom:1px dashed var(--line)"><b>${esc(x.r.name)}</b> <span class="hint">roll ${esc(x.r.roll)}</span> · ${x.p}%${extra||""}</div>`;
     return `<div class="card" style="box-shadow:none;margin:0 0 14px;border-left:5px solid #0b6c99">${head}
      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:10px">${k("Students",L.length,"#f2edff","#5435c9")}${k("Class average",avg(v)+"%","#e8f7ff","#0b6c99")}${k("Highest",Math.max(...v)+"%","#e9fbf5","#0b7a64")}${k("A+ (91%+)",v.filter(x=>x>=91).length,"#eef0e3","#3b4220")}${k("Below 50%",v.filter(x=>x<50).length,"#fff6ea","#a55a00")}${k("Need attention",need.length,"#ffeef4","#b3164f")}${atts.length?k("Avg attendance",avg(atts)+"%","#f4f4f4","#333"):""}</div>
-     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">
+     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));gap:14px">
       <div><h4 style="margin:0 0 4px">🏅 Highest scores</h4>${top.map((x,i)=>li(x," "+["🥇","🥈","🥉","",""][i])).join("")}</div>
       <div><h4 style="margin:0 0 4px">⚠️ Needs more attention</h4>${need.length?need.slice(0,8).map(x=>li(x,`<br><small style="color:#b3164f">${esc(x.why.join(" · "))}</small>`)).join("")+(need.length>8?`<p class="hint">and ${need.length-8} more</p>`:""):`<p class="hint">Nobody below 50%, failing a subject, under 75% attendance or slipping by 10 points. 👍</p>`}</div>
       <div><h4 style="margin:0 0 4px">📈 Most improved${prevEx?" since "+esc(lab(prevEx)):""}</h4>${imp.length?imp.map(x=>li(x,` <b style="color:#0b7a64">▲ ${x.ch}</b>`)).join(""):`<p class="hint">${prevEx?"No earlier exam to compare yet.":"This is the first exam of the year."}</p>`}
@@ -1825,7 +1825,7 @@ function eventsAchHTML(){ if(!ME||!isOffice()) return ""; const t=todayISO();
   up.sort((a,b)=>a.date.localeCompare(b.date)||a.title.localeCompare(b.title));
   const A=Object.values(ACHS||{}).slice().sort((a,b)=>String(a.date||"").localeCompare(String(b.date||"")));
   const row=(d,icon,main,sub)=>`<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line)"><span style="min-width:78px;font-weight:800;color:#3b4220">${d}</span><span>${icon} ${main}${sub?`<br><small class="hint">${sub}</small>`:""}</span></div>`;
-  return `<div class="card" style="box-shadow:none;margin:0 0 14px;border-left:5px solid #c9a227"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px">
+  return `<div class="card" style="box-shadow:none;margin:0 0 14px;border-left:5px solid #c9a227"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr));gap:18px">
    <div><h3 style="margin:0 0 6px">🗓 Upcoming events and competitions</h3>${up.length?up.map(x=>row(fmtD(x.date).replace(/ \d{4}$/,""),x.icon,`<b>${esc(x.title)}</b>`,`${esc(x.kind)}${x.to&&x.to!==x.date?" · till "+fmtD(x.to):""}${x.duty?` · ${x.duty} staff duties`:""}`)).join(""):`<p class="hint">Nothing posted yet. Add events and competitions in Notices.</p>`}</div>
    <div><h3 style="margin:0 0 6px">🏆 Achievements this year (${A.length})</h3><div style="max-height:420px;overflow:auto">${A.length?A.map(a=>row(a.date?fmtD(a.date).replace(/ \d{4}$/,""):"–","🏅",`<b>${esc(a.title)}</b>`,`${esc(a.who||"")}${a.category?" · "+esc(a.category):""}`)).join(""):`<p class="hint">No achievements posted yet.</p>`}</div></div></div></div>`; }
 /* Coordinator: seats, admissions in progress and children leaving */
@@ -1835,7 +1835,7 @@ function seatsHTML(){ if(!ME||!isOffice()) return ""; const A=allStudents(), t=t
   const pend=A.filter(x=>x.pending), leaving=Object.values(DRAFTS||{}).filter(d=>d.col==="removal"&&d.data.kind==="left"), left=A.filter(x=>x.left&&(x.doc.leftOn||"")>=d30);
   const rows=STDS.map(sd=>{ const secs=secOf(sd).map(dv=>{ const c=sd+"-"+dv, n=strength(c); return {c,n,free:Math.max(0,SEAT_CAP-n)}; }); return {sd,secs,free:secs.reduce((a,x)=>a+x.free,0)}; });
   const tot=rows.reduce((a,r)=>a+r.free,0);
-  return `<div class="card" style="box-shadow:none;margin:0 0 14px;border-left:5px solid #0b7a64"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px">
+  return `<div class="card" style="box-shadow:none;margin:0 0 14px;border-left:5px solid #0b7a64"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr));gap:18px">
    <div><h3 style="margin:0 0 6px">🪑 Seats available · ${tot} free <span class="hint" style="font-weight:600">(maximum ${SEAT_CAP} a section)</span></h3>
     <div class="tbl-wrap"><table class="pt"><thead><tr><th>Class</th><th style="text-align:left">Sections (students / free)</th><th>Free</th></tr></thead><tbody>${rows.map(r=>`<tr><td><b>${esc(r.sd)}</b></td><td style="text-align:left">${r.secs.map(x=>`${esc(x.c.split("-")[1])}: ${x.n} / <b style="color:${x.free?"#0b7a64":"#b3164f"}">${x.n>SEAT_CAP?`full, ${x.n-SEAT_CAP} over`:x.free}</b>`).join(" · ")}</td><td><b>${r.free}</b></td></tr>`).join("")}</tbody></table></div></div>
    <div><h3 style="margin:0 0 6px">🎒 Under admission (${pend.length})</h3>${pend.length?pend.map(x=>`<div style="padding:4px 0;border-bottom:1px dashed var(--line)"><b>${esc(x.name)}</b> → ${esc(x.cls)} <span class="hint">· waiting for the principal</span></div>`).join(""):`<p class="hint">None waiting.</p>`}
