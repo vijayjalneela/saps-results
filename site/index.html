@@ -582,6 +582,28 @@ footer{background:var(--navy);color:#c9cfbd!important;padding:22px 16px!importan
 .syl-ch:hover{background:#f6f3ea}.syl-ch.done{color:#42613a}.syl-ch.due:not(.done){background:#fff6ea}
 .syl-ch input{width:18px;height:18px}
 .ack-box{margin-top:10px;background:#f2fbf6;border:1px solid #cfe9db;border-radius:12px;padding:10px 12px}
+
+/* dashboards: overview tiles */
+.dhead{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin:0 0 12px}
+.dmood{padding:8px 14px;border-radius:999px;font-weight:800;font-size:14px}
+.dmood.ok{background:#e9f8f1;color:#0b7a64}.dmood.warn{background:#fff1df;color:#a55a00}
+.dtiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(138px,1fr));gap:10px;margin:0 0 14px}
+.dtile{all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;gap:4px;padding:12px 14px;border-radius:16px;background:#fff;border:1.5px solid #e7e2d3;box-shadow:0 2px 8px rgba(40,40,20,.05);transition:transform .12s,box-shadow .12s,border-color .12s;min-height:104px;position:relative;min-width:0;overflow-wrap:anywhere}
+.dtile:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(40,40,20,.10)}
+.dtile:focus-visible{outline:3px solid #ff9933;outline-offset:2px}
+.dtile .dt-top{display:flex;gap:6px;align-items:center}
+.dtile .dt-ic{font-size:18px}.dtile .dt-t{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#5f5a48}
+.dtile .dt-big{font-family:"Barlow Condensed","Baloo 2",system-ui;font-size:30px;font-weight:700;line-height:1.05;color:#1b2a17}
+.dtile .dt-big small{font-size:16px;color:#7a7462;font-weight:700}
+.dtile .dt-sub{font-size:12.5px;color:#6b6450;font-weight:600;line-height:1.3}
+.dtile.warn{border-color:#f3c58e;background:linear-gradient(180deg,#fff8ef,#fff)}.dtile.warn .dt-big{color:#a55a00}
+.dtile.ok{border-color:#cfe9db}.dtile.ok .dt-big{color:#0b7a64}
+.dtile.on{border-color:#0e1a2b;box-shadow:0 0 0 2px #0e1a2b inset,0 8px 20px rgba(14,26,43,.12)}
+.dtile.on::after{content:"";position:absolute;left:50%;bottom:-9px;width:14px;height:14px;background:#0e1a2b;transform:translateX(-50%) rotate(45deg);border-radius:2px}
+.dpanel{border:1.5px solid #0e1a2b;border-radius:18px;padding:16px 18px;background:#fffdf8;margin:4px 0 0}
+.dpanel .dp-h{margin:0 0 12px;font-size:20px}
+.ptiles{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}.ptiles .dtile{min-height:92px}.ptiles .dt-big{font-size:24px}
+@media(max-width:560px){.dtiles{grid-template-columns:repeat(2,1fr);gap:8px}.dtile{min-height:92px;padding:10px 12px}.dtile .dt-big{font-size:24px}.ptiles{grid-template-columns:repeat(3,1fr)}.ptiles .dt-big{font-size:20px}.ptiles .dt-sub{font-size:11px}.dpanel{padding:12px}}
 /* morning briefing */
 .brief{border-radius:18px;padding:18px 20px;margin:0 0 14px;background:linear-gradient(120deg,#fffdf7,#f6f1e4);border:1px solid #eadfc4;box-shadow:0 6px 20px rgba(60,50,20,.06)}
 .brief-hd{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
@@ -1752,7 +1774,7 @@ let SUM={year:null,exam:null};
 /* ---------- "Coming up for you": what matters to this person in the next days ---------- */
 let SUBS_HOME={}, homeT=0;
 window.addEventListener("hashchange",()=>{ if(["#home","","#"].includes(location.hash)) homeRefresh(); });
-function homeRefresh(){ if(homeT) return; homeT=setTimeout(()=>{ homeT=0; if(ME&&(location.hash==="#home"||location.hash===""||location.hash==="#")){ const b=$("#homeComing"); if(b) b.innerHTML=comingHTML(); refreshBrief(); const m=$("#homeMine"); if(m) m.innerHTML=mineHTML(); const ea=$("#homeEvAch"); if(ea) ea.innerHTML=eventsAchHTML(); const se=$("#homeSeats"); if(se) se.innerHTML=seatsHTML(); } },300); }
+function homeRefresh(){ if(homeT) return; homeT=setTimeout(()=>{ homeT=0; if(ME&&(location.hash==="#home"||location.hash===""||location.hash==="#")){ const b=$("#homeComing"); if(b) b.innerHTML=comingHTML(); refreshBrief(); refreshTiles(); const m=$("#homeMine"); if(m) m.innerHTML=mineHTML(); const ea=$("#homeEvAch"); if(ea) ea.innerHTML=eventsAchHTML(); const se=$("#homeSeats"); if(se) se.innerHTML=seatsHTML(); } },300); }
 async function loadHomeSubs(){ const t=todayISO(), tm=addDaysISO(t,1);
   for(const d of [t,tm]){ if(d in SUBS_HOME) continue; SUBS_HOME[d]=null; try{ const x=await getDoc(doc(db,"subs",d)); SUBS_HOME[d]=x.exists()?x.data():null; }catch(_){} } homeRefresh(); }
 function comingItems(){ if(!ME) return []; const t=todayISO(), lim=(n)=>addDaysISO(t,n), in14=lim(14), in21=lim(21), it=[], me=ME.email;
@@ -2011,6 +2033,66 @@ async function loadParentHW(){ if(!PDATA||!db) return; const q=PDATA.q, c=q.std+
 function parentHwHTML(){ const L=PDATA.hw; if(L==null) return `<p class="hint">Loading…</p>`; if(!L.length) return `<div class="empty">No homework posted in the last 10 days.</div>`; const t=todayISO();
   return L.map(d=>`<div class="card" style="box-shadow:none;margin:0 0 10px;${d.date===t?"border-left:5px solid #ff9933":""}"><h3 style="margin:0 0 6px">${d.date===t?"Today":d.date===addDaysISO(t,-1)?"Yesterday":fmtD(d.date)}</h3>
     ${Object.entries(d.items||{}).sort().map(([s,x])=>`<div style="padding:6px 0;border-top:1px dashed var(--line)"><b>${esc(s)}</b> ${x.byName?`<span class="hint">· ${esc(x.byName)}</span>`:""}<div style="white-space:pre-line">${esc(x.text)}</div></div>`).join("")}</div>`).join(""); }
+/* ================= Dashboards: an overview row of tiles; tap a tile to open its details ================= */
+let DTILE=(()=>{ try{ return sessionStorage.getItem("saps_dtile")||""; }catch(_){ return ""; } })(), TILES_FN=null, TILES_MAKE=null;
+function staffToday(){ const t=todayISO(), m=monthOf(t), T=Object.values(STAFF).filter(x=>x.role==="teacher"), sk=`${YEARS[0]}_${m}`, sd=SATTM[sk]&&SATTM[sk].days&&SATTM[sk].days[t];
+  const away=[...new Set([...leavesOnly(t).map(l=>l.email),...(sd?(sd.absent||[]):[])])].filter(e=>STAFF[e]), sub=SUBS_HOME[t]||null, plan=(sub&&sub.plan)||[], unc=plan.filter(p=>!p.sub&&away.includes(p.absent)).length;
+  return {total:T.length,away,sub,unc}; }
+function attToday(classes){ const t=todayISO(), m=monthOf(t); const rows=classes.map(c=>{ const S=allStudents().filter(s=>s.cls===c&&!s.pending&&!s.left), M=ATTM[attKey(c,m)], day=M&&M.days&&M.days[t]; return {c,n:S.length,day}; }).filter(x=>x.n);
+  const mk=rows.filter(x=>x.day), tot=mk.reduce((a,x)=>a+x.n,0), ab=mk.reduce((a,x)=>a+((x.day.absent||[]).length),0);
+  return {rows:rows.length,marked:mk.length,tot,ab,pct:tot?Math.round((tot-ab)/tot*1000)/10:null}; }
+function itemSec(x){ const i=x.icon, t=String(x.text).replace(/<[^>]*>/g,"");
+  if(/attendance|present today|Full house|children are in school|have a birthday today|has a birthday today|Birthday in /i.test(t)) return "students";
+  if(["👩‍🏫","⏰","🌟"].includes(i)||/'s birthday today/.test(t)) return "teachers";
+  if(["📥","⏳","🏖"].includes(i)) return "action"; if(i==="🗣") return "parents"; if(i==="📖"||i==="📒") return "classroom";
+  if(i==="🔁"||i==="🗂️"||i==="🎭") return "myday"; if(i==="💳") return "students"; return "calendar"; }
+function secItemsHTML(sec){ const B=briefData(); if(!B) return ""; const col={good:["#e9f8f1","#0b7a64"],warn:["#fff4e6","#a55a00"],info:["#f3f6fb","#33415c"]};
+  const L=B.it.filter(x=>itemSec(x)===sec).sort((a,b)=>({warn:0,good:1,info:2})[a.tone]-({warn:0,good:1,info:2})[b.tone]);
+  return L.length?`<div class="brief-list" style="margin:0 0 14px">${L.map(x=>`<div class="brief-it" style="background:${col[x.tone][0]};border-left-color:${col[x.tone][1]}"><span class="bi">${x.icon}</span><span>${x.text}</span></div>`).join("")}</div>`:""; }
+function dashHeadHTML(){ const B=briefData(); if(!B) return ""; const {greet,fest,it,t}=B, warnN=it.filter(x=>x.tone==="warn").length, dt=new Date(t+"T00:00:00").toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+  return `<div class="dhead"><div><div class="brief-hi">${greet}, ${esc(firstName(ME))} 👋</div><div class="brief-sub">${esc(dt)} · ${esc(desigOf(ME))}</div></div>
+   <div class="dmood ${warnN?"warn":"ok"}">${warnN?`⚠️ ${warnN} thing${warnN>1?"s":""} need${warnN>1?"":"s"} your attention`:"✅ All on track today"}</div></div>${fest.map(f=>`<div class="brief-fest" style="margin:0 0 12px">${f[0]} ${f[1]}</div>`).join("")}`; }
+function tilesHTML(T,cur){ return `<div class="dtiles">${T.map(x=>`<button class="dtile ${x.tone||"info"} ${x.k===cur?"on":""}" data-dtile="${x.k}" aria-pressed="${x.k===cur}"><span class="dt-top"><span class="dt-ic">${x.ic}</span><span class="dt-t">${x.t}</span></span><span class="dt-big">${x.big}</span><span class="dt-sub">${x.sub||"&nbsp;"}</span></button>`).join("")}</div>`; }
+function pickTile(T){ return T.some(x=>x.k===DTILE)?DTILE:T[0].k; }
+function dashFrame(make){ TILES_MAKE=make; const T=make(); TILES_FN=T; const cur=pickTile(T), sel=T.find(x=>x.k===cur);
+  return `<div id="dashHead">${dashHeadHTML()}</div><div id="dashTiles">${tilesHTML(T,cur)}</div>
+   <div class="dpanel" id="dashPanel"><h3 class="dp-h">${sel.ic} ${sel.t}</h3><div id="dashSec">${secItemsHTML(sel.sec||sel.k)}</div>${sel.body()}</div>`; }
+function refreshTiles(){ if(!TILES_MAKE||!ME||!$("#dashTiles")) return; let T; try{ T=TILES_MAKE(); }catch(_){ return; } TILES_FN=T; const cur=pickTile(T), sel=T.find(x=>x.k===cur);
+  const h=$("#dashHead"); if(h) h.innerHTML=dashHeadHTML(); $("#dashTiles").innerHTML=tilesHTML(T,cur); const s=$("#dashSec"); if(s&&sel) s.innerHTML=secItemsHTML(sel.sec||sel.k); }
+document.addEventListener("click",e=>{ const b=e.target.closest("[data-dtile]"); if(!b) return; DTILE=b.dataset.dtile; try{ sessionStorage.setItem("saps_dtile",DTILE); }catch(_){}
+  if(isFull()) renderDash(); else renderStats(); const p=$("#dashPanel"); if(p&&innerWidth<900) setTimeout(()=>p.scrollIntoView({behavior:"smooth",block:"start"}),60); });
+const plural=(n,w)=>`${n} ${w}${n===1?"":"s"}`;
+function ageOldest(list,get){ const a=list.map(get).map(daysAgo).filter(x=>x!=null); return a.length?Math.max(...a):null; }
+/* tiles shared by office roles */
+function tTeachers(extraBody){ const S=staffToday(), n=S.away.length;
+  return {k:"teachers",ic:"👩‍🏫",t:"Teachers today",big:S.total?`${S.total-n}<small>/${S.total}</small>`:"–",sub:n?`${n} away · ${!S.sub?"relief not published":S.unc?S.unc+" periods uncovered":"all classes covered"}`:"everyone is in",tone:n&&(!S.sub||S.unc)?"warn":"ok",body:extraBody}; }
+function tStudents(extraBody){ const A=attToday(ALLCLS), adm=Object.values(STUDOCS||{}).filter(d=>d.admission==="pending").length;
+  return {k:"students",ic:"🧒",t:"Students & admissions",big:A.pct!=null?A.pct+"%":"–",sub:(A.marked?A.marked<A.rows?`attendance: ${A.marked} of ${A.rows} classes marked`:"attendance today":"attendance not marked yet")+(adm?` · ${plural(adm,"admission")} pending`:""),tone:A.pct!=null&&A.pct<90?"warn":A.pct===100?"ok":"info",body:extraBody}; }
+function tClassroom(){ const B=isOffice()?sylBehind():[]; let mineB=0; if(!isOffice()&&CR.syl) crClasses().forEach(c=>teachesIn(ME,c).forEach(s=>{ const st=sylStat(c,s); if(st.total) mineB+=st.behind; }));
+  const n=isOffice()?B.length:mineB; return {k:"classroom",ic:"📚",t:"Classroom",big:CR.syl?(n?`${n}<small> behind</small>`:"On track"):"…",sub:isOffice()?"syllabus plan, class by class":"homework and syllabus",tone:n?(isOffice()&&n>=3||!isOffice()&&n>=2?"warn":"info"):"ok",body:classroomDashHTML}; }
+function classroomDashHTML(){ crLoadSyl(); if(!CR.syl) return `<p class="hint">Loading…</p>`;
+  if(isOffice()){ const B=[]; ALLCLS.forEach(c=>crSubjs(c).forEach(s=>{ const st=sylStat(c,s); if(st.total) B.push({c,s,...st}); })); const bh=B.filter(x=>x.behind>=1).sort((a,b)=>b.behind-a.behind);
+    return `${bh.length?`<div class="tbl-wrap"><table class="pt"><thead><tr><th>Class</th><th>Subject</th><th>Done</th><th>Target by now</th><th>Behind</th></tr></thead><tbody>${bh.slice(0,12).map(x=>`<tr><td><b>${esc(x.c)}</b></td><td>${esc(x.s)}</td><td>${x.done} of ${x.total}</td><td>${x.due}</td><td style="color:${x.behind>=2?"#b3164f":"#a55a00"};font-weight:800">${x.behind}</td></tr>`).join("")}</tbody></table></div>`:`<p>✅ Every class is on track with its syllabus plan.</p>`}
+     <div class="qlinks" style="margin-top:12px"><a class="btn pri" href="#classroom" data-crgo="syl">📖 Full syllabus progress</a><a class="btn sec" href="#classroom" data-crgo="hw">📒 Homework given today</a></div>`; }
+  const mine=crClasses().flatMap(c=>teachesIn(ME,c).map(s=>[c,s]));
+  return `${mine.map(([c,s])=>{ const st=sylStat(c,s), col=st.behind>=2?"#b3164f":st.behind===1?"#a55a00":"#0b7a64"; return `<div style="padding:8px 0;border-bottom:1px dashed var(--line)"><div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(c)} · ${esc(s)}</b><span style="color:${col};font-weight:800">${st.total?`${st.done} of ${st.total}${st.behind?` · ${st.behind} behind`:" · on track"}`:"no plan yet"}</span></div>${st.total?`<div class="syl-bar"><span style="width:${st.pct}%;background:${col}"></span><i style="left:${st.tpct}%"></i></div>`:""}</div>`; }).join("")||`<p class="hint">No subjects assigned yet.</p>`}
+   <div class="qlinks" style="margin-top:12px"><a class="btn pri" href="#classroom" data-crgo="hw">📒 Post today's homework</a><a class="btn sec" href="#classroom" data-crgo="syl">📖 Tick chapters</a></div>`; }
+document.addEventListener("click",e=>{ const g=e.target.closest("[data-crgo]"); if(g){ CR.tab=g.dataset.crgo; } });
+function tParents(extraBody){ const gv=Object.values(GVS||{}).filter(g=>g.status!=="Resolved"&&!((g.replies||[]).length&&g.replies[g.replies.length-1].by!=="parent")), o=ageOldest(gv,g=>g.updatedAt||g.at);
+  return {k:"parents",ic:"🗣",t:"Parents",big:gv.length?`${gv.length}<small> waiting</small>`:"0",sub:gv.length?`oldest ${agoTxt(o)}`:"no messages waiting",tone:gv.length?(o>=2?"warn":"info"):"ok",body:extraBody}; }
+function tCalendar(extraBody){ const t=todayISO(), nx=comingItems().filter(x=>String(x.date)>t).sort((a,b)=>String(a.date).localeCompare(String(b.date)))[0];
+  return {k:"calendar",ic:"📅",t:"Coming up",big:nx?(nx.date===addDaysISO(t,1)?"Tomorrow":fmtD(nx.date).replace(/ \d{4}$/,"")):"–",sub:nx?String(nx.text).replace(/<[^>]*>/g,"").slice(0,48):"nothing in the next 2 weeks",tone:"info",body:extraBody}; }
+/* parents: the same idea, one tile per section of the child's page */
+function parentTilesHTML(tabs){ const {q,r,fd,list}=PDATA, t=todayISO(), fr=typeof feeReminder==="function"?feeReminder():null, st={};
+  const pc=r?pctOf(r):null; st.card=[pc!=null?pc+"%":"–",r?lab(r.term):"not published yet",pc!=null?"ok":"info"];
+  const ex=(list||[]).filter(x=>x.rec).map(x=>pctOf(x.rec)).filter(v=>v!=null); st.prog=ex.length>1?[(ex[ex.length-1]-ex[ex.length-2]>=0?"▲ ":"▼ ")+Math.abs(r1(ex[ex.length-1]-ex[ex.length-2])),"since the last exam",ex[ex.length-1]>=ex[ex.length-2]?"ok":"warn"]:["–","across exams","info"];
+  const hw=(PDATA.hw||[]).find(d=>d.date===t); st.hw=[hw?Object.keys(hw.items||{}).length:"–",hw?"subjects today":PDATA.hw==null?"loading…":"none today",hw?"info":"ok"];
+  if(fr&&fd){ const paid=fd.q&&fd.q[fr.q]&&fd.q[fr.q].paid; st.fees=[paid?"Paid":fr.late?"Overdue":"Due",`${fr.q} · ${paid?"thank you":fmtD(fr.due)}`,paid?"ok":fr.late?"warn":"info"]; } else st.fees=["–","fees","info"];
+  st.info=[`${esc(q.std)}-${esc(q.div)}`,`roll ${esc(q.roll)}`,"info"]; st.abs=["Send","tell the class teacher","info"];
+  const ib=(PDATA.inbox&&PDATA.inbox.items)||[]; st.msgs=[ib.length,"from teachers","info"];
+  const rep=(PDATA.gv||[]).filter(g=>(g.replies||[]).length&&g.replies[g.replies.length-1].by!=="parent").length; st.talk=[rep?rep:"Write",rep?"replies for you":"to the teacher or principal",rep?"ok":"info"];
+  const toC=ackNotices().filter(n=>PDATA.acks&&!PDATA.acks[n.id]).length, up=Object.values(NOTICES||{}).filter(n=>n.date&&n.date>=t).length; st.news=[toC||up,toC?"to confirm":"coming up",toC?"warn":"info"];
+  return `<div class="dtiles ptiles">${tabs.map(([k,l])=>{ const s=st[k]||["","","info"], ic=l.split(" ")[0], name=l.replace(/^\S+\s/,"").replace(/\s*\(.*\)$/,""); return `<button class="dtile ${s[2]} ${PTAB===k?"on":""}" data-ptab="${k}"><span class="dt-top"><span class="dt-ic">${ic}</span><span class="dt-t">${esc(name)}</span></span><span class="dt-big">${s[0]}</span><span class="dt-sub">${esc(String(s[1]))}</span></button>`; }).join("")}</div>`; }
 /* ---------- Teacher home: my engagements, my class (fees, achievements), toppers in my subjects ---------- */
 let SUBS_ALL=null, CTFEES={}, CTFEE_UNS={}, HOME_RECS=[];
 function eachDay(a,b){ const out=[]; let d=a; const e=b||a; for(let i=0;d<=e&&i<400;i++){ out.push(d); d=addDaysISO(d,1); } return out; }
@@ -2149,18 +2231,40 @@ function renderStats(){
   const allV=recs.map(pctOf).filter(x=>x!=null);
   const welcome0=`<div style="margin:0 0 14px;padding:14px 18px;border-radius:14px;background:linear-gradient(110deg,#0e1a2b,#2c3318);color:#fff"><div style="font-family:'Barlow Condensed';font-size:26px;font-weight:700">👋 Welcome, ${esc(ME.name)}</div><div style="color:#ffd9ad;font-weight:700">${esc(desigOf(ME))}${ME.role==="teacher"&&(ME.classes||[]).length?` · teaches ${esc([...new Set((ME.classes||[]).flatMap(c=>teachesIn(ME,c)))].join(", "))}`:""}</div></div>`;
   if(isFull()){ box.innerHTML=""; renderDash(); return; }
-  const welcome=`<div id="dashBrief">${briefHTML()}</div>`+`<div id="homeComing">${comingHTML()}</div>`; loadBrief();
+  loadBrief();
   const picker=`<div style="display:flex;gap:10px;flex-wrap:wrap"><label class="f">Year<select class="in" id="sumYear">${YEARS.map(y=>`<option ${y===SUM.year?"selected":""}>${y}</option>`).join("")}</select></label>
     <label class="f">Exam<select class="in" id="sumExam">${EXAMS.map(t=>`<option value="${esc(t)}" ${t===SUM.exam?"selected":""}>${esc(lab(t))}${examsWith.includes(t)?"":" (no results yet)"}</option>`).join("")}</select></label></div>`;
   HOME_RECS=recs;
   startGrievances(); if(isCoordMe()) startPmLog();
-  if(ME.role==="teacher"&&!ME.office){ const T=homeTabs(); box.innerHTML=welcome+`<div id="dashApprovals">${approvalsHTML()}</div><div id="dashGV">${gvStaffHTML()}</div><div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;margin:4px 0 10px"><div class="atabs" style="margin:0">${T.map(([k,l])=>`<button data-htab="${k}" class="${HTAB===k?"on":""}">${l}</button>`).join("")}</div>${picker}</div><div id="homeMine">${mineHTML()}</div>`; return; }
-  box.innerHTML=welcome+`<div id="dashApprovals">${approvalsHTML()}</div><div id="dashGV">${gvStaffHTML()}</div><div id="dashPM">${pmLogHTML()}</div><div id="dashPublish">${pubPanelHTML()}</div><div id="homeSeats">${seatsHTML()}</div><div id="homeEvAch">${eventsAchHTML()}</div>`+`<div class="sec-h" style="justify-content:space-between;flex-wrap:wrap;gap:10px"><div style="display:flex;gap:10px;align-items:center"><div class="dot" style="background:var(--violet)">🏫</div><div><h3>School summary</h3><p>Only visible to staff. One exam at a time, so numbers are not mixed.</p></div></div>
+  if(ME.role==="teacher"&&!ME.office){ loadSubsAll(); loadCtFees(); const cts=ME.classTeacher||[], t0=todayISO(), plan=(SUBS_HOME[t0]&&SUBS_HOME[t0].plan)||[], extra=plan.filter(p=>p.sub===ME.email).length, A=attToday(cts);
+    const myV=[]; recs.forEach(r=>{ teachesIn(ME,r.std+"-"+r.div).forEach(sb=>{ const x=(r.subjects||[]).find(y=>y.name===sb), tt=x?subjTotal(x,r):null; if(tt!=null) myV.push(tt/outOf(r)*100); }); }); const myAvg=myV.length?r1(myV.reduce((a,b)=>a+b,0)/myV.length):null;
+    const mineSent=Object.values(DRAFTS||{}).filter(d=>d.by===ME.email).length, ret=Object.keys(RETURNS||{}).length, canMsg=cts.length||isActT(); if(canMsg) startPmLog();
+    box.innerHTML=dashFrame(()=>[
+      {k:"myday",ic:"🗓",t:"My day",big:extra?`${extra}<small> extra</small>`:"Regular",sub:extra?"periods to cover today":"timetable and duties",tone:extra?"warn":"ok",body:()=>engageHTML()},
+      ...(cts.length?[{k:"myclass",sec:"students",ic:"📋",t:"My class "+esc(cts.join(", ")),big:A.marked<A.rows?"Not marked":A.pct!=null?A.pct+"%":"–",sub:A.marked<A.rows?"attendance due today":`present today · ${A.ab} absent`,tone:A.marked<A.rows?"warn":"ok",body:()=>classDashHTML()+myClassHTML()}]:[]),
+      ...(mineSent+ret?[{k:"action",ic:"📝",t:"My requests",big:mineSent+ret,sub:`${mineSent?mineSent+" waiting for approval":""}${mineSent&&ret?" · ":""}${ret?ret+" sent back":""}`,tone:ret?"warn":"info",body:()=>`<div id="dashApprovals">${approvalsHTML()}</div>`}]:[]),
+      tClassroom(),
+      tParents(()=>`<div id="dashGV">${gvStaffHTML()}</div>`+(canMsg?`<h3 style="margin:18px 0 8px">📬 Message parents</h3>`+pmFormHTML():"")),
+      {k:"results",ic:"📊",t:"My results",big:myAvg!=null?myAvg+"%":"–",sub:`${esc(lab(SUM.exam))} · your subjects`,tone:"info",body:()=>`<div style="margin:0 0 10px">${picker}</div><p class="hint" style="margin:0 0 10px">Your subjects compared with the other subjects of the same class. Only you can see this.</p>`+myStatsHTML(HOME_RECS)},
+      {k:"ach",ic:"🏆",t:"Achievements",big:Object.keys(ACHS||{}).length,sub:"this year · your toppers",tone:"info",body:()=>achMineHTML()},
+      tCalendar(()=>`<div id="homeComing">${comingHTML()}</div>`)
+    ]); return; }
+  const sumBody=()=>`<div class="sec-h" style="justify-content:space-between;flex-wrap:wrap;gap:10px"><div style="display:flex;gap:10px;align-items:center"><div class="dot" style="background:var(--violet)">🏫</div><div><h3>School summary</h3><p>Only visible to staff. One exam at a time, so numbers are not mixed.</p></div></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap"><label class="f">Year<select class="in" id="sumYear">${YEARS.map(y=>`<option ${y===SUM.year?"selected":""}>${y}</option>`).join("")}</select></label>
     <label class="f">Exam<select class="in" id="sumExam">${EXAMS.map(t=>`<option value="${esc(t)}" ${t===SUM.exam?"selected":""}>${esc(lab(t))}${examsWith.includes(t)?"":" (no results yet)"}</option>`).join("")}</select></label></div></div>
    <div class="kpis">${kpi("Students",recs.length,"#f2edff","#5435c9")}${kpi("Classes with results",rows.length,"#ffeef4","#b3164f")}${kpi("School average",(avg(allV)??"–")+(allV.length?"%":""),"#e8f7ff","#0b6c99")}${kpi("A+ students",allV.filter(x=>x>=91).length,"#e9fbf5","#0b7a64")}${kpi("Below 50%",allV.filter(x=>x<50).length,"#fff6ea","#a55a00")}</div>
    ${rows.length?`<div class="tbl-wrap"><table class="pt"><thead><tr><th>Class</th><th>Students</th><th>Class average</th><th>Highest</th><th>A+ students</th><th>Below 50%</th></tr></thead><tbody>${rows.map(r=>`<tr data-sumcls="${esc(r.c)}" style="cursor:pointer"><td><b>${esc(r.c)}</b></td><td>${r.n}</td><td class="p">${pc(r.avg)}</td><td class="p">${pc(r.hi)}</td><td>${r.ap}</td><td>${r.low?`<b style="color:#c81e5a">${r.low}</b>`:"0"}</td></tr>`).join("")}</tbody></table></div><p class="hint" style="margin:8px 0 0">Click a class to open its full analysis.</p>`
-   :`<div class="empty">No ${esc(lab(SUM.exam))} results for ${esc(SUM.year)} yet.</div>`}`;
+   :`<div class="empty">No ${esc(lab(SUM.exam))} results for ${esc(SUM.year)} yet.</div>`}`+`<div id="dashPublish">${pubPanelHTML()}</div>`;
+  const lrq=Object.values(LEAVES||{}).filter(l=>l.status==="Requested"&&(l.to||l.from)>=todayISO()), sent=Object.values(DRAFTS||{}).filter(d=>d.by===ME.email), ret=Object.values(RETURNS||{}), oq=ageOldest(lrq,l=>l.createdAt);
+  box.innerHTML=dashFrame(()=>[
+    {k:"action",ic:"📝",t:"To do",big:lrq.length+ret.length,sub:`${plural(lrq.length,"leave request")} to recommend${ret.length?` · ${ret.length} sent back`:""}${sent.length?` · ${sent.length} with the principal`:""}`,tone:lrq.length+ret.length?(oq>=2||ret.length?"warn":"info"):"ok",body:()=>`<div id="dashApprovals">${approvalsHTML()}</div>${lrq.length?`<p><a class="btn pri" href="#timetable" data-briefgo="leave">🏖 Recommend leave (${lrq.length}) →</a></p>`:""}`},
+    tTeachers(()=>`<div class="qlinks" style="margin:0 0 12px"><a class="btn pri" href="#timetable" data-briefgo="today">🔁 Plan today's relief</a><a class="btn sec" href="#timetable">🗓 Timetable</a><a class="btn sec" href="#timetable" data-briefgo="leave">🏖 Leave</a></div>`),
+    tStudents(()=>`<div id="homeSeats">${seatsHTML()}</div><p><a class="btn sec" href="#students">🧒 Open Students →</a></p>`),
+    {k:"results",ic:"📊",t:"Results",big:(avg(allV)??"–")+(allV.length?"%":""),sub:`${esc(lab(SUM.exam))} · ${rows.length} classes`,tone:"info",body:sumBody},
+    tClassroom(),
+    tParents(()=>`<div id="dashGV">${gvStaffHTML()}</div><div id="dashPM">${pmLogHTML()}</div>`),
+    tCalendar(()=>`<div id="homeComing">${comingHTML()}</div><div id="homeEvAch">${eventsAchHTML()}</div>`)
+  ]);
 }
 document.addEventListener("change",e=>{ if(e.target.id==="sumYear"){ SUM.year=e.target.value; SUM.picked=false; renderStats(); } if(e.target.id==="sumExam"){ SUM.exam=e.target.value; SUM.picked=true; renderStats(); } });
 document.addEventListener("click",e=>{ const tr=e.target.closest("[data-sumcls]"); if(!tr) return; const [st,dv]=tr.dataset.sumcls.split("-"); if(isOffice()&&!isFull()){ stu.tab="find"; stu.sel=null; stu.q=""; stu.cls=st+"-"+dv; if(location.hash==="#students") renderStu(); else location.hash="students"; return; } const fromDash=onHome()&&isFull(); $("#aYear").value=fromDash?YEARS[0]:SUM.year; $("#aStd").value=st; $("#aDiv").value=dv; aTab="exam"; aSel.exam=fromDash?DASH.exam:SUM.exam; location.hash="analysis"; });
@@ -3243,11 +3347,11 @@ function renderDash(){
   if(!DASH.picked||!have.includes(DASH.exam)) DASH.exam=have[have.length-1]||"Term I";
   const t=DASH.exam, pe=prevExamOf(t,y), recs=all.filter(r=>r.term===t), prev=pe?all.filter(r=>r.term===pe):[];
   const hr=new Date().getHours(), greet=hr<12?"Good morning":hr<17?"Good afternoon":"Good evening";
-  const head=`<div id="dashBrief">${briefHTML()}</div>`;  loadBrief();
+  loadBrief();
   const examBar=`<div class="dash-head" style="margin-top:18px"><div><h2 style="font-size:22px">📊 Results at a glance</h2><p>${esc(y)} · choose an exam</p></div>
     <div class="apick" style="margin:0">${EXAMS.map(x=>`<button class="chip ${x===t?"on":""}" data-dex="${esc(x)}" ${have.includes(x)?"":"disabled"}>${esc(lab(x))}</button>`).join("")}</div></div>`;
-  startGrievances(); startPmLog(); const coming=`<div id="homeComing">${comingHTML()}</div><div id="dashApprovals">${approvalsHTML()}</div><div id="dashGV">${gvStaffHTML()}</div><div id="dashPM">${pmLogHTML()}</div><div id="dashPublish">${pubPanelHTML()}</div><div id="homeEvAch">${eventsAchHTML()}</div>`;
-  if(!recs.length){ $("#dashBody").innerHTML=head+coming+examBar+`<div class="empty">No results for ${esc(y)} yet. Once teachers enter marks, highlights appear here.</div>`; return; }
+  startGrievances(); startPmLog();
+  const noRes=!recs.length;
   const key=r=>[r.std,r.div,r.roll,normName(r.name)].join("|");
   const prevMap={}; prev.forEach(r=>prevMap[key(r)]=pctOf(r));
   const vals=recs.map(pctOf).filter(v=>v!=null), sAvg=avg(vals), pAvg=avg(prev.map(pctOf).filter(v=>v!=null));
@@ -3303,10 +3407,21 @@ function renderDash(){
   const rems=staffReminders(60);
   const remBox=`<h3 style="margin:22px 0 8px">⏰ Contract reminders <span class="hint" style="font-weight:700">· next 60 days</span></h3>${rems.length?rems.map(r=>`<div class="rem ${r.n<0?"over":"soon"}" data-prof="${esc(r.em)}">${tAvatar(STAFF[r.em],36)}<div><b>${esc(r.name)}</b> <span class="hint">${esc(r.contract||"")}</span><br><span style="font-size:14px">${esc(r.what)}: ${fmtD(r.d)}</span></div><span class="when">${remWhen(r.n)}</span></div>`).join(""):'<div class="empty" style="background:#f0fbf7">No contract renewals or terminations in the next 60 days. 👍</div>'}`;
   const dirBox=`<h3 style="margin:22px 0 4px">🔎 Find a teacher</h3><input class="in" id="dirQ" placeholder="Search by name, subject, class or contract type…" value="${esc(DASH.q||"")}" style="max-width:420px"><div class="dir-grid" id="dirGrid">${dirHTML()}</div>`;
-  $("#dashBody").innerHTML=head+coming+examBar+kpis+remBox+spot+charts+dirBox+`<div class="two"><div><h4 style="margin:0 0 8px">⚠️ Needs your attention</h4><ul class="alist att">${att.map(x=>`<li>${x}</li>`).join("")||`<li style="background:#f0fbf7;border-left-color:#14c3a2">Nothing urgent. 👍</li>`}</ul></div>
+  const resBody=()=>examBar+(noRes?`<div class="empty">No results for ${esc(y)} yet. Once teachers enter marks, highlights appear here.</div>`:kpis+`<div class="two"><div><h4 style="margin:0 0 8px">⚠️ Needs your attention</h4><ul class="alist att">${att.map(x=>`<li>${x}</li>`).join("")||`<li style="background:#f0fbf7;border-left-color:#14c3a2">Nothing urgent. 👍</li>`}</ul></div>
     <div><h4 style="margin:0 0 8px">🌟 Highlights</h4><ul class="alist hi">${hi.map(x=>`<li>${x}</li>`).join("")}</ul></div></div>
     <details class="mstat" ${pendN?"open":""} style="margin-top:18px"><summary>📋 Classes and marks entry status · ${esc(lab(t))} ${pendN?`<span class="pend">${pendN} pending</span>`:`<span class="done">✓ all entered</span>`}</summary>${status}<p class="hint" style="margin:6px 0 0">Click a class to open its full analysis.</p></details>
-    <div class="qlinks" style="margin-top:14px"><a class="btn sec" href="#analysis" data-goana="teachers">👩‍🏫 Teacher comparison</a><a class="btn sec" href="#analysis" data-goana="school">🏆 School toppers and support list</a><a class="btn sec" href="#analysis" data-goana="overview">📊 Class analysis</a><a class="btn sec" data-gohome="1" href="#home">🏫 School summary</a></div>`;
+    <div class="qlinks" style="margin-top:14px"><a class="btn sec" href="#analysis" data-goana="teachers">👩‍🏫 Teacher comparison</a><a class="btn sec" href="#analysis" data-goana="school">🏆 School toppers and support list</a><a class="btn sec" href="#analysis" data-goana="overview">📊 Class analysis</a><a class="btn sec" data-gohome="1" href="#home">🏫 School summary</a></div>`+charts)+`<div id="dashPublish">${pubPanelHTML()}</div>`;
+  const nA=Object.values(DRAFTS||{}).filter(d=>d.col!=="import"||d.data.part===0).length+Object.values(STUDOCS||{}).filter(d=>d.admission==="pending").length, lr=Object.values(LEAVES||{}).filter(l=>(l.status==="Requested"||l.status==="Recommended")&&(l.to||l.from)>=todayISO()).length,
+    oA=ageOldest([...Object.values(DRAFTS||{}).map(d=>d.at),...Object.values(LEAVES||{}).filter(l=>l.status==="Requested"||l.status==="Recommended").map(l=>l.createdAt)],x=>x);
+  $("#dashBody").innerHTML=dashFrame(()=>[
+    tTeachers(()=>remBox+spot+`<div class="qlinks" style="margin:14px 0"><a class="btn sec" href="#analysis" data-goana="teachers">👩‍🏫 Teacher comparison</a><a class="btn sec" href="#timetable">🗓 Timetable, leave and relief</a></div>`+dirBox),
+    {k:"action",ic:"📥",t:"Approvals",big:nA+lr,sub:nA+lr?`${plural(nA,"item")}${lr?` · ${plural(lr,"leave request")}`:""}${oA?` · oldest ${agoTxt(oA)}`:""}`:"nothing waiting",tone:nA+lr?(oA>=3?"warn":"info"):"ok",body:()=>`<div id="dashApprovals">${approvalsHTML()}</div>${lr?`<p><a class="btn sec" href="#timetable" data-briefgo="leave">🏖 Leave requests (${lr}) →</a></p>`:""}`},
+    tStudents(()=>`<div id="homeSeats">${seatsHTML()}</div><p><a class="btn sec" href="#students">🧒 Open Students →</a></p>`),
+    {k:"results",ic:"📊",t:"Results",big:sAvg!=null?sAvg+"%":"–",sub:noRes?"no results yet":`${esc(lab(t))}${pAvg!=null&&sAvg!=null?` · ${r1(sAvg-pAvg)>=0?"▲":"▼"} ${Math.abs(r1(sAvg-pAvg))} since ${esc(lab(pe))}`:""}${pendN?` · ${pendN} marks pending`:""}`,tone:noRes?"info":pendN||(pAvg!=null&&sAvg<pAvg)?"warn":"ok",body:resBody},
+    tClassroom(),
+    tParents(()=>`<div id="dashGV">${gvStaffHTML()}</div><div id="dashPM">${pmLogHTML()}</div>`),
+    tCalendar(()=>`<div id="homeComing">${comingHTML()}</div><div id="homeEvAch">${eventsAchHTML()}</div>`)
+  ]);
 }
 document.addEventListener("click",e=>{ if(e.target.closest("[data-goapprove]")){ const a=$("#dashApprovals"); if(a&&a.firstElementChild){ e.preventDefault(); a.scrollIntoView({behavior:"smooth",block:"start"}); } } });
 document.addEventListener("click",e=>{ const d=e.target.closest("[data-dex]"); if(d&&!d.disabled){ DASH.exam=d.dataset.dex; DASH.picked=true; renderDash(); }
@@ -4248,6 +4363,7 @@ function parentBriefHTML(big){ if(!PDATA) return ""; const {q,r,fd}=PDATA, t=tod
   const ib=((PDATA.inbox&&PDATA.inbox.items)||[]).filter(x=>!x.at||String(x.at).slice(0,10)>=addDaysISO(t,-7)); if(ib.length) info("📬",`${ib.length} message${ib.length>1?"s":""} from ${esc(first)}'s teachers this week. <a href="#" data-ptab="msgs">Open →</a>`);
   const nt=Object.values(NOTICES||{}).filter(n=>n.date&&n.date>=t&&n.date<=addDaysISO(t,7)); if(nt.length) info("📢",`Coming up this week: ${nt.slice(0,3).map(n=>esc(n.title)).join(" · ")}${nt.length>3?"…":""}. <a href="#" data-ptab="news">See all →</a>`);
   const dt=new Date(t+"T00:00:00").toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long"}), col={good:["#e9f8f1","#0b7a64"],warn:["#fff4e6","#a55a00"],info:["#f3f6fb","#33415c"]};
+  if(big==="head"){ const w=it.filter(x=>x.tone==="warn").length; return `<div class="dhead"><div><div class="brief-hi">${greet} 👋</div><div class="brief-sub">${esc(dt)} · Parent of ${esc(name)}, ${esc(q.std)}-${esc(q.div)}</div></div><div class="dmood ${w?"warn":"ok"}">${w?`⚠️ ${w} thing${w>1?"s":""} for you today`:"✅ All is well today"}</div></div>${fest.map(f=>`<div class="brief-fest" style="margin:0 0 12px">${f[0]} ${f[1]}</div>`).join("")}`; }
   return `<div class="brief${big?" big":""}"><div class="brief-hi">${greet} 👋</div><div class="brief-sub">${esc(dt)} · Parent of ${esc(name)}, ${esc(q.std)}-${esc(q.div)}</div>
    ${fest.map(f=>`<div class="brief-fest">${f[0]} ${f[1]}</div>`).join("")}<div class="brief-mood">${it.some(x=>x.tone==="warn")?"A few things for you today:":it.length?"Here's what's new for you:":"All is well. Thank you for being part of our school family!"}</div>
    ${it.length?`<div class="brief-list">${it.map(x=>`<div class="brief-it" style="background:${col[x.tone][0]};border-left-color:${col[x.tone][1]}"><span class="bi">${x.icon}</span><span>${x.text}</span></div>`).join("")}</div>`:""}</div>`; }
@@ -4258,7 +4374,9 @@ function parentWelcome(){ if(!PDATA) return; const q=PDATA.q, k="saps_pwelcome_"
 function renderParentDash(){ const out=$("#rcOut"); if(!out||!PDATA) return; document.body.classList.remove("pwait"); const {q,r,fd,list}=PDATA, name=(r&&r.name)||(fd&&fd.name)||capName(q.name);
   const exams=(list||[]).filter(x=>x.rec), t=todayISO();
   const up=Object.values(NOTICES||{}).filter(n=>n.date&&n.date>=t).sort((a,b)=>a.date.localeCompare(b.date));
-  const tabs=[["info","👤 Child details"],["card","📄 Report card"],["hw",`📒 Homework${PDATA.hw&&PDATA.hw[0]&&PDATA.hw[0].date===t?" (today)":""}`],["prog","📈 Progress"],["fees","💳 Fees"],["abs","✉️ Absence note"],["msgs",`📬 Messages${PDATA.inbox&&PDATA.inbox.items&&PDATA.inbox.items.length?` (${PDATA.inbox.items.length})`:""}`],["talk","🗣 Write to the school"],["news",`📢 Notices${(()=>{ const u=ackNotices().filter(n=>PDATA.acks&&!PDATA.acks[n.id]).length; return u?` (${u} to confirm)`:up.length?` (${up.length})`:""; })()}`]];
+  const T0=Object.fromEntries([["info","👤 Child details"],["card","📄 Report card"],["hw",`📒 Homework${PDATA.hw&&PDATA.hw[0]&&PDATA.hw[0].date===t?" (today)":""}`],["prog","📈 Progress"],["fees","💳 Fees"],["abs","✉️ Absence note"],["msgs",`📬 Messages${PDATA.inbox&&PDATA.inbox.items&&PDATA.inbox.items.length?` (${PDATA.inbox.items.length})`:""}`],["talk","🗣 Write to the school"],["news",`📢 Notices${(()=>{ const u=ackNotices().filter(n=>PDATA.acks&&!PDATA.acks[n.id]).length; return u?` (${u} to confirm)`:up.length?` (${up.length})`:""; })()}`]]);
+  const tabs=["card","hw","news","fees","msgs","talk","prog","abs","info"].map(k=>[k,T0[k]]);
+
   if(PDATA.gv===undefined){ PDATA.gv=null; loadGrievances(); }
   if(PDATA.hw===undefined){ PDATA.hw=null; loadParentHW(); }
   if(PDATA.acks===undefined){ PDATA.acks=null; loadParentAcks(); }
@@ -4278,14 +4396,14 @@ function renderParentDash(){ const out=$("#rcOut"); if(!out||!PDATA) return; doc
   else if(PTAB==="msgs"){ const I=((PDATA.inbox&&PDATA.inbox.items)||[]).slice().reverse(); body=`<div class="card" style="box-shadow:none">${PDATA.inbox==null?`<p class="hint">Loading…</p>`:I.length?I.map(x=>`<div style="padding:10px 0;border-bottom:1px dashed var(--line)"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>${esc(x.subject)}</b><small class="hint">${esc(fmtD(String(x.at).slice(0,10)))}</small></div><small class="hint">From ${esc(x.from)} (${esc(x.role)})${x.kind==="class"?" · to the whole class":x.kind==="some"?" · to selected parents":" · to you"}</small><p style="margin:6px 0 0;white-space:pre-wrap">${esc(x.text)}</p></div>`).join(""):`<p class="hint" style="margin:0">No messages from the school yet.</p>`}</div>`; }
   else body=parentAckHTML()+`<div class="card" style="box-shadow:none">${up.length?up.map(n=>`<div style="display:flex;gap:12px;padding:8px 0;border-bottom:1px dashed var(--line)"><b style="min-width:80px">${esc(fmtD(n.date))}</b><span>${ntIcon(n.type)} <b>${esc(n.title)}</b>${n.text?`<br><small class="hint">${esc(String(n.text).slice(0,160))}</small>`:""}</span></div>`).join(""):`<p class="hint" style="margin:0">No upcoming notices.</p>`}<p style="margin:10px 0 0"><a href="#notices">All notices →</a></p></div>`;
   if(!PDATA._wl){ PDATA._wl=1; setTimeout(parentWelcome,1200); } else { const pw=$("#pWelcomeBody"); if(pw) pw.innerHTML=parentBriefHTML(true); }
-  out.innerHTML=`<div id="pBrief">${PTAB==="card"||PTAB==="info"?parentBriefHTML():""}</div><div class="card" style="margin-top:0;border-left:6px solid #ff9933"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+  out.innerHTML=`<div id="pBrief">${parentBriefHTML("head")}</div><div class="card" style="margin-top:0;border-left:6px solid #ff9933"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
      <div><h2 style="margin:0">👪 ${esc(name)}</h2><p class="hint" style="margin:2px 0 0">Class ${esc(q.std)}-${esc(q.div)} · Roll ${esc(q.roll)} · ${esc(q.year)}${(fd&&fd.adm)||(r&&r.adm)?` · Adm. no. ${esc((fd&&fd.adm)||r.adm)}`:""}${fd&&fd.admittedOn?` · admitted ${esc(fmtD(fd.admittedOn))}`:""}</p></div>
 </div>
-     <div class="atabs" style="margin:12px 0 0">${tabs.map(([k,l])=>`<button data-ptab="${k}" class="${PTAB===k?"on":""}">${l}</button>`).join("")}</div></div><div style="margin-top:14px">${body}</div>`; }
+     <div style="margin:12px 0 0">${parentTilesHTML(tabs)}</div></div><div class="dpanel" id="pPanel"><h3 class="dp-h">${(tabs.find(x=>x[0]===PTAB)||tabs[1])[1].replace(/\s*\(.*\)$/,"")}</h3>${body}</div>`; }
 document.addEventListener("click",e=>{ const b=e.target.closest("[data-ptab],[data-pex]"); if(!b||!PDATA) return; if(b.tagName==="A") e.preventDefault(); { const w=$("#welcomeModal"); if(w) w.style.display="none"; }
   if(b.dataset.ptab){ PTAB=b.dataset.ptab; try{ sessionStorage.setItem("saps_ptab",PTAB); }catch(_){}
     /* always fetch the latest replies / messages when the parent opens these tabs */
-    if(PTAB==="talk") loadGrievances(); if(PTAB==="msgs"){ PDATA.inbox=undefined; } renderParentDash(); return; }
+    if(PTAB==="talk") loadGrievances(); if(PTAB==="msgs"){ PDATA.inbox=undefined; } renderParentDash(); if(b.closest(".ptiles")&&innerWidth<900){ const p=$("#pPanel"); if(p) setTimeout(()=>p.scrollIntoView({behavior:"smooth",block:"start"}),60); } return; }
   const x=(PDATA.list||[]).find(z=>z.term===b.dataset.pex); if(x&&x.rec){ PDATA.r=x.rec; renderParentDash(); } });
 /* parents stay on their child's page: Home and the login door lead back to it */
 window.addEventListener("hashchange",()=>{ if(!PARENT) return; if(["#home","","#"].includes(location.hash)){ location.hash="results"; return; } if(location.hash==="#results"){ if(PDATA) renderParentDash(); else restoreParent(); } });
