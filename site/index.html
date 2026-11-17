@@ -2439,7 +2439,7 @@ $("#stList").addEventListener("click",e=>{
 });
 const asOffice=async(id,label)=>{ try{ await pubSet("action",id,{},label); toast("sent"); }catch(err){ toast("Couldn't send: "+errMsg(err)); } };
 $("#delSample").onclick=()=>{ if(!isFull()) return asOffice("delSample","Delete all sample (dummy) data"); const ids=Object.keys(RECORDS).filter(id=>RECORDS[id].sample), sids=Object.keys(STAFF).filter(id=>STAFF[id].sample); if(!ids.length&&!sids.length) return toast("There is no sample data");
-  confirmBox("Delete sample data?",`This deletes ${ids.length} dummy results and ${sids.length} dummy teachers. Real results and real staff are not touched.`,"Delete",async()=>{ try{
+  confirmBox("Delete sample data?",`This deletes ${ids.length} dummy results and ${sids.length} dummy teachers. Real results and real staff are not touched. Close the site in other tabs first: open tabs re-read every deleted record.`,"Delete",async()=>{ window._bulkOn=true; pauseLive(); try{
     const rk=(await Promise.all(ids.map(id=>reportKey(RECORDS[id]._raw||RECORDS[id])))).filter(Boolean);
     let extra=[]; try{ const [lv,sb,tt]=await Promise.all([getDocs(collection(db,"leaves")),getDocs(collection(db,"subs")),getDocs(collection(db,"timetable"))]);
       try{ const du=await getDocs(collection(db,"duties")); du.forEach(d=>{ if(d.data().sample) extra.push(["duties",d.id]); }); }catch(_){}
@@ -2447,7 +2447,7 @@ $("#delSample").onclick=()=>{ if(!isFull()) return asOffice("delSample","Delete 
       lv.forEach(d=>{ if(d.data().sample) extra.push(["leaves",d.id]); }); sb.forEach(d=>{ if(d.data().sample) extra.push(["subs",d.id]); }); tt.forEach(d=>{ if(d.data().sample) extra.push(["timetable",d.id]); }); }catch(_){}
     const ops=[...ids.map(id=>["results",id]),...rk.map(k=>["reports",k]),...sids.map(id=>["staff",id]),...sids.map(id=>["staffHR",id]),...extra];
     for(let i=0;i<ops.length;i+=100){ const b=writeBatch(db); ops.slice(i,i+100).forEach(([c,id])=>b.delete(doc(db,c,id))); await b.commit(); }
-    toast(`Deleted ${ids.length} sample results and ${sids.length} sample teachers`); }catch(err){ toast("Couldn't delete: "+errMsg(err)); } }); };
+    toast(`Deleted ${ids.length} sample results and ${sids.length} sample teachers`); }catch(err){ toast("Couldn't delete: "+errMsg(err)); } finally { window._bulkOn=false; setTimeout(resumeLive,1500); } }); };
 
 $("#delOld").onclick=()=>{ if(!isFull()) return asOffice("delOld","Remove results saved by older versions of the site"); const ids=Object.keys(RECORDS).filter(id=>!(RECORDS[id]._raw||{}).cls);
   if(!ids.length) return toast("Nothing to remove: all results are in the current format ✓");
@@ -3428,7 +3428,7 @@ $("#setupBanner").classList.toggle("on",!configured);
 
 /* ---------- Backup & import ---------- */
 $("#exportBtn").onclick=()=>{const data=Object.values(RECORDS).map(r=>({...(r._raw||r),id:r.id})); const blob=new Blob([JSON.stringify({results:data,staff:Object.values(STAFF)})],{type:"application/json"}); (()=>{ const bk={at:new Date().toISOString(),count:data.length,by:ME.email}; BACKUP=bk; renderStaff(); return writeConfig("backup",bk); })().catch(()=>{}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="saps-results-backup-"+new Date().toISOString().slice(0,10)+".json"; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); toast(`Backup of ${data.length} results downloaded`);};
-$("#importBtn").onclick=()=>$("#importIn").click();
+$("#importBtn").onclick=()=>confirmBox("Import a data file?","Before you import, close the site in any other open tabs or phones that are logged in. Each open page re-reads every imported record, which can use up the free daily database allowance.","Choose file",()=>$("#importIn").click());
 $("#importIn").onchange=async e=>{const f=e.target.files[0]; e.target.value=""; if(!f) return; const text=await f.text();
   if(isFull()) return runImport(text,f.name);
   /* coordinator: the file is sent to the principal in parts; it is imported when she approves */
@@ -3438,7 +3438,15 @@ $("#importIn").onchange=async e=>{const f=e.target.files[0]; e.target.value=""; 
   try{ for(let i=0;i<N;i++) await setDoc(doc(db,"drafts","import__"+batch+"_"+i),{col:"import",id:batch+"_"+i,data:{batch,part:i,parts:N,chunk:text.slice(i*300000,(i+1)*300000)},label:`Data import: ${f.name.slice(0,60)} (${sum})`,fileName:f.name.slice(0,80),by:ME.email,at:new Date().toISOString()});
     toast(`📨 Sent to the principal for approval: ${f.name} (${sum}). It is imported when she approves it.`); }catch(err){ toast("Couldn't send: "+errMsg(err)); } };
 let IMPORT_NAME="";
-async function runImport(text,name){ IMPORT_NAME=name||IMPORT_NAME||"data file";
+/* ---------- Saving the free daily database allowance ----------
+   Live lists re-read every changed record. During a big import or delete they are switched off
+   and switched on again afterwards (one fresh read instead of one read per change). */
+let LIVE_PAUSED=false;
+function pauseLive(){ if(LIVE_PAUSED) return; LIVE_PAUSED=true; if(unsubResults){ unsubResults(); unsubResults=null; LOAD.key=""; } if(unsubSTU){ unsubSTU(); unsubSTU=null; stuYearOn=null; } if(unsubFEES){ unsubFEES(); unsubFEES=null; window._feesWasOn=true; } }
+function resumeLive(){ if(!LIVE_PAUSED) return; LIVE_PAUSED=false; if(!ME) return; startTeacherData(); startStu(); if(window._feesWasOn){ window._feesWasOn=false; startFees(); } }
+async function runImport(text,name){ window._bulkOn=true; pauseLive(); try{ return await runImport0(text,name); } finally { window._bulkOn=false; setTimeout(resumeLive,1500); } }
+
+async function runImport0(text,name){ IMPORT_NAME=name||IMPORT_NAME||"data file";
   let list, staff=[], hr=[]; try{ const j=JSON.parse(text); if(Array.isArray(j)) list=j; else if(j&&Array.isArray(j.results)){ list=j.results; staff=Array.isArray(j.staff)?j.staff:[]; hr=Array.isArray(j.hr)?j.hr:[]; } else throw 0; }catch(_){ return toast("That file isn't a results file"); }
   list=list.filter(r=>r&&r.name&&r.roll&&r.std&&r.div&&r.term&&r.year);
   staff=staff.filter(x=>x&&x.email&&x.role); 
@@ -3472,7 +3480,8 @@ const ALLCLS=STDS.flatMap(s=>secOf(s).map(d=>s+"-"+d));
 let STUDOCS={}, unsubSTU=null, stuYearOn=null, ATTM={}, ATTC={}, SATTM={}, NOTES={};
 const stu={tab:"find",q:"",cls:"",status:"active",sel:null,date:"",acls:"",sdate:"",abs:null,absKey:"",sabs:null,sKey:""};
 function startStu(){ if(!db||!ME) return; const y=stuY(); if(unsubSTU&&stuYearOn===y) return; if(unsubSTU) unsubSTU(); stuYearOn=y;
-  unsubSTU=onSnapshot(query(collection(db,"students"),where("year","==",y)),snap=>{ const n={}; snap.forEach(d=>n[d.id]={...d.data(),id:d.id}); STUDOCS=n; if(location.hash==="#students") renderStu(); else renderClassList(); refreshApprovals(); },()=>{}); }
+  const tc=(ME.role==="teacher"&&!isOffice())?myClasses().slice(0,30):null; if(tc&&!tc.length){ stuYearOn=null; return; }
+  unsubSTU=onSnapshot(tc?query(collection(db,"students"),where("year","==",y),where("cls","in",tc)):query(collection(db,"students"),where("year","==",y)),snap=>{ const n={}; snap.forEach(d=>n[d.id]={...d.data(),id:d.id}); STUDOCS=n; if(location.hash==="#students") renderStu(); else renderClassList(); refreshApprovals(); },()=>{}); }
 function refreshApprovals(){ const ab=$("#dashApprovals"); if(ab&&!isFull()) ab.innerHTML=approvalsHTML(); if(onHome()&&isFull()&&typeof renderDash==="function") renderDash(); if(location.hash==="#timetable") renderTT(); }
 function stopStu(){ if(unsubSTU){unsubSTU();unsubSTU=null;} STUDOCS={}; stuYearOn=null; ATTM={}; ATTC={}; SATTM={}; NOTES={}; Object.assign(stu,{tab:"find",q:"",cls:"",sel:null,abs:null,absKey:"",sabs:null,sKey:""}); }
 const isLeft=r=>{ const d=STUDOCS[sidOf(r)]; return !!(d&&d.status==="left"); };
