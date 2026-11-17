@@ -350,7 +350,13 @@ service cloud.firestore {
         && request.resource.data.replies is list && request.resource.data.replies.size() == 0
         && request.resource.data.text is string && request.resource.data.text.size() <= 1000
         && request.resource.data.subject is string && request.resource.data.subject.size() <= 120
-        && request.resource.data.cls == request.resource.data.std + '-' + request.resource.data.div;
+        && request.resource.data.cls == request.resource.data.std + '-' + request.resource.data.div
+        && request.resource.data.year is string && request.resource.data.year.size() <= 7
+        && request.resource.data.std in ['I', 'II', 'III', 'IV', 'V'] && request.resource.data.div in ['A', 'B', 'C']
+        && request.resource.data.roll is int && request.resource.data.roll >= 1 && request.resource.data.roll <= 60
+        && request.resource.data.name is string && request.resource.data.name.size() <= 100
+        && request.resource.data.cat is string && request.resource.data.cat.size() <= 60
+        && request.resource.data.at is string && request.resource.data.at.size() <= 30;
       // Replies are only ever added; the parent may add one note at a time, staff may also change the status.
       allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['replies', 'status', 'updatedAt'])
         && request.resource.data.replies.size() <= 40

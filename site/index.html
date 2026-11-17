@@ -75,7 +75,7 @@ nav.tabs a.on{background:#fff;color:var(--ink);box-shadow:0 2px 8px rgba(31,29,5
 .grid{display:grid;gap:14px}
 .g2{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(4,1fr)}
 @media(max-width:820px){.g3,.g4{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:520px){.g2,.g3,.g4{grid-template-columns:1fr}}
+@media(max-width:520px){.g2,.g3,.g4{grid-template-columns:1fr}.g2>*,.g3>*,.g4>*{grid-column:1/-1!important;min-width:0}}
 label.f{display:flex;flex-direction:column;gap:6px;font-weight:800;font-size:13px;color:#47446b}
 label.f .req{color:var(--pink)}
 .in,select.in,textarea.in{width:100%;padding:11px 13px;border:1.5px solid var(--line);border-radius:12px;background:#fdfcff;outline:none;transition:border .15s, box-shadow .15s}
@@ -952,7 +952,7 @@ footer{background:var(--navy);color:#c9cfbd!important;padding:22px 16px!importan
     <div class="apick" id="aPick"></div>
     <div id="aOut"></div>
   </div>
-  <div class="card" id="aLock"><div class="unauth" style="margin:0"><b class="t">⛔ Unauthorised access</b>Analysis is only for the principal and teachers. Please sign in from the Home page.</div></div>
+  <div class="card" id="aLock"><div class="unauth" style="margin:0"><b class="t">⛔ Unauthorised access</b>Analysis is only for the principal and teachers. <a href="#teacher">Go to Teacher login</a> or <a href="#principal">Principal login</a>.</div></div>
 </section>
 
 <!-- ================= ADMIN ================= -->
@@ -1203,6 +1203,12 @@ if(db){
 }
 
 /* ---------- Routing ---------- */
+var PARENT_TOUCHED_TERM=false;
+/* Parents login: pre-select the latest exam that ended at least a week ago (school calendar), unless the parent chose one. */
+function applyParentTerm(){ if(PARENT_TOUCHED_TERM) return; try{ let C=null; try{ C=PCAL; }catch(_){} if(!C){ try{ C=CAL; }catch(_){} }
+  if(!C||!C.exams) return; const lim=new Date(); lim.setDate(lim.getDate()-7); const L=lim.toISOString().slice(0,10);
+  const done=C.exams.filter(e=>e.key&&(e.to||e.from)<=L).sort((a,b)=>String(a.from).localeCompare(String(b.from))); const last=done[done.length-1];
+  const q=document.querySelector("#qTerm"); if(last&&q&&[...q.options].some(o=>o.value===last.key)) q.value=last.key; }catch(_){} } document.addEventListener("change",e=>{ if(e.target&&e.target.id==="qTerm") PARENT_TOUCHED_TERM=true; },true);
 function route(){
   if(window._actionMode){ document.querySelectorAll(".view").forEach(s=>s.classList.toggle("on",s.id==="v-action")); return; }
   const v=(location.hash||"#home").slice(1);
@@ -1210,6 +1216,7 @@ function route(){
   if(v==="analysis"&&ME&&isOffice()&&!isFull()){ location.hash="home"; return; }
   if((v==="teacher"||v==="principal")&&ME&&isFull()){ location.hash="home"; return; }
   const name=["home","teacher","principal","coordinator","adminlogin","results","admin","analysis","dashboard","timetable","students","school","privacy","notices","achievements","counsel","classroom"].includes(v)?v:"home"; if((name==="teacher"||name==="coordinator")&&ME&&ME.coordinator&&!ME.acting){ location.hash="students"; return; } if(["school","privacy","notices","achievements"].includes(name)) setTimeout(renderPub,0); if(name==="students"){ if(!ME){ if(document.body.classList.contains("authwait")) return; location.hash="teacher"; return; } startTT(); setTimeout(renderStu,0); } if(name==="classroom"){ if(!ME){ if(document.body.classList.contains("authwait")) return; location.hash="teacher"; return; } CR.syl=null; CR.diary={}; setTimeout(renderClassroom,0); } if(name==="counsel"){ if(!ME){ if(document.body.classList.contains("authwait")) return; location.hash="teacher"; return; } startCounsel(); setTimeout(renderCounsel,0); } if(name==="timetable"){ if(!ME){ if(document.body.classList.contains("authwait")) return; location.hash="teacher"; return; } startTT(); setTimeout(renderTT,0); } if(name==="dashboard") setTimeout(()=>renderDash(),0); if(name==="analysis") setTimeout(renderAnalysis,0);
+  if(name==="results") applyParentTerm();
   if(name==="teacher"||name==="principal"||name==="coordinator"||name==="adminlogin") setLoginMode(name==="adminlogin"?"admin":name);
   if(name==="adminlogin"&&ME&&ME.role==="admin"){ location.hash="admin"; return; }
   const view=(name==="principal"||name==="coordinator"||name==="adminlogin")?"teacher":["school","privacy","notices","achievements"].includes(name)?"pub":name;
@@ -1221,7 +1228,7 @@ addEventListener("hashchange",route);
 
 /* ---------- Selects ---------- */
 function fill(sel,arr){sel.innerHTML=arr.map(x=>`<option>${esc(x)}</option>`).join("")}
-fill($("#fYear"),YEARS);fill($("#qYear"),YEARS);
+fill($("#fYear"),YEARS);fill($("#qYear"),(()=>{ const d=new Date(), y=d.getMonth()>=3?d.getFullYear():d.getFullYear()-1, cur=`${y}-${String(y+1).slice(2)}`, L=YEARS.filter(x=>x<=cur); return L.length?L:[YEARS[0]]; })());
 fill($("#fStd"),STDS);fill($("#qStd"),STDS);
 fill($("#fDiv"),secOf("I"));fill($("#qDiv"),secOf("I"));
 /* section lists follow the chosen class (I and II: A–C; III–V: A–B) */
@@ -2212,7 +2219,7 @@ function myStatsHTML(recs){ const me=ME, cls=[...new Set([...(me.classes||[]),..
     const subs=[...new Set(R.flatMap(r=>(r.subjects||[]).map(x=>x.name)))];
     const st=subs.map(sub=>{ const v=R.map(r=>{ const x=(r.subjects||[]).find(y=>y.name===sub); const t=x?subjTotal(x,r):null; return t==null?null:t/outOf(r)*100; }).filter(x=>x!=null); return {sub,avg:v.length?r1(v.reduce((a,b)=>a+b,0)/v.length):null,mine:teachesIn(me,c).includes(sub),who:tName2(c,sub)}; }).filter(x=>x.avg!=null).sort((a,b)=>b.avg-a.avg);
     const mine=st.filter(x=>x.mine), others=st.filter(x=>!x.mine), oAvg=others.length?r1(others.reduce((a,b)=>a+b.avg,0)/others.length):null;
-    const ctLine=(me.classTeacher||[]).includes(c)?(()=>{ const v=R.map(pctOf).filter(x=>x!=null); return `<p style="margin:2px 0 8px">👩‍🏫 <b>Your class:</b> ${R.length} students · class average <b>${avg(v)}%</b> · ${v.filter(x=>x>=91).length} A+ · ${v.filter(x=>x<50).length} below 50%</p>`; })():"";
+    const ctLine=(me.classTeacher||[]).includes(c)?(()=>{ const v=R.map(pctOf).filter(x=>x!=null); return `<p style="margin:2px 0 8px">👩‍🏫 <b>Your class:</b> ${R.length} students · class average <b>${pctS(avg(v))}</b> · ${v.filter(x=>x>=91).length} A+ · ${v.filter(x=>x<50).length} below 50%</p>`; })():"";
     return `<div class="card" style="box-shadow:none;margin:0 0 12px"><h4 style="margin:0 0 4px">${esc(c)}${(me.classTeacher||[]).includes(c)?' <span class="ctag perm">Class teacher</span>':""}</h4>${ctLine}
       ${mine.length?mine.map(m=>{ const d=oAvg!=null?r1(m.avg-oAvg):null, rank=st.indexOf(m)+1; return `<p style="margin:2px 0">📘 <b>${esc(m.sub)}</b>: class average <b>${m.avg}%</b> · ${d==null?"":d>=0?`<span style="color:#0b7a64;font-weight:800">▲ ${d} above</span>`:`<span style="color:#b3164f;font-weight:800">▼ ${Math.abs(d)} below</span>`} the other subjects of this class · ranks ${rank} of ${st.length}</p>`; }).join(""):""}
       <div class="tbl-wrap" style="margin-top:8px"><table class="pt"><thead><tr><th>Subject</th><th>Taught by</th><th>Class average</th></tr></thead><tbody>${((me.classTeacher||[]).includes(c)?st:mine.concat(oAvg!=null?[{sub:"Other subjects (average)",who:"—",avg:oAvg,mine:false}]:[])).map(x=>`<tr style="${x.mine?"background:#eef0e3;font-weight:800":""}"><td style="text-align:left">${esc(x.sub)}${x.mine?" (you)":""}</td><td style="text-align:left">${esc(x.who)}</td><td><div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:8px;background:#ecebe2;border-radius:6px"><div style="width:${Math.max(2,x.avg)}%;height:8px;border-radius:6px;background:${x.mine?"#ff9933":"#4b5320"}"></div></div><b>${x.avg}%</b></div></td></tr>`).join("")}</tbody></table></div></div>`; }).join("");
@@ -3190,6 +3197,7 @@ $("#bigClose").onclick=()=>$("#bigModal").classList.remove("on");
 $("#aYear").addEventListener("change",()=>{ if(ME) startTeacherData($("#aYear").value); }); fill($("#aYear"),YEARS); fill($("#aStd"),STDS); fill($("#aDiv"),DIVS); $("#aStd").value="I";
 let aTab="overview", aSel={subject:null,exam:"Term I",student:null};
 const avg=a=>{ const v=a.filter(x=>x!=null); return v.length?r1(v.reduce((p,q)=>p+q,0)/v.length):null; };
+const pctS=v=>v==null?"–":v+"%";
 const pcell=v=>v!=null?`<span class="cell" style="background:${GCOL[grade(v)]}22;color:${GCOL[grade(v)]}">${v}%</span>`:"–";
 const GRADES=["A+","A","B+","B","C+","C","D","E"];
 function aData(){
@@ -3231,12 +3239,12 @@ function renderAnalysis(){
     const imp=D.rows.map(k=>{ const f=firstLast(EXAMS.map(t=>ov(k,t))); return {k,d:f&&f.j>f.i?r1(f.b-f.a):null}; }).filter(x=>x.d!=null).sort((a,b)=>b.d-a.d);
     const sAvg=D.subjects.map(n=>({n,v:avg(D.rows.map(k=>examPct(k.ex[latest],n)))})).filter(x=>x.v!=null).sort((a,b)=>b.v-a.v);
     const weakKids=ranked.filter(x=>x.v<50);
-    const pts=[`Class average in <b>${esc(lab(latest))}</b>: <b>${avg(lat)}%</b>`+(classAvg.filter(v=>v!=null).length>1?` (it was ${firstLast(classAvg).a}% in ${esc(lab(EXAMS[firstLast(classAvg).i]))}).`:"."),
+    const pts=[`Class average in <b>${esc(lab(latest))}</b>: <b>${pctS(avg(lat))}</b>`+(classAvg.filter(v=>v!=null).length>1?` (it was ${firstLast(classAvg).a}% in ${esc(lab(EXAMS[firstLast(classAvg).i]))}).`:"."),
       ranked.length?`Top 3 in ${esc(lab(latest))}: ${ranked.slice(0,3).map(x=>`<b>${esc(x.k.name)}</b> (${x.v}%)`).join(", ")}.`:"",
       imp[0]&&imp[0].d>=2?`Most improved: <b>${esc(imp[0].k.name)}</b> (up ${imp[0].d}%).`:"",
       sAvg.length>1?`Strongest subject for the class: <b>${esc(sAvg[0].n)}</b> (${sAvg[0].v}%). Weakest: <b>${esc(sAvg[sAvg.length-1].n)}</b> (${sAvg[sAvg.length-1].v}%).`:"",
       weakKids.length?`Need extra support (below 50% in ${esc(lab(latest))}): ${weakKids.map(x=>`<b>${esc(x.k.name)}</b> (${x.v}%)`).join(", ")}.`:`No student is below 50% in ${esc(lab(latest))}. 🎉`].filter(Boolean);
-    out.innerHTML=`<div class="kpis">${kpi("Students",D.rows.length,"#f2edff","#5435c9")}${kpi(`Class average (${esc(lab(latest))})`,(avg(lat)??"–")+"%","#e8f7ff","#0b6c99")}${kpi(`A+ students (${esc(lab(latest))})`,lat.filter(v=>v!=null&&v>=91).length,"#e9fbf5","#0b7a64")}${kpi(`Below 50% (${esc(lab(latest))})`,weakKids.length,"#fff0f5","#b3164f")}</div>
+    out.innerHTML=`<div class="kpis">${kpi("Students",D.rows.length,"#f2edff","#5435c9")}${kpi(`Class average (${esc(lab(latest))})`,pctS(avg(lat)),"#e8f7ff","#0b6c99")}${kpi(`A+ students (${esc(lab(latest))})`,lat.filter(v=>v!=null&&v>=91).length,"#e9fbf5","#0b7a64")}${kpi(`Below 50% (${esc(lab(latest))})`,weakKids.length,"#fff0f5","#b3164f")}</div>
       <h4 style="margin:4px 0 8px">Class average by subject (%)</h4>${pctTable(subjRows)}
       <div class="final"><h4>📝 Final analysis: Class ${esc(D.st)}-${esc(D.dv)}</h4><ul>${pts.map(x=>`<li>${x}</li>`).join("")}</ul></div>
       <h4 style="margin:18px 0 8px">Every student, overall % (click a name for details)</h4>${pctTable(stuRows(ov),"Student")}`;
@@ -3244,10 +3252,11 @@ function renderAnalysis(){
   if(aTab==="subject"){
     if(!D.subjects.includes(aSel.subject)) aSel.subject=D.subjects[0];
     const n=aSel.subject;
+    if(!n){ pick.innerHTML=""; out.innerHTML=`<div class="empty">No marks yet in your subjects for this class.</div>`; return; }
     pick.innerHTML=D.subjects.map(x=>`<button class="chip ${x===n?"on":""}" data-pick="${esc(x)}">${esc(x)}</button>`).join("");
     const sAvg=EXAMS.map(t=>avg(D.rows.map(k=>examPct(k.ex[t],n))));
     const latV=D.rows.map(k=>examPct(k.ex[latest],n)).filter(v=>v!=null);
-    out.innerHTML=`<div class="kpis">${kpi(`Class average (${esc(lab(latest))})`,(avg(latV)??"–")+"%","#e8f7ff","#0b6c99")}${kpi("Highest",latV.length?Math.max(...latV)+"%":"–","#e9fbf5","#0b7a64")}${kpi("Lowest",latV.length?Math.min(...latV)+"%":"–","#fff0f5","#b3164f")}${kpi("Below 50%",latV.filter(v=>v<50).length,"#fff6ea","#a55a00")}</div>
+    out.innerHTML=`<div class="kpis">${kpi(`Class average (${esc(lab(latest))})`,pctS(avg(latV)),"#e8f7ff","#0b6c99")}${kpi("Highest",latV.length?Math.max(...latV)+"%":"–","#e9fbf5","#0b7a64")}${kpi("Lowest",latV.length?Math.min(...latV)+"%":"–","#fff0f5","#b3164f")}${kpi("Below 50%",latV.filter(v=>v<50).length,"#fff6ea","#a55a00")}</div>
       ${pctTable([{name:`${n}: class average`,overall:true,vals:sAvg}],"")}
       <h4 style="margin:18px 0 8px">${esc(n)}: every student (%)</h4>${pctTable(stuRows((k,t)=>examPct(k.ex[t],n)),"Student")}`;
   }
@@ -3255,10 +3264,10 @@ function renderAnalysis(){
     if(!D.exams.includes(aSel.exam)) aSel.exam=latest;
     const t=aSel.exam;
     pick.innerHTML=EXAMS.map(x=>`<button class="chip ${x===t?"on":""}" data-pick="${esc(x)}" ${D.exams.includes(x)?"":"disabled"}>${esc(lab(x))}</button>`).join("");
-    const ranked=D.rows.filter(k=>k.ex[t]).map(k=>({k,v:pctOf(k.ex[t])})).sort((a,b)=>(b.v??-1)-(a.v??-1));
+    const ranked=D.rows.filter(k=>k.ex[t]).map(k=>({k,v:pctOf(k.ex[t])})).filter(x=>x.v!=null).sort((a,b)=>(b.v??-1)-(a.v??-1));
     const vals=ranked.map(x=>x.v).filter(v=>v!=null);
     const subj=D.subjects.map(n=>{ const v=D.rows.map(k=>examPct(k.ex[t],n)).filter(x=>x!=null); return {n,avg:avg(v),hi:v.length?Math.max(...v):null,lo:v.length?Math.min(...v):null,below:v.filter(x=>x<50).length}; });
-    out.innerHTML=`<div class="kpis">${kpi(`Students in ${esc(lab(t))}`,ranked.length,"#f2edff","#5435c9")}${kpi("Class average",(avg(vals)??"–")+"%","#e8f7ff","#0b6c99")}${kpi("Topper",ranked[0]?`${esc(ranked[0].k.name.split(" ")[0])} · ${ranked[0].v}%`:"–","#e9fbf5","#0b7a64")}${kpi("Below 50%",vals.filter(v=>v<50).length,"#fff0f5","#b3164f")}</div>
+    out.innerHTML=`<div class="kpis">${kpi(`Students in ${esc(lab(t))}`,ranked.length,"#f2edff","#5435c9")}${kpi("Class average",pctS(avg(vals)),"#e8f7ff","#0b6c99")}${kpi("Topper",ranked[0]?`${esc(ranked[0].k.name.split(" ")[0])} · ${ranked[0].v}%`:"–","#e9fbf5","#0b7a64")}${kpi("Below 50%",vals.filter(v=>v<50).length,"#fff0f5","#b3164f")}</div>
       <h4 style="margin:4px 0 8px">Subjects in ${esc(lab(t))}</h4>
       <div class="tbl-wrap"><table class="pt"><thead><tr><th>Subject</th><th>Class average</th><th>Highest</th><th>Lowest</th><th>Below 50%</th></tr></thead><tbody>${subj.map(x=>`<tr><td><b>${esc(x.n)}</b></td><td class="p">${pc(x.avg)}</td><td class="p">${pc(x.hi)}</td><td class="p">${pc(x.lo)}</td><td>${x.below}</td></tr>`).join("")}</tbody></table></div>
       <h4 style="margin:18px 0 8px">Rank list: ${esc(lab(t))}</h4>
@@ -3417,7 +3426,7 @@ function renderDash(){
     tTeachers(()=>remBox+spot+`<div class="qlinks" style="margin:14px 0"><a class="btn sec" href="#analysis" data-goana="teachers">👩‍🏫 Teacher comparison</a><a class="btn sec" href="#timetable">🗓 Timetable, leave and relief</a></div>`+dirBox),
     {k:"action",ic:"📥",t:"Approvals",big:nA+lr,sub:nA+lr?`${plural(nA,"item")}${lr?` · ${plural(lr,"leave request")}`:""}${oA?` · oldest ${agoTxt(oA)}`:""}`:"nothing waiting",tone:nA+lr?(oA>=3?"warn":"info"):"ok",body:()=>`<div id="dashApprovals">${approvalsHTML()}</div>${lr?`<p><a class="btn sec" href="#timetable" data-briefgo="leave">🏖 Leave requests (${lr}) →</a></p>`:""}`},
     tStudents(()=>`<div id="homeSeats">${seatsHTML()}</div><p><a class="btn sec" href="#students">🧒 Open Students →</a></p>`),
-    {k:"results",ic:"📊",t:"Results",big:sAvg!=null?sAvg+"%":"–",sub:noRes?"no results yet":`${esc(lab(t))}${pAvg!=null&&sAvg!=null?` · ${r1(sAvg-pAvg)>=0?"▲":"▼"} ${Math.abs(r1(sAvg-pAvg))} since ${esc(lab(pe))}`:""}${pendN?` · ${pendN} marks pending`:""}`,tone:noRes?"info":pendN||(pAvg!=null&&sAvg<pAvg)?"warn":"ok",body:resBody},
+    {k:"results",ic:"📊",t:"Results",big:sAvg!=null?sAvg+"%":"–",sub:noRes?"no results yet":`${esc(lab(t))}${pAvg!=null&&sAvg!=null?` · ${r1(sAvg-pAvg)>=0?"▲":"▼"} ${Math.abs(r1(sAvg-pAvg))} since ${esc(lab(pe))}`:""}${pendN?` · ${pendN} mark${pendN>1?"s":""} pending`:""}`,tone:noRes?"info":pendN||(pAvg!=null&&sAvg<pAvg)?"warn":"ok",body:resBody},
     tClassroom(),
     tParents(()=>`<div id="dashGV">${gvStaffHTML()}</div><div id="dashPM">${pmLogHTML()}</div>`),
     tCalendar(()=>`<div id="homeComing">${comingHTML()}</div><div id="homeEvAch">${eventsAchHTML()}</div>`)
@@ -3487,7 +3496,7 @@ function renderSchoolTabs(pick,out){
     const list=recs.map(r=>({r,v:pctOf(r),d:prevMap[key(r)]!=null&&pctOf(r)!=null?r1(pctOf(r)-prevMap[key(r)]):null})).filter(x=>x.v!=null);
     const top=[...list].sort((a,b)=>b.v-a.v).slice(0,10), imp=list.filter(x=>x.d!=null&&x.d>0).sort((a,b)=>b.d-a.d).slice(0,10), low=list.filter(x=>x.v<50).sort((a,b)=>a.v-b.v);
     const tbl=(rows,extra)=>`<div class="tbl-wrap"><table class="pt"><thead><tr><th>#</th><th>Student</th><th>Class</th><th>${esc(lab(t))}</th>${extra?`<th>${extra}</th>`:""}</tr></thead><tbody>${rows.map((x,i)=>`<tr><td>${i<3&&!extra?["🥇","🥈","🥉"][i]:i+1}</td><td><b>${esc(x.r.name)}</b> <span class="hint">Roll ${esc(x.r.roll)}</span></td><td>${esc(x.r.std)}-${esc(x.r.div)}</td><td class="p">${pc(x.v)}</td>${extra?`<td>${sgn(x.d)}</td>`:""}</tr>`).join("")||`<tr><td colspan="5" class="empty">None</td></tr>`}</tbody></table></div>`;
-    out.innerHTML=`<div class="kpis">${kpi("Students",list.length,"#f2edff","#5435c9")}${kpi("School average",(avg(list.map(x=>x.v))??"–")+"%","#e8f7ff","#0b6c99")}${kpi("A+ students",list.filter(x=>x.v>=91).length,"#e9fbf5","#0b7a64")}${kpi("Below 50%",low.length,"#fff0f5","#b3164f")}</div>
+    out.innerHTML=`<div class="kpis">${kpi("Students",list.length,"#f2edff","#5435c9")}${kpi("School average",pctS(avg(list.map(x=>x.v))),"#e8f7ff","#0b6c99")}${kpi("A+ students",list.filter(x=>x.v>=91).length,"#e9fbf5","#0b7a64")}${kpi("Below 50%",low.length,"#fff0f5","#b3164f")}</div>
       <div class="two"><div><h4 style="margin:4px 0 8px">🏆 School top 10 · ${esc(lab(t))}</h4>${tbl(top)}</div><div><h4 style="margin:4px 0 8px">🚀 Most improved since ${esc(pe?lab(pe):"previous exam")}</h4>${pe?tbl(imp,"Change"):`<div class="empty">This is the first exam of the year.</div>`}</div></div>
       <h4 style="margin:18px 0 8px">🤝 Need extra support (below 50%)</h4>${tbl(low)}`;
   }
@@ -3920,7 +3929,7 @@ const DEF_DISC={sample:true,
   general:{name:"Demo School",affNo:"11XXXXX (sample)",schoolCode:"XXXXX (sample)",address:"Ulsoor Lake Army Area, Bengaluru 560008",principal:"Mrs Anjali Mehra (sample)",principalQual:"M.A., M.Ed. (sample)",email:"office@school.sample",phone:"080-0000 0000 (demo)",
     dpoName:"Principal (sample)",dpoEmail:"privacy@school.sample",officialSite:""},
   docs:{}, acad:{},
-  staff:{principal:"1",total:"16",pgt:"0",tgt:"0",prt:"15",sections:"12",ratio:"1 : 1.33",special:"Mrs Kirti Deshmukh, B.Ed. (Special Education), RCI registered (sample)",counsellor:"Mrs ... (counsellor and wellness teacher) (sample)",
+  staff:{principal:"1",total:"16",pgt:"0",tgt:"0",prt:"15",sections:"12",ratio:"1.33 : 1",special:"Mrs Kirti Deshmukh, B.Ed. (Special Education), RCI registered (sample)",counsellor:"Mrs ... (counsellor and wellness teacher) (sample)",
     teachers:"Mr Rahul Jadhav | B.Sc., B.Ed. | PRT\nMr Sandeep Rao | B.P.Ed. | PRT (Physical Education)\nMrs Anjali Joshi | M.A., D.El.Ed. | PRT\nMrs Archana Kale | M.A., M.Ed. | Coordinator, PRT\nMrs Kirti Deshmukh | B.A., B.Ed. (Special Education), RCI registered | Special educator\nMrs Deepa Nair | M.A. (English), B.Ed. | PRT\nMrs Kavita Patil | M.Sc. (Botany), B.Ed. | PRT\nMrs Meena Deshpande | M.A. (Hindi), B.Ed. | PRT\nMrs Nandini Sathe | M.A. (English), B.Ed. | PRT\nMrs Neha Bhosale | B.Sc., B.Ed. | PRT\nMrs Pooja Shinde | B.Sc., D.El.Ed. | PRT\nMrs Priya Sharma | B.Sc., B.Ed. | PRT\nMrs Rekha Pawar | M.Sc. (Maths), B.Ed. | PRT\nMrs Shalini Gaikwad | B.A., D.El.Ed. | PRT\nMrs Smita Menon | B.F.A. | PRT (Art)\nMrs Sunita Kulkarni | B.A., B.Ed. | PRT"},
   pta:"Mrs Anjali Mehra, Principal | Chairperson\nMrs Archana Kale, Coordinator | Secretary\nParent of Class I | Member (sample)\nParent of Class II | Member (sample)\nParent of Class III | Member (sample)\nParent of Class IV | Member (sample)\nParent of Class V | Member (sample)\nTwo teacher representatives | Members (sample)",
   infra:{area:"8000 (sample)",rooms:"12 rooms, 45 sq m each (sample)",labs:"1 computer lab, 50 sq m (sample)",internet:"Yes",girlsT:"8 (sample)",boysT:"8 (sample)",video:""},
@@ -3948,7 +3957,7 @@ function discHTML(){ const d=D_(), g=d.general, s=d.staff, lnk=(u,t)=>safeUrl(u)
    <p class="hint">The documents are self-attested by the Chairman / Manager / Secretary and the Principal.</p>
    <h3>C. Result and academics</h3>${tbl(DISC_ACAD.map(([k,l])=>{ const go=(id,t)=>`<button type="button" class="linkbtn" data-scroll="${id}">${t} ↓</button>`;
      return [l,safeUrl(d.acad[k])?lnk(d.acad[k]):k==="fees"?go("dFees","Fee structure"):k==="calendar"?go("dCal","Academic calendar"):k==="smc"?go("dCom","SMC members"):k==="pta"?go("dPta","PTA members"):'<span class="hint">Not applicable (classes I to V)</span>']; }))}
-   <h3>D. Staff (teaching)</h3>${tbl([["Principal",esc(s.principal)],["Total no. of teachers",esc(s.total)],["PGT",esc(s.pgt)],["TGT",esc(s.tgt)],["PRT",esc(s.prt)],["Teachers–section ratio",esc(s.ratio)],["Details of special educator",esc(s.special)],["Details of counsellor and wellness teacher",esc(s.counsellor)]])}
+   <h3>D. Staff (teaching)</h3>${tbl([["Principal",esc(s.principal)],["Total no. of teachers",esc(s.total)],["PGT",esc(s.pgt)],["TGT",esc(s.tgt)],["PRT",esc(s.prt)],["Teachers–section ratio",esc((()=>{ const t=parseFloat(s.total), n=parseFloat(s.sections); return t>0&&n>0?`${(Math.round(t/n*100)/100).toFixed(2)} : 1 (${(Math.round(t/n*100)/100).toFixed(2)} teachers per section)`:(s.ratio||""); })())],["Details of special educator",esc(s.special)],["Details of counsellor and wellness teacher",esc(s.counsellor)]])}
    <h4>Teachers and their qualifications</h4>${T.length?`<div class="tbl-wrap" id="dTeachers"><table class="pt"><thead><tr><th>#</th><th>Name</th><th>Qualification</th><th>Designation</th></tr></thead><tbody>${T.map((x,i)=>`<tr><td>${i+1}</td><td style="text-align:left"><b>${esc(x[0])}</b></td><td>${esc(x[1]||"")}</td><td>${esc(x[2]||"")}</td></tr>`).join("")}</tbody></table></div>`:ME&&isOffice()?'<p class="hint">Add this list with Edit → "Fill from the staff list".</p>':'<p class="hint">To be published.</p>'}
    <h3>E. School infrastructure</h3>${tbl(DISC_INFRA.map(([k,l])=>[l,k==="video"?lnk(d.infra.video,"Watch"):esc(d.infra[k]||"–")]))}
    <h3 id="dCal">Annual academic calendar ${esc(YEARS[0])}</h3>${calDiscHTML()}
@@ -3965,7 +3974,7 @@ function discEditHTML(){ const d=D_(), g=d.general, s=d.staff, inp=(p,v,ph)=>`<i
    <h3>Privacy contact (shown on the Privacy page)</h3><div class="grid g2">${L("Name / designation","general.dpoName",g.dpoName)}${L("Email","general.dpoEmail",g.dpoEmail)}</div>
    <h3>B. Documents (links)</h3><div class="grid g2">${DISC_DOCS.map(([k,l])=>L(l,"docs."+k,d.docs[k],"https://")).join("")}</div>
    <h3>C. Academics (links)</h3><div class="grid g2">${DISC_ACAD.filter(x=>x[0]!=="board").map(([k,l])=>L(l+(k==="fees"||k==="calendar"?" (optional: shown on this site already)":""),"acad."+k,d.acad[k],"https://")).join("")}</div>
-   <h3>D. Staff</h3><div class="grid g4">${[["Principal","principal"],["Total teachers","total"],["PGT","pgt"],["TGT","tgt"],["PRT","prt"],["Sections","sections"],["Teachers–section ratio","ratio"]].map(([l,k])=>L(l,"staff."+k,s[k])).join("")}</div><div class="grid g2">${L("Special educator","staff.special",s.special)}${L("Counsellor and wellness teacher","staff.counsellor",s.counsellor)}</div>
+   <h3>D. Staff</h3><div class="grid g4">${[["Principal","principal"],["Total teachers","total"],["PGT","pgt"],["TGT","tgt"],["PRT","prt"],["Sections","sections"],["Teachers per section (worked out from teachers ÷ sections if both are filled)","ratio"]].map(([l,k])=>L(l,"staff."+k,s[k])).join("")}</div><div class="grid g2">${L("Special educator","staff.special",s.special)}${L("Counsellor and wellness teacher","staff.counsellor",s.counsellor)}</div>
    <label class="f">Teachers: one per line as <b>Name | Qualification | Designation</b><textarea class="in" data-dk="staff.teachers" style="min-height:140px">${esc(s.teachers||"")}</textarea></label><button class="btn sec sm" data-discfill="1">⬇ Fill from the staff list</button>
    <h3>E. Infrastructure</h3><div class="grid g2">${DISC_INFRA.map(([k,l])=>L(l,"infra."+k,d.infra[k],k==="video"?"https://":"")).join("")}</div>
    <h3>PTA members</h3><label class="f">One per line as <b>Name | Role</b><textarea class="in" data-dk="pta" style="min-height:120px">${esc(d.pta||"")}</textarea></label>
@@ -3980,10 +3989,10 @@ function calDiscHTML(){ const pub=PCAL||CAL, y0=YEARS[0].slice(0,4); /* until th
 document.addEventListener("click",e=>{ const b=e.target.closest("[data-scroll]"); if(!b) return; const el=document.getElementById(b.dataset.scroll); if(el) el.scrollIntoView({behavior:"smooth",block:"start"}); });
 function privacyHTML(){ const g=D_().general;
   return `<div class="title-row"><h2>🔒 Privacy notice</h2></div><p class="hint">How ${esc(g.name)} handles children's and parents' personal data on this website, under the Digital Personal Data Protection Act, 2023 and its Rules.</p>
-  <h3>What we keep</h3><ul><li><b>Student:</b> name, class, section, roll no., admission no., date of birth, gender, photo (only with a parent's consent), marks, grades, attendance, height and weight, teachers' remarks.</li><li><b>Parents:</b> names, category (serving, retired, civilian) and, for serving parents, only Officer / JCO / OR. We do <b>not</b> keep rank, unit or address. A phone number is kept only if you give it.</li><li><b>Health and discipline notes:</b> only what is needed to keep your child safe at school.</li></ul>
-  <h3>Why</h3><p>Only to run the school: report cards, attendance, safety and contacting you. Never for advertising. Nothing is sold or shared with anyone outside the school, except where the law requires it (for example CBSE or the authorities).</p>
+  <h3>What we keep</h3><ul><li><b>Student:</b> name, class, section, roll no., admission no., date of birth, gender, photo (only with a parent's consent), marks, grades, attendance, height and weight, teachers' remarks.</li><li><b>Parents:</b> names, category (serving, retired, civilian) and, for serving parents, only Officer / JCO / OR. We do <b>not</b> keep rank, unit or address. A phone number is kept only if you give it.</li><li><b>School work:</b> homework given and the syllabus covered in each class.</li><li><b>Messages:</b> messages between you and the school (what you write under <i>Write to the school</i>, the school's replies and messages from teachers), absence notes, and your confirmation that you have read a circular.</li><li><b>Health, discipline and counselling notes:</b> only what is needed to keep your child safe and well at school.</li></ul>
+  <h3>Why</h3><p>Only to run the school: report cards, homework, attendance, your child's safety and wellbeing, and contacting you. Never for advertising. Nothing is sold or shared with anyone outside the school, except where the law requires it (for example CBSE or the authorities).</p>
   <h3>Your consent</h3><p>The school asks a parent to sign a consent form at admission before the child's data is kept on this website. The photo appears on the report card only if you agree to it on that form. You can withdraw consent at any time by writing to the contact below.</p>
-  <h3>Who can see it</h3><ul><li><b>You:</b> your child's report card, only with the class, roll no., name <b>and</b> date of birth.</li><li><b>Teachers:</b> marks of the classes they teach. Health and discipline notes are seen only by the teachers of that class, the coordinator and the principal, and never appear on the report card.</li><li>Staff sign in with a password, and every school account is checked before it can open anything.</li></ul>
+  <h3>Who can see it</h3><ul><li><b>You:</b> your own child's page (report card, homework, fees and messages), only with the class, roll no., name <b>and</b> date of birth. Keep these details to yourself.</li><li><b>Teachers:</b> marks of the classes and subjects they teach. Health and discipline notes are seen only by the teachers of that class, the coordinator and the principal. Counselling notes about a child are seen only by the class teacher, the coordinator and the principal. None of these appear on the report card or are shown to parents.</li><li><b>Your messages</b> reach only the people you choose (class teacher, coordinator or principal).</li><li>Staff sign in with a password, and every school account is checked before it can open anything.</li></ul>
   <h3>How long</h3><p>Records are kept while your child studies here. After a child leaves, the online records are erased within one year, unless the law requires the school to keep them longer.</p>
   <h3>Your rights</h3><p>You can ask to see, correct or erase your child's data, withdraw consent, or raise a complaint. The school replies within 30 days.</p>
   <div class="card" style="box-shadow:none;background:#f8f6ff"><b>Privacy contact:</b> ${esc(g.dpoName)} · <a href="mailto:${esc(g.dpoEmail)}">${esc(g.dpoEmail)}</a> · ${esc(g.phone)}<br><span class="hint">If you are not satisfied, you can complain to the Data Protection Board of India.</span></div>`; }
@@ -4014,7 +4023,7 @@ const ACATS=["Academics","Sports","Arts & culture","Olympiads & quizzes","School
 let NOTICES={}, ACHS={}, EDUT={}, unsubED=null, PCAL=null;
 if(db){ onSnapshot(collection(db,"notices"),s=>{ const n={}; s.forEach(d=>n[d.id]={...d.data(),id:d.id}); NOTICES=n; pubRefresh(); },()=>{});
   onSnapshot(collection(db,"achievements"),s=>{ const n={}; s.forEach(d=>n[d.id]={...d.data(),id:d.id}); ACHS=n; pubRefresh(); },()=>{});
-  getDoc(doc(db,"calendar",YEARS[0])).then(d=>{ PCAL=d.exists()?d.data():null; pubRefresh(); }).catch(()=>{}); }
+  getDoc(doc(db,"calendar",YEARS[0])).then(d=>{ PCAL=d.exists()?d.data():null; pubRefresh(); applyParentTerm(); }).catch(()=>{}); }
 function startEDUT(){ if(!db||!ME||unsubED) return; unsubED=onSnapshot(collection(db,"eventDuties"),s=>{ const n={}; s.forEach(d=>n[d.id]=d.data()); EDUT=n; pubRefresh(); homeRefresh(); },()=>{}); }
 function stopEDUT(){ if(unsubED){unsubED();unsubED=null;} EDUT={}; }
 function pubRefresh(){ renderFlash(); homeRefresh(); if(["#notices","#achievements"].includes(location.hash)) renderPub(); }
