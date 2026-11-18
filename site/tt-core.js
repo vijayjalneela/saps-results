@@ -21,8 +21,8 @@ export const DEFAULT_TT = {
     { day: "Fri", p: 8, label: "CCA (Arts) / buffer", who: "Art" }
   ],
   perWeek: {
-    prim: { English: 7, Mathematics: 7, Hindi: 6, EVS: 6, PT: 2, Art: 2 },
-    mid: { English: 5, Hindi: 3, Mathematics: 5, Science: 5, "Social Science": 3 }
+    prim: { English: 7, Mathematics: 7, Hindi: 6, Kannada: 4, EVS: 6, PT: 2, Art: 2 },
+    mid: { English: 5, Hindi: 3, Kannada: 3, Mathematics: 5, Science: 5, "Social Science": 3 }
   }
 };
 export const PPD = 8; // teaching periods per day

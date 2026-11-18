@@ -1096,8 +1096,8 @@ const YEARS = ["2026-27","2027-28","2028-29","2029-30","2030-31","2031-32"];
 const COMP = [{k:"pe",l:"P.E. – I",max:10},{k:"nb",l:"Note book",max:5},{k:"sea",l:"SEA",max:5},{k:"hy",l:"H.Y. Exam",max:80}];
 const SUBJECTS_BY = std => {
   const i = STDS.indexOf(std);
-  if (i<=4) return {all:["English","Hindi","Mathematics","EVS","Kannada","Sanskrit","Computer Science","PT","Art"], def:["English","Hindi","Mathematics","EVS"]};
-  return {all:["English","Hindi","Mathematics","Science","Social Science","Kannada","Sanskrit","Computer Science","AI"], def:["English","Hindi","Mathematics","Science","Social Science"]};
+  if (i<=4) return {all:["English","Hindi","Mathematics","EVS","Kannada","Sanskrit","Computer Science","PT","Art"], def:["English","Hindi","Kannada","Mathematics","EVS"]};
+  return {all:["English","Hindi","Mathematics","Science","Social Science","Kannada","Sanskrit","Computer Science","AI"], def:["English","Hindi","Kannada","Mathematics","Science","Social Science"]};
 };
 const NS_ALL = ["Computer","General Knowledge","Art and Craft","Music","Dance","Physical Education","Work Education","Discipline"];
 const NS_DEF = ["Computer","General Knowledge","Art and Craft"];
@@ -2582,7 +2582,7 @@ const DAYNAMES=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 /* date arithmetic on plain YYYY-MM-DD strings, safe in any time zone */
 function addDaysISO(iso,n){ const x=new Date(String(iso).slice(0,10)+"T00:00:00Z"); x.setUTCDate(x.getUTCDate()+n); return x.toISOString().slice(0,10); }
 const todayISO=()=>{ const d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); };
-const ttSet=()=>JSON.parse(JSON.stringify((TT&&TT.settings&&TT.settings.v===3)?TT.settings:DEFAULT_TT));
+const ttSet=()=>{ const x=JSON.parse(JSON.stringify((TT&&TT.settings&&TT.settings.v===3)?TT.settings:DEFAULT_TT)); /* Karnataka: Kannada is compulsory; add it to settings saved before it was a default */ if(x.perWeek&&x.perWeek.prim&&!("Kannada" in x.perWeek.prim)&&!x.noKannada) x.perWeek.prim.Kannada=DEFAULT_TT.perWeek.prim.Kannada; if(x.perWeek&&x.perWeek.mid&&!("Kannada" in x.perWeek.mid)&&!x.noKannada) x.perWeek.mid.Kannada=DEFAULT_TT.perWeek.mid.Kannada; return x; };
 const allClasses=(set)=>{ set=set||ttSet(); return (set.stds||STDS).flatMap(s=>((set.sections&&set.sections[s])||secOf(s)).map(d=>s+"-"+d)); };
 const tGroup=c=>STDS.indexOf(c.split("-")[0])<=4?"prim":"mid";
 const tName=em=>em?((STAFF[em]&&STAFF[em].name)||em):"";
@@ -3108,7 +3108,7 @@ document.addEventListener("click",async e=>{
   const sd=e.target.closest("[data-std]"); if(sd){ const s2=ttS.setup, x=sd.dataset.std; s2.stds=(s2.stds||[]).includes(x)?s2.stds.filter(y=>y!==x):STDS.filter(y=>y===x||(s2.stds||[]).includes(y)); renderTT(); return; }
   const fd=e.target.closest("[data-fxdel]"); if(fd){ ttS.setup.fixed.splice(+fd.dataset.fxdel,1); renderTT(); return; }
   if(e.target.id==="fxAdd"){ const l=$("#fxLabel").value.trim(); if(!l) return toast("Type a name, e.g. Assembly"); (ttS.setup.fixed=ttS.setup.fixed||[]).push({day:$("#fxDay").value,p:+$("#fxP").value,label:l,who:$("#fxWho").value}); renderTT(); return; }
-  const pd=e.target.closest("[data-pwdel]"); if(pd){ const [g,s]=pd.dataset.pwdel.split("|"); delete ttS.setup.perWeek[g][s]; renderTT(); return; }
+  const pd=e.target.closest("[data-pwdel]"); if(pd){ const [g,s]=pd.dataset.pwdel.split("|"); delete ttS.setup.perWeek[g][s]; if(s==="Kannada") ttS.setup.noKannada=true; renderTT(); return; }
   if(e.target.id==="ttGen"){ if(!ttS.setup.days.length) return toast("Choose at least one working day"); $("#ttGenOut").innerHTML='<div class="bulk-res">Working it out…</div>'; setTimeout(runGenerate,30); return; }
   if(e.target.id==="ttSaveSet"){ try{ await pubSet("timetable",TT_YEAR(),{...(TT||{}),settings:ttS.setup,updatedAt:new Date().toISOString(),updatedBy:ME.email}); toast("Settings saved ✓"); }catch(err){ toast("Couldn't save: "+errMsg(err)); } return; }
   if(e.target.id==="ttGenSave"&&GEN){ const smp=teachersList().some(t=>t.sample);
