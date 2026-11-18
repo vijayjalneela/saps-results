@@ -1096,8 +1096,8 @@ const YEARS = ["2026-27","2027-28","2028-29","2029-30","2030-31","2031-32"];
 const COMP = [{k:"pe",l:"P.E. – I",max:10},{k:"nb",l:"Note book",max:5},{k:"sea",l:"SEA",max:5},{k:"hy",l:"H.Y. Exam",max:80}];
 const SUBJECTS_BY = std => {
   const i = STDS.indexOf(std);
-  if (i<=4) return {all:["English","Hindi","Mathematics","EVS","Marathi","Sanskrit","Computer Science","PT","Art"], def:["English","Hindi","Mathematics","EVS"]};
-  return {all:["English","Hindi","Mathematics","Science","Social Science","Sanskrit","Marathi","Computer Science","AI"], def:["English","Hindi","Mathematics","Science","Social Science"]};
+  if (i<=4) return {all:["English","Hindi","Mathematics","EVS","Kannada","Sanskrit","Computer Science","PT","Art"], def:["English","Hindi","Mathematics","EVS"]};
+  return {all:["English","Hindi","Mathematics","Science","Social Science","Kannada","Sanskrit","Computer Science","AI"], def:["English","Hindi","Mathematics","Science","Social Science"]};
 };
 const NS_ALL = ["Computer","General Knowledge","Art and Craft","Music","Dance","Physical Education","Work Education","Discipline"];
 const NS_DEF = ["Computer","General Knowledge","Art and Craft"];
@@ -3020,7 +3020,7 @@ function calHTML(full){
    <div class="grid g3" style="margin-top:10px"><label class="f">School year starts<input class="in" type="date" id="calStart" value="${esc(C.start)}"></label><label class="f">School year ends<input class="in" type="date" id="calEnd" value="${esc(C.end)}"></label></div>
    <div class="grid g3" style="margin-top:10px"><label class="f">From<input class="in" type="date" id="hFrom"></label><label class="f">To (optional)<input class="in" type="date" id="hTo"></label><label class="f">Type<select class="in" id="hKind">${["Holiday","Holiday (R)","Vacation","Non-instructional day","CCA","Important day"].map(k=>`<option>${k}</option>`).join("")}</select></label><label class="f" style="grid-column:span 2">Name<input class="in" id="hName" maxlength="60" placeholder="e.g. Principal's holiday"></label></div>
    <div class="row" style="justify-content:flex-start"><button class="btn sec" id="hAdd">➕ Add</button><button class="btn sec" id="exPlan">⚡ Re-space the exams</button><label class="hint" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="exGap" checked> study day between term papers</label></div>
-   <div class="row" style="justify-content:flex-start"><button class="btn sec sm" id="hSuggest">📥 Load the school's 2026-27 calendar</button><button class="btn sec sm" id="hClear">🗑 Clear the list</button></div></details>
+   <div class="row" style="justify-content:flex-start"><button class="btn sec sm" id="hSuggest">📥 Load or update the school's 2026-27 calendar (Karnataka)</button><button class="btn sec sm" id="hClear">🗑 Clear the list</button></div></details>
    ${!calDraft?`<div class="row" style="justify-content:flex-start"><button class="btn sec sm" id="calPrint">🖨 Print calendar</button></div>`:""}`:""}`;
 }
 function calTouch(){ if(!calDraft) calDraft=JSON.parse(JSON.stringify(calData())); return calDraft; }
@@ -3092,7 +3092,9 @@ document.addEventListener("click",async e=>{
   // calendar
   if(e.target.id==="hAdd"){ const f=$("#hFrom").value, t=$("#hTo").value||f, n=$("#hName").value.trim(); if(!f||!n) return toast("Enter the date and a name"); if(t<f) return toast("'To' can't be before 'From'");
     calTouch().holidays=[...(calDraft.holidays||[]),{from:f,to:t,name:n.slice(0,60),kind:$("#hKind").value}]; renderTT(); return; }
-  if(e.target.id==="hSuggest"){ const c=calTouch(); const have=new Set((c.holidays||[]).map(h=>h.from+"|"+h.name)); let n=0; SUGGESTED_HOLIDAYS.forEach(h=>{ if(!have.has(h.from+"|"+h.name)&&h.from>=c.start&&h.from<=c.end){ (c.holidays=c.holidays||[]).push({...h}); n++; } }); toast(n?`Added ${n} entries from the school calendar. Check them, then Save.`:"They are already in the calendar"); renderTT(); return; }
+  if(e.target.id==="hSuggest"){ const c=calTouch(); const OLD=["Labour Day / Maharashtra Day / Buddha Purnima","Shiv Jayanti celebration","Ganesh Chaturthi activity","Harvest festival celebration","Joy of Giving","Christmas celebration","Makar Sankranti / Pongal / Army Day","Dussehra / Vijayadashami"], before=(c.holidays||[]).length;
+    c.holidays=(c.holidays||[]).filter(h=>!OLD.includes(h.name)&&!(h.name==="Ganesh Chaturthi"&&h.from==="2026-09-14")&&!(h.name==="Spell bee competition"&&h.from==="2026-11-27")); const dropped=before-c.holidays.length;
+    const have=new Set((c.holidays||[]).map(h=>h.from+"|"+h.name)); let n=0; SUGGESTED_HOLIDAYS.forEach(h=>{ if(!have.has(h.from+"|"+h.name)&&h.from>=c.start&&h.from<=c.end){ (c.holidays=c.holidays||[]).push({...h}); n++; } }); toast(n||dropped?`Added ${n} entries${dropped?` and replaced ${dropped} old ones`:""} from the school calendar (Karnataka holidays). Check them, then Save.`:"They are already in the calendar"); renderTT(); return; }
   if(e.target.id==="hClear"){ const c=calTouch(); c.holidays=[]; c.exams=[]; toast("Cleared. Load the school calendar or add dates, then Save."); renderTT(); return; }
   const hd=e.target.closest("[data-hdel]"); if(hd){ const [f,...nm]=hd.dataset.hdel.split("|"); const c=calTouch(); c.holidays=c.holidays.filter(h=>!(h.from===f&&h.name===nm.join("|"))); renderTT(); return; }
   if(e.target.id==="exPlan"){ const c=calTouch(), st=ttSet(); const groups={}; if((st.stds||[]).some(x=>STDS.indexOf(x)<=4)) groups["I–V"]=["English","Mathematics","Hindi","EVS"].filter(x=>x in st.perWeek.prim).concat(Object.keys(st.perWeek.prim).filter(x=>!["English","Mathematics","Hindi","EVS","PT","Art"].includes(x)));
