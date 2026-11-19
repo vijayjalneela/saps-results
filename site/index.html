@@ -1000,7 +1000,7 @@ footer{background:var(--navy);color:#c9cfbd!important;padding:22px 16px!importan
     </div>
     <div class="card">
       <div class="sec-h"><div class="dot" style="background:var(--pink)">🗂</div><div><h3>Data</h3><p id="dataInfo"></p><p id="bkInfo" style="margin:4px 0 0"></p></div></div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn sec" id="importBtn">⬆ Import results file</button><input type="file" id="importIn" accept=".json,application/json" hidden><button class="btn sec" id="exportBtn">⬇ Download backup</button><button class="btn warn" id="delSample">🧹 Delete sample (dummy) data</button><button class="btn warn" id="delOld">🧽 Remove data from older versions</button></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn sec" id="importBtn">⬆ Import results file</button><input type="file" id="importIn" hidden><button class="btn sec" id="exportBtn">⬇ Download backup</button><button class="btn warn" id="delSample">🧹 Delete sample (dummy) data</button><button class="btn warn" id="delOld">🧽 Remove data from older versions</button></div>
     </div>
   </div>
 </section>
@@ -3563,7 +3563,7 @@ $("#setupBanner").classList.toggle("on",!configured);
 /* ---------- Backup & import ---------- */
 $("#exportBtn").onclick=()=>{const data=Object.values(RECORDS).map(r=>({...(r._raw||r),id:r.id})); const blob=new Blob([JSON.stringify({results:data,staff:Object.values(STAFF)})],{type:"application/json"}); (()=>{ const bk={at:new Date().toISOString(),count:data.length,by:ME.email}; BACKUP=bk; renderStaff(); return writeConfig("backup",bk); })().catch(()=>{}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="saps-results-backup-"+new Date().toISOString().slice(0,10)+".json"; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); toast(`Backup of ${data.length} results downloaded`);};
 $("#importBtn").onclick=()=>confirmBox("Import a data file?","Before you import, close the site in any other open tabs or phones that are logged in. Each open page re-reads every imported record, which can use up the free daily database allowance.","Choose file",()=>$("#importIn").click());
-$("#importIn").onchange=async e=>{const f=e.target.files[0]; e.target.value=""; if(!f) return; const text=await f.text();
+$("#importIn").onchange=async e=>{const f=e.target.files[0]; e.target.value=""; if(!f) return; if(f.size>25e6) return toast("That file is too big for a school data file"); const text=await f.text();
   if(isFull()) return runImport(text,f.name);
   /* coordinator: the file is sent to the principal in parts; it is imported when she approves */
   let j; try{ j=JSON.parse(text); }catch(_){ return toast("That file isn't a results file"); }
